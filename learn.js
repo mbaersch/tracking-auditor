@@ -248,7 +248,6 @@ async function launchFresh() {
     reject: rejectSelector,
     shadowDom: acceptSelector.startsWith('[data-') || !acceptSelector.startsWith('#'),
     learnedAt: new Date().toISOString(),
-    learnedFrom: url,
   };
 
   saveLibrary(lib);

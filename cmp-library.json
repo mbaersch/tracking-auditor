@@ -4,47 +4,41 @@
     "accept": "[data-testid=\"uc-accept-all-button\"]",
     "reject": "[data-testid=\"uc-deny-all-button\"]",
     "shadowDom": true,
-    "learnedAt": "2026-02-23T00:02:20.990Z",
-    "learnedFrom": "https://weihnachtsmarkt.freiburg.de/"
+    "learnedAt": "2026-02-23T00:02:20.990Z"
   },
   "usercentrics-v2": {
     "name": "Usercentrics v2",
     "accept": "[data-action=\"consent\"][data-action-type=\"accept\"]",
     "reject": "[data-action=\"consent\"][data-action-type=\"deny\"]",
     "shadowDom": true,
-    "learnedAt": "2026-02-23T01:15:00.000Z",
-    "learnedFrom": "https://visit.freiburg.de/"
+    "learnedAt": "2026-02-23T01:15:00.000Z"
   },
   "onetrust/cookiepro": {
     "name": "OneTrust/CookiePro",
     "accept": "#onetrust-accept-btn-handler",
     "reject": "#onetrust-reject-all-handler",
     "shadowDom": false,
-    "learnedAt": "2026-02-23T00:06:32.047Z",
-    "learnedFrom": "https://www.gandke.de/"
+    "learnedAt": "2026-02-23T00:06:32.047Z"
   },
   "cookiebot": {
     "name": "Cookiebot",
     "accept": "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
     "reject": "#CybotCookiebotDialogBodyButtonDecline",
     "shadowDom": false,
-    "learnedAt": "2026-02-23T00:07:33.074Z",
-    "learnedFrom": "https://www.cookiebot.com/"
+    "learnedAt": "2026-02-23T00:07:33.074Z"
   },
   "ccm19": {
     "name": "CCM19",
     "accept": ".button.ccm--save-settings.ccm--button-primary.ccm--ctrl-init",
     "reject": ".button.ccm--decline-cookies.ccm--ctrl-init",
     "shadowDom": true,
-    "learnedAt": "2026-02-23T08:07:37.811Z",
-    "learnedFrom": "https://staplerbatterien.at/"
+    "learnedAt": "2026-02-23T08:07:37.811Z"
   },
   "consentmanager.net": {
     "name": "consentmanager.net",
     "accept": "a.cmptxt_btn_yes",
     "reject": "a.cmptxt_btn_no",
     "shadowDom": true,
-    "learnedAt": "2026-02-23T09:00:51.092Z",
-    "learnedFrom": "https://www.delife.de/"
+    "learnedAt": "2026-02-23T09:00:51.092Z"
   }
 }
