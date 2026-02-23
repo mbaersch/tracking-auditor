@@ -208,7 +208,7 @@ async function captureEcomPrompts() {
   await withBrowser(async (page) => {
     logStep('Ecom Schritt Navigate', 'atomkraftwerke24.de');
     try {
-      await navigateTo(page, 'https://www.atomkraftwerke24.de');
+      await navigateTo(page, 'https://atomkraftwerke24.de/shop/');
     } catch (err) {
       console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
       screenshotIndex += 2; // skip #7 and #8 as well
@@ -227,7 +227,7 @@ async function captureEcomPrompts() {
   await withBrowser(async (page) => {
     logStep('Ecom Schritt ATC Bereit', 'atomkraftwerke24.de');
     try {
-      await navigateTo(page, 'https://www.atomkraftwerke24.de');
+      await navigateTo(page, 'https://atomkraftwerke24.de/produkt/atomkraftwerk-klein/');
     } catch (err) {
       console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
       screenshotIndex++; // skip #8 as well
@@ -249,7 +249,7 @@ async function captureEcomPrompts() {
   await withBrowser(async (page) => {
     logStep('Ecom ATC Click-Wait', 'atomkraftwerke24.de');
     try {
-      await navigateTo(page, 'https://www.atomkraftwerke24.de');
+      await navigateTo(page, 'https://atomkraftwerke24.de/produkt/atomkraftwerk-klein/');
     } catch (err) {
       console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
       return;
