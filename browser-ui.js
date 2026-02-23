@@ -1,0 +1,640 @@
+/**
+ * browser-ui.js – Injizierbare Browser-UI-Komponenten fuer Audit-Overlays
+ *
+ * Stellt Funktionen bereit die per page.evaluate() ein Overlay in den Browser injizieren
+ * und per page.exposeFunction() mit Node.js kommunizieren.
+ *
+ * CSS ist explizit gegen Global Resets gehaertet (alle Properties explizit gesetzt).
+ */
+
+// ── Shared Styles (reset-proof) ──────────────────────────────────────────────
+
+const OVERLAY_STYLES = `
+  #__audit-overlay {
+    position: fixed !important; inset: 0 !important; z-index: 2147483647 !important;
+    background: rgba(0,0,0,0.55) !important;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 14px !important; color: #333 !important;
+    box-sizing: border-box !important; margin: 0 !important; padding: 0 !important;
+    line-height: 1.5 !important; letter-spacing: normal !important;
+    text-transform: none !important; text-decoration: none !important;
+    float: none !important; border: none !important; outline: none !important;
+  }
+  #__audit-overlay .__audit-card {
+    background: #fff !important; border-radius: 14px !important; padding: 32px 36px !important;
+    max-width: 520px !important; width: 90% !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.06) !important;
+    position: relative !important; display: block !important;
+    cursor: grab !important; user-select: none !important;
+    margin: 0 !important; box-sizing: border-box !important;
+  }
+  #__audit-overlay .__audit-card.--dragging { cursor: grabbing !important; }
+  #__audit-overlay .__audit-title {
+    font-size: 17px !important; font-weight: 700 !important; margin: 0 0 16px 0 !important;
+    color: #111 !important; display: block !important; padding: 0 !important;
+    line-height: 1.4 !important;
+  }
+  #__audit-overlay .__audit-msg {
+    font-size: 14px !important; line-height: 1.7 !important; margin: 0 0 20px 0 !important;
+    color: #444 !important; display: block !important; padding: 0 !important;
+  }
+  #__audit-overlay .__audit-code {
+    font-family: "Cascadia Code", "Fira Code", Consolas, monospace !important;
+    background: #f5f5f5 !important; border: 1px solid #ddd !important; border-radius: 8px !important;
+    padding: 14px 18px !important; font-size: 13px !important; word-break: break-all !important;
+    margin: 0 0 16px 0 !important; color: #222 !important; display: block !important;
+  }
+  #__audit-overlay .__audit-detail {
+    font-size: 12px !important; color: #888 !important; margin: 0 0 6px 0 !important;
+    display: block !important; padding: 2px 0 !important; line-height: 1.5 !important;
+  }
+  #__audit-overlay .__audit-btn {
+    display: inline-block !important; padding: 12px 24px !important; border: none !important;
+    border-radius: 8px !important; font-size: 14px !important; font-weight: 600 !important;
+    cursor: pointer !important; margin: 8px 10px 0 0 !important;
+    transition: opacity 0.15s !important; text-align: center !important;
+    line-height: 1.4 !important; font-family: inherit !important;
+    box-sizing: border-box !important;
+  }
+  #__audit-overlay .__audit-btn:hover { opacity: 0.85 !important; }
+  #__audit-overlay .__audit-btn-primary { background: #2563eb !important; color: #fff !important; }
+  #__audit-overlay .__audit-btn-success { background: #16a34a !important; color: #fff !important; }
+  #__audit-overlay .__audit-btn-danger  { background: #dc2626 !important; color: #fff !important; }
+  #__audit-overlay .__audit-btn-secondary { background: #e5e7eb !important; color: #333 !important; }
+  #__audit-overlay .__audit-input {
+    width: 100% !important; padding: 12px 16px !important; border: 1px solid #d1d5db !important;
+    border-radius: 8px !important; font-size: 14px !important;
+    font-family: "Cascadia Code", Consolas, monospace !important;
+    margin: 0 0 16px 0 !important; outline: none !important;
+    background: #fff !important; color: #222 !important; display: block !important;
+    box-sizing: border-box !important;
+  }
+  #__audit-overlay .__audit-input:focus { border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important; }
+  #__audit-overlay .__audit-status {
+    font-size: 12px !important; padding: 8px 12px !important; border-radius: 6px !important;
+    margin: 0 0 16px 0 !important; display: block !important; box-sizing: border-box !important;
+  }
+  #__audit-overlay .__audit-status-info { background: #eff6ff !important; color: #1d4ed8 !important; }
+  #__audit-overlay .__audit-status-ok   { background: #f0fdf4 !important; color: #15803d !important; }
+  #__audit-overlay .__audit-status-err  { background: #fef2f2 !important; color: #b91c1c !important; }
+  #__audit-overlay .__audit-actions {
+    margin: 20px 0 0 0 !important; padding: 0 !important; display: block !important;
+  }
+`;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const CALLBACK_NAME = '__auditUICallback';
+let _callbackCounter = 0;
+
+function nextCallbackName(suffix = '') {
+  return CALLBACK_NAME + '_' + suffix + '_' + (++_callbackCounter) + '_' + Date.now();
+}
+
+async function injectOverlay(page, innerHTML) {
+  await page.evaluate(({ styles, html }) => {
+    const old = document.getElementById('__audit-overlay');
+    if (old) old.remove();
+    const oldStyle = document.getElementById('__audit-overlay-style');
+    if (oldStyle) oldStyle.remove();
+
+    const style = document.createElement('style');
+    style.id = '__audit-overlay-style';
+    style.textContent = styles;
+    document.head.appendChild(style);
+
+    const overlay = document.createElement('div');
+    overlay.id = '__audit-overlay';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    // Make cards draggable
+    const card = overlay.querySelector('.__audit-card');
+    if (card) {
+      let dragging = false, startX, startY, origX, origY;
+      card.addEventListener('mousedown', (e) => {
+        // Don't drag when clicking buttons or inputs
+        if (e.target.closest('button, input, a, select, textarea')) return;
+        dragging = true;
+        card.classList.add('--dragging');
+        const rect = card.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        origX = rect.left; origY = rect.top;
+        // Switch card to fixed positioning for free movement
+        card.style.setProperty('position', 'fixed', 'important');
+        card.style.setProperty('left', origX + 'px', 'important');
+        card.style.setProperty('top', origY + 'px', 'important');
+        card.style.setProperty('margin', '0', 'important');
+        // Detach from flex centering
+        overlay.style.setProperty('display', 'block', 'important');
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        card.style.setProperty('left', (origX + dx) + 'px', 'important');
+        card.style.setProperty('top', (origY + dy) + 'px', 'important');
+      });
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        card.classList.remove('--dragging');
+      });
+    }
+  }, { styles: OVERLAY_STYLES, html: innerHTML });
+}
+
+async function removeOverlay(page) {
+  await page.evaluate(() => {
+    const el = document.getElementById('__audit-overlay');
+    if (el) el.remove();
+    const st = document.getElementById('__audit-overlay-style');
+    if (st) st.remove();
+  });
+}
+
+async function showOverlayAndWait(page, buildHTML) {
+  const callbackName = nextCallbackName('dlg');
+
+  let resolvePromise;
+  const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+
+  try {
+    await page.exposeFunction(callbackName, (value) => {
+      resolvePromise(value);
+    });
+  } catch { /* unique name should prevent collisions */ }
+
+  const html = buildHTML(callbackName);
+  await injectOverlay(page, html);
+
+  const result = await resultPromise;
+  await removeOverlay(page);
+  return result;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+export async function showMessage(page, message, { type = 'info', title = 'Audit Tool', timeout = 0 } = {}) {
+  const icons = { info: '\u2139\uFE0F', warning: '\u26A0\uFE0F', error: '\u274C' };
+  const icon = icons[type] || icons.info;
+
+  const result = await showOverlayAndWait(page, (cb) => `
+    <div class="__audit-card">
+      <div class="__audit-title">${icon} ${escapeHTML(title)}</div>
+      <div class="__audit-msg">${escapeHTML(message)}</div>
+      <div class="__audit-actions">
+        <button class="__audit-btn __audit-btn-primary" onclick="window['${cb}']('ok')">OK</button>
+      </div>
+    </div>
+  `);
+
+  return result;
+}
+
+export async function showClickPrompt(page, label) {
+  const callbackName = nextCallbackName('click');
+
+  let resolvePromise;
+  const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+
+  try {
+    await page.exposeFunction(callbackName, (value) => {
+      resolvePromise(JSON.parse(value));
+    });
+  } catch { /* */ }
+
+  const STABLE_DATA_ATTRS = [
+    'data-testid', 'data-id', 'data-action', 'data-key', 'data-name',
+    'data-cy', 'data-qa', 'data-element', 'data-role', 'data-type',
+  ];
+
+  // Floating card at bottom — NO dark overlay so the page stays visible and clickable
+  await page.evaluate(({ styles, label, cbName }) => {
+    const old = document.getElementById('__audit-clickprompt');
+    if (old) old.remove();
+    const oldStyle = document.getElementById('__audit-clickprompt-style');
+    if (oldStyle) oldStyle.remove();
+
+    const style = document.createElement('style');
+    style.id = '__audit-clickprompt-style';
+    style.textContent = styles + `
+      #__audit-clickprompt {
+        position: fixed !important; bottom: 24px !important; left: 50% !important;
+        transform: translateX(-50%) !important; z-index: 2147483647 !important;
+        background: #fff !important; border-radius: 12px !important;
+        padding: 20px 28px !important; max-width: 440px !important; width: 90% !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08) !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-size: 14px !important; color: #333 !important;
+        pointer-events: auto !important; text-align: center !important;
+        box-sizing: border-box !important; margin: 0 !important;
+        line-height: 1.5 !important; cursor: grab !important; user-select: none !important;
+      }
+      #__audit-clickprompt.--dragging { cursor: grabbing !important; }
+      #__audit-clickprompt-title {
+        font-size: 15px !important; font-weight: 700 !important; color: #111 !important;
+        margin: 0 0 8px 0 !important; padding: 0 !important; display: block !important;
+      }
+      #__audit-clickprompt-msg {
+        font-size: 14px !important; color: #444 !important;
+        margin: 0 0 10px 0 !important; padding: 0 !important; display: block !important;
+      }
+      #__audit-click-status {
+        font-size: 13px !important; color: #6b7280 !important;
+        margin: 0 !important; padding: 0 !important; display: block !important;
+        animation: __audit-pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes __audit-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    `;
+    document.head.appendChild(style);
+
+    const card = document.createElement('div');
+    card.id = '__audit-clickprompt';
+    card.innerHTML =
+      '<div id="__audit-clickprompt-title">\uD83D\uDDB1\uFE0F Klick erforderlich</div>' +
+      '<div id="__audit-clickprompt-msg">Bitte klicke den <strong style="font-weight:700 !important;">' +
+      label + '</strong>-Button auf der Seite.</div>' +
+      '<div id="__audit-click-status">Warte auf Klick...</div>';
+    document.body.appendChild(card);
+
+    // Drag handling
+    let dragging = false, startX, startY, origX, origY;
+    card.addEventListener('mousedown', (e) => {
+      dragging = true;
+      card.classList.add('--dragging');
+      const rect = card.getBoundingClientRect();
+      startX = e.clientX; startY = e.clientY;
+      origX = rect.left; origY = rect.top;
+      // Switch from bottom-centered to fixed position for free movement
+      card.style.setProperty('bottom', 'auto', 'important');
+      card.style.setProperty('left', origX + 'px', 'important');
+      card.style.setProperty('top', origY + 'px', 'important');
+      card.style.setProperty('transform', 'none', 'important');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      card.style.setProperty('left', (origX + dx) + 'px', 'important');
+      card.style.setProperty('top', (origY + dy) + 'px', 'important');
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      card.classList.remove('--dragging');
+    });
+  }, { styles: '', label: escapeHTML(label), cbName: callbackName });
+
+  // Install click listener
+  await page.evaluate((args) => {
+    const INTERACTIVE = ['BUTTON', 'A', 'INPUT', 'SELECT'];
+    const stableAttrs = args.stableAttrs;
+    const cbName = args.cbName;
+    const WS_RE = /\s+/;
+
+    document.addEventListener('click', function handler(e) {
+      if (e.target.closest('#__audit-clickprompt')) return;
+      document.removeEventListener('click', handler, true);
+
+      const t = e.target;
+      const el = INTERACTIVE.includes(t.tagName) || t.getAttribute('role') === 'button'
+        ? t
+        : t.closest('button, a, [role="button"], input[type="button"], input[type="submit"]') || t;
+
+      const id = el.id ? '#' + el.id : null;
+      const stableDataAttr = Array.from(el.attributes)
+        .filter(a => stableAttrs.includes(a.name))
+        .map(a => '[' + a.name + '="' + a.value + '"]')[0] || null;
+      const allDataAttrs = Array.from(el.attributes)
+        .filter(a => a.name.startsWith('data-'))
+        .map(a => '[' + a.name + '="' + a.value + '"]');
+      const classes = el.className && typeof el.className === 'string'
+        ? '.' + el.className.trim().split(WS_RE).join('.')
+        : null;
+      const tag = el.tagName.toLowerCase();
+
+      const result = {
+        selector: id || stableDataAttr || classes || tag,
+        id: el.id || null,
+        stableDataAttr,
+        allDataAttrs,
+        classes: el.className || null,
+        tag,
+        text: (el.innerText || '').trim().slice(0, 80) || null,
+      };
+
+      const status = document.getElementById('__audit-click-status');
+      if (status) {
+        status.textContent = 'Klick erkannt auf <' + tag + '> ' + (result.text || '');
+        status.style.setProperty('color', '#16a34a', 'important');
+        status.style.animation = 'none';
+      }
+
+      window[cbName](JSON.stringify(result));
+    }, { once: false, capture: true });
+  }, { stableAttrs: STABLE_DATA_ATTRS, cbName: callbackName });
+
+  const result = await resultPromise;
+  // Clean up floating card
+  await page.evaluate(() => {
+    const el = document.getElementById('__audit-clickprompt');
+    if (el) el.remove();
+    const st = document.getElementById('__audit-clickprompt-style');
+    if (st) st.remove();
+  });
+  return result;
+}
+
+export async function showSelectorResult(page, result, label) {
+  const details = [
+    result.id ? `ID: ${result.id}` : null,
+    result.tag ? `Tag: &lt;${result.tag}&gt;` : null,
+    result.text ? `Text: "${escapeHTML(result.text)}"` : null,
+    result.classes ? `Klassen: ${escapeHTML(String(result.classes))}` : null,
+    result.allDataAttrs?.length ? `Data-Attrs: ${result.allDataAttrs.join(', ')}` : null,
+  ].filter(Boolean);
+
+  const value = await showOverlayAndWait(page, (cb) => `
+    <div class="__audit-card">
+      <div class="__audit-title">\u2705 ${escapeHTML(label)}-Selektor erkannt</div>
+      <div class="__audit-code">${escapeHTML(result.selector)}</div>
+      ${details.map(d => `<div class="__audit-detail">${d}</div>`).join('')}
+      <div class="__audit-actions">
+        <button class="__audit-btn __audit-btn-success" onclick="window['${cb}']('yes')">Verwenden</button>
+        <button class="__audit-btn __audit-btn-secondary" onclick="window['${cb}']('no')">Manuell eingeben</button>
+      </div>
+    </div>
+  `);
+
+  return { confirmed: value === 'yes' };
+}
+
+export async function showTextInput(page, label, placeholder = 'z.B. #btn-accept oder .my-class') {
+  const callbackName = nextCallbackName('input');
+
+  let resolvePromise;
+  const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+
+  try {
+    await page.exposeFunction(callbackName, (value) => {
+      resolvePromise(value);
+    });
+  } catch { /* */ }
+
+  const validateName = nextCallbackName('validate');
+  try {
+    await page.exposeFunction(validateName, async (selector) => {
+      try {
+        const count = await page.locator(selector).count();
+        return JSON.stringify({ count });
+      } catch (e) {
+        return JSON.stringify({ count: 0, error: e.message });
+      }
+    });
+  } catch { /* */ }
+
+  await injectOverlay(page, `
+    <div class="__audit-card">
+      <div class="__audit-title">\u270F\uFE0F ${escapeHTML(label)}</div>
+      <div class="__audit-msg">Selektor manuell eingeben (wird gegen die Seite validiert):</div>
+      <input class="__audit-input" id="__audit-sel-input" type="text"
+             placeholder="${escapeHTML(placeholder)}" autofocus />
+      <div id="__audit-sel-status" class="__audit-status __audit-status-info" style="display:none !important;"></div>
+      <button class="__audit-btn __audit-btn-primary" id="__audit-sel-validate"
+              onclick="(async()=>{
+                const inp=document.getElementById('__audit-sel-input');
+                const st=document.getElementById('__audit-sel-status');
+                const val=inp.value.trim();
+                if(!val){st.style.setProperty('display','block','important');st.className='__audit-status __audit-status-err';st.textContent='Bitte Selektor eingeben';return;}
+                st.style.setProperty('display','block','important');st.className='__audit-status __audit-status-info';st.textContent='Pruefe...';
+                const r=JSON.parse(await window['${validateName}'](val));
+                if(r.count>0){st.className='__audit-status __audit-status-ok';st.textContent=r.count+' Element(e) gefunden';document.getElementById('__audit-sel-submit').style.setProperty('display','inline-block','important');}
+                else{st.className='__audit-status __audit-status-err';st.textContent='Kein Element gefunden'+(r.error?' ('+r.error+')':'');}
+              })()">Pruefen</button>
+      <button class="__audit-btn __audit-btn-success" id="__audit-sel-submit" style="display:none !important;"
+              onclick="window['${callbackName}'](document.getElementById('__audit-sel-input').value.trim())">Verwenden</button>
+    </div>
+  `);
+
+  await page.evaluate(() => {
+    const input = document.getElementById('__audit-sel-input');
+    if (input) input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('__audit-sel-validate').click();
+    });
+  });
+
+  const result = await resultPromise;
+  await removeOverlay(page);
+  return result;
+}
+
+export async function showConfirm(page, message) {
+  const value = await showOverlayAndWait(page, (cb) => `
+    <div class="__audit-card">
+      <div class="__audit-title">\u2753 Bestaetigung</div>
+      <div class="__audit-msg">${escapeHTML(message)}</div>
+      <div class="__audit-actions">
+        <button class="__audit-btn __audit-btn-primary" onclick="window['${cb}']('yes')">Ja</button>
+        <button class="__audit-btn __audit-btn-secondary" onclick="window['${cb}']('no')">Nein</button>
+      </div>
+    </div>
+  `);
+  return value === 'yes';
+}
+
+export async function showCMPMatch(page, matchedCMP) {
+  const value = await showOverlayAndWait(page, (cb) => `
+    <div class="__audit-card">
+      <div class="__audit-title">\uD83D\uDD0D CMP erkannt</div>
+      <div class="__audit-msg">Die eingegebenen Selektoren passen zu einem bekannten CMP:</div>
+      <div class="__audit-code">${escapeHTML(matchedCMP.name)} (${escapeHTML(matchedCMP.key)})</div>
+      <div class="__audit-detail">Accept: ${escapeHTML(matchedCMP.accept)}</div>
+      <div class="__audit-detail">Reject: ${escapeHTML(matchedCMP.reject)}</div>
+      <div class="__audit-actions">
+        <button class="__audit-btn __audit-btn-success" onclick="window['${cb}']('use')">Ja, verwenden</button>
+        <button class="__audit-btn __audit-btn-secondary" onclick="window['${cb}']('new')">Nein, neues CMP anlegen</button>
+      </div>
+    </div>
+  `);
+  return { useExisting: value === 'use' };
+}
+
+export async function showCMPNameInput(page) {
+  const callbackName = nextCallbackName('cmpname');
+
+  let resolvePromise;
+  const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+
+  try {
+    await page.exposeFunction(callbackName, (value) => {
+      resolvePromise(value);
+    });
+  } catch { /* */ }
+
+  await injectOverlay(page, `
+    <div class="__audit-card">
+      <div class="__audit-title">\uD83D\uDCDD CMP-Name</div>
+      <div class="__audit-msg">Bitte einen Namen fuer dieses CMP eingeben:</div>
+      <input class="__audit-input" id="__audit-cmpname-input" type="text"
+             placeholder="z.B. Complianz, Cookiebot, ..." autofocus />
+      <button class="__audit-btn __audit-btn-primary"
+              onclick="(()=>{
+                const v=document.getElementById('__audit-cmpname-input').value.trim();
+                if(v) window['${callbackName}'](v);
+              })()">Speichern</button>
+    </div>
+  `);
+
+  await page.evaluate(() => {
+    const input = document.getElementById('__audit-cmpname-input');
+    if (input) input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const v = input.value.trim();
+        if (v) input.closest('.__audit-card').querySelector('.__audit-btn').click();
+      }
+    });
+  });
+
+  const result = await resultPromise;
+  await removeOverlay(page);
+  return result;
+}
+
+// ── Status Bar (non-blocking, red accent, with optional skip button) ─────────
+
+const STATUS_BAR_STYLES = `
+  #__audit-statusbar, #__audit-statusbar * {
+    box-sizing: border-box !important; margin: 0 !important; padding: 0 !important;
+    line-height: 1.4 !important; text-transform: none !important;
+    font-style: normal !important; text-decoration: none !important;
+    float: none !important; border: none !important; outline: none !important;
+  }
+  #__audit-statusbar {
+    position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important;
+    z-index: 2147483646 !important;
+    background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 50%, #991b1b 100%) !important;
+    color: #fecaca !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 13px !important; padding: 8px 16px !important;
+    display: flex !important; align-items: center !important; gap: 10px !important;
+    box-shadow: 0 2px 12px rgba(127,29,29,0.5) !important;
+    border-bottom: 2px solid #ef4444 !important;
+    width: auto !important; height: auto !important;
+  }
+  #__audit-statusbar-spinner {
+    width: 14px !important; height: 14px !important; border: 2px solid #991b1b !important;
+    border-top-color: #ef4444 !important;
+    border-radius: 50% !important; animation: __audit-spin 0.8s linear infinite;
+    flex-shrink: 0 !important; display: block !important;
+  }
+  @keyframes __audit-spin { to { transform: rotate(360deg); } }
+  #__audit-statusbar-phase {
+    font-weight: 700 !important; color: #fca5a5 !important; white-space: nowrap !important;
+    display: inline !important; font-size: 13px !important;
+  }
+  #__audit-statusbar-detail {
+    color: #fecaca !important; flex: 1 !important; overflow: hidden !important;
+    text-overflow: ellipsis !important; white-space: nowrap !important;
+    display: block !important; font-size: 13px !important;
+  }
+  #__audit-statusbar-stats {
+    font-size: 11px !important; color: #fca5a5 !important; white-space: nowrap !important;
+    display: inline !important;
+  }
+  #__audit-statusbar-skip {
+    background: rgba(255,255,255,0.15) !important; color: #fecaca !important;
+    border: 1px solid rgba(255,255,255,0.3) !important; border-radius: 4px !important;
+    padding: 3px 10px !important; font-size: 11px !important; cursor: pointer !important;
+    white-space: nowrap !important; font-family: inherit !important;
+    display: none !important; margin-left: auto !important;
+  }
+  #__audit-statusbar-skip:hover { background: rgba(255,255,255,0.25) !important; }
+`;
+
+export async function showStatusBar(page, phase, detail = '') {
+  await page.evaluate(({ styles, phase, detail }) => {
+    const old = document.getElementById('__audit-statusbar');
+    if (old) old.remove();
+    const oldStyle = document.getElementById('__audit-statusbar-style');
+    if (oldStyle) oldStyle.remove();
+
+    const style = document.createElement('style');
+    style.id = '__audit-statusbar-style';
+    style.textContent = styles;
+    document.head.appendChild(style);
+
+    const bar = document.createElement('div');
+    bar.id = '__audit-statusbar';
+    bar.innerHTML =
+      '<div id="__audit-statusbar-spinner"></div>' +
+      '<div id="__audit-statusbar-phase">' + phase + '</div>' +
+      '<div id="__audit-statusbar-detail">' + detail + '</div>' +
+      '<div id="__audit-statusbar-stats"></div>' +
+      '<button id="__audit-statusbar-skip">Skip \u2192 Manuell</button>';
+    document.body.appendChild(bar);
+  }, { styles: STATUS_BAR_STYLES, phase, detail });
+}
+
+export async function updateStatusBar(page, phase, detail = '', stats = '') {
+  await page.evaluate(({ phase, detail, stats }) => {
+    const bar = document.getElementById('__audit-statusbar');
+    if (!bar) return;
+    const phaseEl = document.getElementById('__audit-statusbar-phase');
+    const detailEl = document.getElementById('__audit-statusbar-detail');
+    const statsEl = document.getElementById('__audit-statusbar-stats');
+    if (phaseEl && phase) phaseEl.textContent = phase;
+    if (detailEl) detailEl.textContent = detail || '';
+    if (statsEl) statsEl.textContent = stats || '';
+  }, { phase, detail, stats });
+}
+
+/**
+ * Enable the Skip button on the status bar.
+ * Returns a promise that resolves to true if the user clicks Skip, or null if not clicked.
+ * Caller should race this against the detection logic.
+ */
+export async function enableSkipButton(page) {
+  const callbackName = nextCallbackName('skip');
+
+  let resolvePromise;
+  const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+
+  try {
+    await page.exposeFunction(callbackName, () => {
+      resolvePromise(true);
+    });
+  } catch { /* */ }
+
+  await page.evaluate((cbName) => {
+    const btn = document.getElementById('__audit-statusbar-skip');
+    if (btn) {
+      btn.style.setProperty('display', 'inline-block', 'important');
+      btn.onclick = () => window[cbName]();
+    }
+  }, callbackName);
+
+  return resultPromise;
+}
+
+export async function removeStatusBar(page) {
+  await page.evaluate(() => {
+    const el = document.getElementById('__audit-statusbar');
+    if (el) el.remove();
+    const st = document.getElementById('__audit-statusbar-style');
+    if (st) st.remove();
+  });
+}
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

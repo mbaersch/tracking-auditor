@@ -17,7 +17,8 @@ npx playwright install chromium
 ```
 audit.js          Automatisierter Audit-Runner (Consent + E-Commerce)
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
-cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject)
+browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
+cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~40 CMPs)
 reports/          Ablageort fuer generierte Audit-Reports (lokal, nicht im Repo)
 ```
 
@@ -31,14 +32,21 @@ Bevor ein Audit laeuft, muss die Consent Management Platform (CMP) der Zielseite
 node learn.js --url https://example.com --cmp "Usercentrics"
 ```
 
+Bei CMPs mit zweistufigem Reject (Settings -> Reject):
+
+```bash
+node learn.js --url https://example.com --cmp "Borlabs Cookie" --two-step-reject
+```
+
 **Ablauf:**
 1. Browser oeffnet die URL
-2. Du klickst den Accept-Button -- das Script erkennt den Selektor automatisch
-3. Bei Shadow DOM CMPs (z.B. Usercentrics): automatischer Fallback auf manuelle Eingabe
-4. Browser-Neustart, dann Reject-Button
-5. Beide Selektoren werden in `cmp-library.json` gespeichert
+2. Ein Overlay am unteren Rand zeigt Anweisungen -- du klickst den Accept-Button auf der Seite
+3. Das Script erkennt den Selektor automatisch und zeigt ihn zur Bestaetigung an
+4. Bei Shadow DOM CMPs: automatischer Fallback auf manuelle Selektor-Eingabe mit Live-Validierung
+5. Browser-Neustart, dann Reject-Button
+6. Beide Selektoren werden in `cmp-library.json` gespeichert
 
-Die `cmp-library.json` wird mit dem Repo ausgeliefert und enthaelt bereits bekannte CMPs.
+Die Interaktion findet komplett im Browser-Overlay statt. Mit `--terminal` kann auf den alten readline-Modus gewechselt werden.
 
 ### 2. Audit durchfuehren
 
@@ -77,24 +85,47 @@ node audit.js \
 
 ## Audit-Phasen
 
-Der Audit durchlaeuft folgende Phasen:
+Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
-1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` gegen die Seite
+1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` (mit Fortschrittsanzeige pro CMP). Ein Skip-Button erlaubt den direkten Wechsel in den manuellen Modus.
 2. **Pre-Consent** -- dataLayer, Third-Party-Requests, Consent Mode (gcs/gcd), Cookies, localStorage
 3. **Post-Accept** -- CMP Accept klicken, Diffs gegenueber Pre-Consent erfassen
-4. **E-Commerce** (optional) -- Pro Schritt: Navigation/Klick + dataLayer + Requests + Cookie/localStorage-Diff
+4. **E-Commerce** (optional) -- Pro Schritt: Navigation/Klick + dataLayer + Requests + Consent Mode + Cookie/localStorage-Diff
 5. **Post-Reject** -- Komplett neuer Browser, Reject klicken, Diffs erfassen
 6. **Report** -- Markdown-Ausgabe nach `reports/<project>/audit-<YYYY-MM-DD>.md`
+
+### Manueller Modus
+
+Wenn die CMP-Auto-Erkennung fehlschlaegt oder per Skip-Button uebersprungen wird, aktiviert sich der manuelle Modus:
+
+1. Browser-Overlay fordert zum Klick auf Accept-Button auf
+2. Erkannter Selektor wird zur Bestaetigung angezeigt (oder manuelle Eingabe)
+3. Seite wird neu geladen fuer den Reject-Button
+4. Selektoren werden gegen die Library abgeglichen -- bei Match kann das bestehende CMP verwendet werden
+5. Ansonsten: neues CMP benennen und in `cmp-library.json` speichern
+6. Audit laeuft mit den neuen Selektoren weiter
+
+Der manuelle Modus wird maximal einmal pro Audit ausgeloest.
 
 ## Report-Inhalte
 
 Der generierte Report enthaelt:
 
 - **Zusammenfassung** -- Tracker-Uebersicht ueber alle Consent-Phasen, Consent Mode Status
+- **Consent Mode Verification** -- Prueft ob nach Accept ein gcs-Update erfolgt (G100 -> G1xx). Zeigt Advanced vs. Basic Consent Mode Diagnose mit Erklaerung
 - **Pre-Consent** -- Tracking vor jeglicher Consent-Entscheidung (Verstoesse sofort erkennbar)
 - **Post-Accept / Post-Reject** -- Diffs bei Cookies, localStorage, Requests, dataLayer
-- **E-Commerce-Pfad** -- dataLayer-Events und Tracker pro Schritt (Kategorie bis Checkout)
+- **E-Commerce-Pfad** -- dataLayer-Events und Tracker pro Schritt (Kategorie bis Checkout), inkl. Consent Mode Status pro Step
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
+
+## Browser-UI
+
+Alle interaktiven Elemente (Dialoge, Click-Prompts, Selektor-Eingabe) werden als Browser-Overlays direkt auf der Zielseite angezeigt:
+
+- **Dialoge** sind per Drag verschiebbar, falls sie CMP-Banner verdecken
+- **Click-Prompts** erscheinen als schwebende Card am unteren Rand ohne die Seite zu verdecken
+- **Status Bar** zeigt Phase, Fortschritt und optionalen Skip-Button
+- CSS ist gegen globale Resets gehaertet (funktioniert auf jeder Seite)
 
 ## Tracking-Domain-Klassifizierung
 

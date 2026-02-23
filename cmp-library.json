@@ -417,5 +417,12 @@
     ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
+  },
+  "simple-consent-manager": {
+    "name": "Simple Consent Manager",
+    "accept": ".consentlink",
+    "reject": ".noconsentlink",
+    "shadowDom": true,
+    "learnedAt": "2026-02-23T18:17:31.705Z"
   }
 }
