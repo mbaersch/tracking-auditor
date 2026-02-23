@@ -26,6 +26,11 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import {
+  showMessage, showClickPrompt, showSelectorResult,
+  showTextInput, showConfirm, showCMPMatch, showCMPNameInput,
+  showStatusBar, updateStatusBar, enableSkipButton, removeStatusBar,
+} from './browser-ui.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LIBRARY_PATH = resolve(__dirname, 'cmp-library.json');
@@ -96,6 +101,19 @@ const TRACKING_DOMAINS = {
 function loadLibrary() {
   if (!existsSync(LIBRARY_PATH)) return {};
   return JSON.parse(readFileSync(LIBRARY_PATH, 'utf-8'));
+}
+
+function saveLibrary(lib) {
+  writeFileSync(LIBRARY_PATH, JSON.stringify(lib, null, 2), 'utf-8');
+}
+
+const INTERACTIVE_TAGS = ['BUTTON', 'A', 'INPUT', 'SELECT'];
+
+function isPlausibleResult(result) {
+  if (['div', 'span', 'section', 'aside'].includes(result.tag)) return false;
+  if (INTERACTIVE_TAGS.includes(result.tag.toUpperCase())) return true;
+  if (result.stableDataAttr) return true;
+  return false;
 }
 
 function truncate(str, max = 80) {
@@ -763,9 +781,14 @@ async function waitForSettle(page, ms = 3000) {
 
 // ── CMP Detection ─────────────────────────────────────────────────────────────
 
-async function tryCMPSelectors(page, library) {
+async function tryCMPSelectors(page, library, { onProgress, signal } = {}) {
   const matches = [];
-  for (const [key, entry] of Object.entries(library)) {
+  const entries = Object.entries(library);
+  const total = entries.length;
+  for (let i = 0; i < total; i++) {
+    if (signal?.skipped) return matches;
+    const [key, entry] = entries[i];
+    if (onProgress) onProgress(i + 1, total, entry.name || key);
     try {
       await page.locator(entry.accept).first().waitFor({ state: 'visible', timeout: 3000 });
       matches.push({ key, ...entry });
@@ -804,20 +827,197 @@ async function disambiguateCMP(page, matches) {
 }
 
 async function detectCMP(page, library) {
+  // Signal object for skip button – shared across all passes
+  const signal = { skipped: false };
+
+  // Enable skip button and set up race
+  const skipPromise = enableSkipButton(page).then(() => {
+    signal.skipped = true;
+    return '__SKIPPED__';
+  });
+
+  const onProgress = (current, total, name) => {
+    updateStatusBar(page, 'Phase 0', `CMP ${current}/${total}: ${name}`, 'Auto-Erkennung...').catch(() => {});
+  };
+
   // Erster Durchlauf
-  let matches = await tryCMPSelectors(page, library);
+  let matches = await tryCMPSelectors(page, library, { onProgress, signal });
+  if (signal.skipped) return null;
   let result = await disambiguateCMP(page, matches);
   if (result) return result;
 
   // Scroll-Retry: manche CMPs (z.B. Borlabs) erscheinen erst nach Scroll
   console.log('  Kein CMP-Banner gefunden, versuche Scroll...');
+  await updateStatusBar(page, 'Phase 0', 'Scroll-Retry...', 'Kein Banner beim 1. Durchlauf');
   await page.evaluate(() => window.scrollBy(0, 400));
   await page.waitForTimeout(2000);
+  if (signal.skipped) return null;
 
-  matches = await tryCMPSelectors(page, library);
+  matches = await tryCMPSelectors(page, library, { onProgress, signal });
+  if (signal.skipped) return null;
   result = await disambiguateCMP(page, matches);
   if (result) console.log('  CMP nach Scroll erkannt!');
   return result;
+}
+
+// ── Emergency CMP Learning (Notmodus) ────────────────────────────────────────
+
+/**
+ * Interactive fallback when CMP auto-detection fails.
+ * Uses browser overlays to let the user click accept/reject buttons,
+ * matches against library, and optionally saves a new CMP entry.
+ * Returns a cmp object compatible with the normal flow.
+ */
+async function emergencyLearnCMP(page, library) {
+  console.log('  Notmodus: CMP manuell einlernen...');
+
+  await updateStatusBar(page, 'Notmodus', 'CMP manuell einlernen...', '');
+
+  await showMessage(page, 'CMP nicht automatisch erkannt. Notmodus aktiv – bitte Accept- und Reject-Button manuell klicken.', {
+    type: 'warning', title: 'Notmodus',
+  });
+
+  // ── Learn Accept ──
+  await updateStatusBar(page, 'Notmodus', 'Warte auf Accept-Klick...', '');
+  const acceptResult = await showClickPrompt(page, 'ACCEPT');
+  let acceptSelector;
+
+  if (!acceptResult || !isPlausibleResult(acceptResult)) {
+    // Shadow DOM fallback
+    if (acceptResult) {
+      await showMessage(page, `Klick landete auf <${acceptResult.tag}> – vermutlich Shadow DOM. Bitte Selektor manuell eingeben.`, { type: 'warning' });
+    }
+    acceptSelector = await showTextInput(page, 'Accept-Selektor eingeben');
+  } else {
+    const { confirmed } = await showSelectorResult(page, acceptResult, 'ACCEPT');
+    if (confirmed) {
+      acceptSelector = acceptResult.selector;
+    } else {
+      acceptSelector = await showTextInput(page, 'Accept-Selektor eingeben');
+    }
+  }
+
+  // ── Learn Reject ──
+  // Fresh context needed – the accept click may have dismissed the banner
+  await updateStatusBar(page, 'Notmodus', 'Accept OK – Seite wird neu geladen...', '');
+  await showMessage(page, 'Accept-Selektor gespeichert. Seite wird neu geladen fuer den Reject-Button.', { type: 'info' });
+
+  const currentUrl = page.url();
+  const context = page.context();
+  await context.clearCookies();
+  // Use domcontentloaded instead of networkidle to avoid hanging on slow sites
+  await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(3000);
+
+  // Re-inject status bar after navigation (page.goto destroys injected DOM)
+  await showStatusBar(page, 'Notmodus', 'Warte auf Reject-Klick...', '');
+
+  // Scroll-retry for banner visibility
+  try {
+    await page.locator(acceptSelector).first().waitFor({ state: 'visible', timeout: 3000 });
+  } catch {
+    await page.evaluate(() => window.scrollBy(0, 400));
+    await page.waitForTimeout(2000);
+  }
+
+  const rejectResult = await showClickPrompt(page, 'REJECT');
+  let rejectSelector;
+
+  if (!rejectResult || !isPlausibleResult(rejectResult)) {
+    if (rejectResult) {
+      await showMessage(page, `Klick landete auf <${rejectResult.tag}> – vermutlich Shadow DOM. Bitte Selektor manuell eingeben.`, { type: 'warning' });
+    }
+    rejectSelector = await showTextInput(page, 'Reject-Selektor eingeben');
+  } else {
+    const { confirmed } = await showSelectorResult(page, rejectResult, 'REJECT');
+    if (confirmed) {
+      rejectSelector = rejectResult.selector;
+    } else {
+      rejectSelector = await showTextInput(page, 'Reject-Selektor eingeben');
+    }
+  }
+
+  // ── Library matching ──
+  for (const [key, entry] of Object.entries(library)) {
+    if (entry.accept === acceptSelector || entry.reject === rejectSelector) {
+      const { useExisting } = await showCMPMatch(page, { key, ...entry });
+      if (useExisting) {
+        console.log(`  Notmodus: Verwende bestehendes CMP "${entry.name}" aus Library`);
+        await context.clearCookies();
+        await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await page.waitForTimeout(3000);
+        return { key, ...entry };
+      }
+    }
+  }
+
+  // ── Save new CMP ──
+  const cmpName = await showCMPNameInput(page);
+  const key = cmpName.toLowerCase().replace(/\s+/g, '-');
+
+  const newEntry = {
+    name: cmpName,
+    accept: acceptSelector,
+    reject: rejectSelector,
+    shadowDom: false,
+    learnedAt: new Date().toISOString(),
+  };
+
+  library[key] = newEntry;
+  saveLibrary(library);
+  console.log(`  Notmodus: Neues CMP "${cmpName}" in Library gespeichert`);
+
+  await showMessage(page, `CMP "${cmpName}" gespeichert. Audit wird fortgesetzt.`, { type: 'info', title: 'Notmodus' });
+
+  // Reload page with clean cookies for the normal audit flow
+  await context.clearCookies();
+  await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(3000);
+
+  return { key, ...newEntry };
+}
+
+// ── Consent Mode Transition Analysis ─────────────────────────────────────────
+
+/**
+ * Analyze Consent Mode gcs transition across phases.
+ * Returns { preGcs, postGcs, ecomGcs[], status }
+ *   status: 'update_ok' | 'no_update' | 'no_consent_mode' | 'ecom_stale'
+ */
+function analyzeConsentModeTransition(reportData) {
+  const preParams = reportData.preConsent.consentMode || [];
+  const postParams = reportData.postAccept.consentMode || [];
+
+  const preGcs = preParams.length > 0 ? preParams[0].gcs : null;
+  const postGcs = postParams.length > 0 ? postParams[0].gcs : null;
+
+  // Collect E-Commerce gcs values
+  const ecomGcs = [];
+  if (reportData.ecommerce) {
+    for (const step of reportData.ecommerce) {
+      if (step.consentMode && step.consentMode.length > 0) {
+        ecomGcs.push({ step: step.name, gcs: step.consentMode[0].gcs });
+      }
+    }
+  }
+
+  // No consent mode at all
+  if (!preGcs || preGcs === '-') {
+    return { preGcs, postGcs, ecomGcs, status: 'no_consent_mode' };
+  }
+
+  // Check if post-accept shows an update (G100 → G1xx where at least one digit changed)
+  if (!postGcs || postGcs === '-' || postGcs === preGcs) {
+    return { preGcs, postGcs, ecomGcs, status: 'no_update' };
+  }
+
+  // Post-accept updated – check E-Commerce steps for stale values
+  const hasStaleEcom = ecomGcs.some(e => e.gcs === preGcs);
+  if (hasStaleEcom) {
+    return { preGcs, postGcs, ecomGcs, status: 'ecom_stale' };
+  }
+
+  return { preGcs, postGcs, ecomGcs, status: 'update_ok' };
 }
 
 // ── Report Generation ─────────────────────────────────────────────────────────
@@ -1038,6 +1238,22 @@ function generateTLDR(data) {
     if (preGcs) md += `| Pre-Consent | ${preGcs.gcs} | ${preGcs.gcd} |\n`;
     if (postAcceptGcs) md += `| Post-Accept | ${postAcceptGcs.gcs} | ${postAcceptGcs.gcd} |\n`;
     md += '\n';
+
+    // Advanced Consent Mode transition verdict
+    const cmt = data.consentModeTransition;
+    if (cmt) {
+      if (cmt.status === 'update_ok') {
+        md += `**Advanced Consent Mode:** ${cmt.preGcs} → ${cmt.postGcs} (Update korrekt)\n\n`;
+      } else if (cmt.status === 'no_update') {
+        md += `**Advanced Consent Mode:** ⚠️ ${cmt.preGcs} → kein Update nach Accept erkannt\n`;
+        md += `> Basic Consent Mode aktiv. Nach Accept wurden keine neuen Google-Pings mit aktualisiertem gcs erfasst. `;
+        md += `Fuer Advanced Consent Mode muss der CMP-Consent ueber \`gtag('consent', 'update', ...)\` an Google weitergegeben werden, `;
+        md += `damit nach Accept ein Ping mit z.B. G111 gesendet wird.\n\n`;
+      } else if (cmt.status === 'ecom_stale') {
+        md += `**Advanced Consent Mode:** ⚠️ ${cmt.preGcs} → ${cmt.postGcs} (Update ok, aber E-Commerce-Steps haben noch ${cmt.preGcs})\n`;
+        md += `> Consent Mode Update nach Accept erkannt, aber im E-Commerce-Pfad wurden weiterhin Pings mit ${cmt.preGcs} erfasst.\n\n`;
+      }
+    }
   }
 
   // Tracker overview across all phases
@@ -1078,17 +1294,31 @@ function generateTLDR(data) {
     md += `**Server-Side Tagging:** Erkannt (${customLoaderCount} Custom Loader, ${collectCount} Collect Endpoints)\n\n`;
   }
 
-  // E-Commerce: tracker per step
+  // E-Commerce: tracker per step (with consent mode if available)
   if (data.ecommerce && data.ecommerce.length > 0) {
+    const hasConsentMode = data.ecommerce.some(s => s.consentMode && s.consentMode.length > 0);
+
     md += '**E-Commerce – Tracker pro Schritt:**\n\n';
-    md += '| Schritt | Bekannte Tracker |\n';
-    md += '|---------|------------------|\n';
+    if (hasConsentMode) {
+      md += '| Schritt | Bekannte Tracker | gcs |\n';
+      md += '|---------|------------------|-----|\n';
+    } else {
+      md += '| Schritt | Bekannte Tracker |\n';
+      md += '|---------|------------------|\n';
+    }
     for (const step of data.ecommerce) {
       const trackers = step.trackers
         .filter(t => t.vendor !== 'Sonstige Third-Party')
         .map(t => t.vendor)
         .join(', ') || '_keine_';
-      md += `| ${step.name} | ${trackers} |\n`;
+      if (hasConsentMode) {
+        const gcs = step.consentMode?.[0]?.gcs || '–';
+        const preGcs = data.consentModeTransition?.preGcs;
+        const warning = (preGcs && gcs === preGcs) ? ' ⚠️' : '';
+        md += `| ${step.name} | ${trackers} | ${gcs}${warning} |\n`;
+      } else {
+        md += `| ${step.name} | ${trackers} |\n`;
+      }
     }
     md += '\n';
   }
@@ -1154,6 +1384,18 @@ function generateReport(data) {
 
   md += '### Consent Mode Parameter\n\n';
   md += formatConsentMode(data.postAccept.consentMode);
+  // Highlight transition in detail section
+  const cmt = data.consentModeTransition;
+  if (cmt && cmt.status !== 'no_consent_mode') {
+    md += '\n';
+    if (cmt.status === 'update_ok') {
+      md += `> **Advanced Consent Mode Update:** ${cmt.preGcs} → ${cmt.postGcs} ✓\n`;
+    } else if (cmt.status === 'no_update') {
+      md += `> **⚠️ Kein Consent Mode Update:** gcs ist nach Accept immer noch ${cmt.preGcs}\n`;
+    } else if (cmt.status === 'ecom_stale') {
+      md += `> **⚠️ Consent Mode Update teilweise:** ${cmt.preGcs} → ${cmt.postGcs}, aber E-Commerce-Steps haben noch ${cmt.preGcs}\n`;
+    }
+  }
   md += '\n';
 
   md += '### Cookies (Diff)\n\n';
@@ -1264,6 +1506,7 @@ function generateReport(data) {
   console.log('Phase 0: CMP-Erkennung...');
 
   let cmp;
+  let cmpFromNotmodus = false;  // Track if CMP came from Notmodus to prevent re-triggering
 
   if (cmpFlag) {
     // Direct lookup by key
@@ -1285,19 +1528,31 @@ function generateReport(data) {
   const context1 = await browser1.newContext();
   const page1 = await context1.newPage();
 
-  const getPreRequests = setupRequestCollector(page1);
-  const getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
+  let getPreRequests = setupRequestCollector(page1);
+  let getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
 
-  await page1.goto(url, { waitUntil: 'networkidle' });
+  try {
+    await page1.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
+  } catch {
+    // networkidle timeout — page is still loading but DOM is ready enough
+    console.log('  networkidle Timeout, fahre fort...');
+  }
+  await showStatusBar(page1, 'Phase 0', 'CMP-Erkennung...');
   await waitForSettle(page1, 3000);
 
   // Auto-detect CMP if not provided via flag
   if (!cmp) {
+    await updateStatusBar(page1, 'Phase 0', 'Starte CMP-Erkennung...');
     cmp = await detectCMP(page1, library);
     if (!cmp) {
-      await browser1.close();
-      console.error('CMP nicht erkannt. Bitte zuerst: node learn.js --url ... --cmp \'...\'');
-      process.exit(1);
+      console.log('  CMP nicht automatisch erkannt – starte Notmodus...');
+      cmp = await emergencyLearnCMP(page1, library);
+      cmpFromNotmodus = true;
+      // Notmodus did page.goto() — flush old collectors and set up fresh ones
+      // so Phase 1 captures clean pre-consent data from the reloaded page
+      getPreRequests(); // discard
+      getPreRequests = setupRequestCollector(page1);
+      getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
     }
   }
 
@@ -1315,6 +1570,9 @@ function generateReport(data) {
     sst: null,
   };
 
+  await showStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmp.name}`, 'Sammle Daten...');
+  await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmp.name}`, 'Sammle Daten...');
+
   // dataLayer
   const preDataLayer = await collectDataLayer(page1);
   console.log(`  dataLayer: ${preDataLayer.length} Eintraege`);
@@ -1324,6 +1582,7 @@ function generateReport(data) {
   const preClassified = preRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
   const preTrackers = deduplicateRequests(preClassified);
   console.log(`  Requests: ${preRequestUrls.length} total, ${preClassified.length} third-party`);
+  await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmp.name}`, `DL: ${preDataLayer.length} | 3P: ${preClassified.length}`);
 
   // Cookies & localStorage
   const preCookies = await collectCookies(context1);
@@ -1365,18 +1624,50 @@ function generateReport(data) {
   // ── Phase 2: Post-Accept (same browser) ─────────────────────────────────────
 
   console.log('\nPhase 2: Post-Accept...');
+  await updateStatusBar(page1, 'Phase 2', 'Post-Accept – klicke Accept...', '');
 
   // Clear request collector and set up fresh one for this phase
   const getPostAcceptRequests = setupRequestCollector(page1);
   const getPostAcceptResponseBodies = setupResponseBodyCollector(page1, siteHost);
 
-  // Click accept
+  // Click accept – wait for banner to appear, then click
+  let acceptClicked = false;
   try {
-    const acceptLocator = page1.locator(cmp.accept).first();
-    await acceptLocator.click({ timeout: 10000 });
+    await page1.locator(cmp.accept).first().waitFor({ state: 'visible', timeout: 5000 });
+    await page1.locator(cmp.accept).first().click({ timeout: 10000 });
+    acceptClicked = true;
     console.log('  Accept-Button geklickt');
-  } catch (err) {
-    console.error(`  FEHLER: Accept-Button nicht klickbar: ${err.message}`);
+    await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Accept geklickt, sammle Daten...', '');
+  } catch {
+    // Scroll-retry
+    console.log('  Accept-Button nicht sichtbar, versuche Scroll...');
+    await page1.evaluate(() => window.scrollBy(0, 400));
+    await page1.waitForTimeout(2000);
+    try {
+      await page1.locator(cmp.accept).first().click({ timeout: 5000 });
+      acceptClicked = true;
+      console.log('  Accept-Button nach Scroll geklickt');
+    } catch { /* still failed */ }
+  }
+
+  if (!acceptClicked && !cmpFromNotmodus) {
+    // Only trigger Notmodus if we haven't already been through it
+    console.log('  Accept-Button nicht klickbar – starte Notmodus...');
+    const freshCmp = await emergencyLearnCMP(page1, library);
+    cmp = freshCmp;
+    cmpFromNotmodus = true;
+    reportData.cmpName = cmp.name;
+    await showStatusBar(page1, 'Phase 2', 'Post-Accept – klicke Accept (Notmodus)...', '');
+    try {
+      await page1.locator(cmp.accept).first().waitFor({ state: 'visible', timeout: 5000 });
+      await page1.locator(cmp.accept).first().click({ timeout: 10000 });
+      acceptClicked = true;
+      console.log('  Accept-Button geklickt (Notmodus-Selektor)');
+    } catch (err2) {
+      console.error(`  FEHLER: Accept auch mit Notmodus-Selektor nicht klickbar: ${err2.message}`);
+    }
+  } else if (!acceptClicked) {
+    console.error('  FEHLER: Accept-Button nicht klickbar (Notmodus war bereits aktiv, kein erneuter Versuch)');
   }
 
   await waitForSettle(page1, 3000);
@@ -1391,6 +1682,7 @@ function generateReport(data) {
   const postAcceptClassified = postAcceptRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
   const postAcceptTrackers = deduplicateRequests(postAcceptClassified);
   console.log(`  Neue Requests: ${postAcceptRequestUrls.length} total, ${postAcceptClassified.length} third-party`);
+  await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Daten gesammelt', `DL: +${postAcceptDataLayerDiff.length} | 3P: +${postAcceptClassified.length}`);
 
   // Cookie/localStorage diff
   const postAcceptCookies = await collectCookies(context1);
@@ -1435,6 +1727,7 @@ function generateReport(data) {
 
   if (categoryUrl) {
     console.log('\nPhase 3: E-Commerce Pfad...');
+    await updateStatusBar(page1, 'Phase 3', 'E-Commerce Pfad...', '');
 
     // We track cumulative cookies/localStorage for diffing between steps
     let prevCookies = postAcceptCookies;
@@ -1451,6 +1744,7 @@ function generateReport(data) {
 
     for (const step of ecomSteps) {
       console.log(`  Schritt: ${step.name}...`);
+      await updateStatusBar(page1, 'Phase 3', `E-Commerce: ${step.name}`, '');
 
       // Safety: skip navigate steps where URL resolution failed
       if (step.type === 'navigate' && !step.value) {
@@ -1463,7 +1757,9 @@ function generateReport(data) {
 
       if (step.type === 'navigate') {
         console.log(`    → ${step.value}`);
-        await page1.goto(step.value, { waitUntil: 'networkidle' });
+        try {
+          await page1.goto(step.value, { waitUntil: 'networkidle', timeout: 20000 });
+        } catch { /* networkidle timeout, continue */ }
       } else if (step.type === 'click') {
         try {
           await page1.locator(step.value).first().click({ timeout: 10000 });
@@ -1485,6 +1781,14 @@ function generateReport(data) {
       const stepClassified = stepRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
       const stepTrackers = deduplicateRequests(stepClassified);
 
+      // Consent Mode params for this step
+      const stepConsentMode = extractConsentModeParams(
+        stepRequestUrls.filter(r => {
+          const c = classifyRequest(r, siteHost);
+          return c && c.vendor === 'Google';
+        })
+      );
+
       const stepCookies = await collectCookies(context1);
       const stepLocalStorage = await collectLocalStorage(page1);
       const stepCookiesDiff = diffCookies(prevCookies, stepCookies);
@@ -1496,6 +1800,7 @@ function generateReport(data) {
         name: step.name,
         dataLayerDiff: stepDataLayerDiff,
         trackers: stepTrackers,
+        consentMode: stepConsentMode,
         cookiesDiff: stepCookiesDiff,
         localStorageDiff: stepLocalStorageDiff,
       });
@@ -1528,7 +1833,12 @@ function generateReport(data) {
   // Pre-consent baseline in fresh browser
   const getRejectPreRequests = setupRequestCollector(page2);
 
-  await page2.goto(url, { waitUntil: 'networkidle' });
+  try {
+    await page2.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
+  } catch {
+    console.log('  networkidle Timeout, fahre fort...');
+  }
+  await showStatusBar(page2, 'Phase 4', 'Post-Reject – Neuer Browser, sammle Baseline...');
   await waitForSettle(page2, 3000);
 
   const rejectPreDataLayer = await collectDataLayer(page2);
@@ -1555,11 +1865,13 @@ function generateReport(data) {
   let rejectClicked = false;
 
   // Versuch 1: Direkter Reject-Button
+  await updateStatusBar(page2, 'Phase 4', 'Post-Reject – klicke Reject...', '');
   try {
     const rejectLocator = page2.locator(cmp.reject).first();
     await rejectLocator.click({ timeout: 5000 });
     rejectClicked = true;
     console.log('  Reject-Button geklickt');
+    await updateStatusBar(page2, 'Phase 4', 'Post-Reject – Reject geklickt, sammle Daten...', '');
   } catch {
     // Reject-Button nicht direkt gefunden
   }
@@ -1580,7 +1892,29 @@ function generateReport(data) {
   }
 
   if (!rejectClicked) {
-    console.error('  FEHLER: Reject konnte weder direkt noch per Two-Step geklickt werden');
+    console.log('  Reject konnte nicht geklickt werden – Notmodus fuer Reject...');
+    await showMessage(page2, 'Reject-Button konnte nicht automatisch geklickt werden. Bitte manuell klicken.', { type: 'warning', title: 'Notmodus' });
+    const rejectResult = await showClickPrompt(page2, 'REJECT');
+    if (rejectResult && isPlausibleResult(rejectResult)) {
+      const { confirmed } = await showSelectorResult(page2, rejectResult, 'REJECT');
+      if (confirmed) {
+        try {
+          await page2.locator(rejectResult.selector).first().click({ timeout: 5000 });
+          rejectClicked = true;
+          console.log(`  Reject-Button geklickt (Notmodus: ${rejectResult.selector})`);
+        } catch { /* still failed */ }
+      }
+    }
+    if (!rejectClicked) {
+      const manualSel = await showTextInput(page2, 'Reject-Selektor eingeben');
+      try {
+        await page2.locator(manualSel).first().click({ timeout: 5000 });
+        rejectClicked = true;
+        console.log(`  Reject-Button geklickt (manuell: ${manualSel})`);
+      } catch (err) {
+        console.error(`  FEHLER: Reject auch mit manuellem Selektor nicht klickbar: ${err.message}`);
+      }
+    }
   }
 
   await waitForSettle(page2, 3000);
@@ -1608,8 +1942,15 @@ function generateReport(data) {
     localStorageDiff: rejectLocalStorageDiff,
   };
 
+  await updateStatusBar(page2, 'Phase 5', 'Fertig – Report wird generiert...', `DL: +${rejectDataLayerDiff.length} | 3P: +${rejectPostClassified.length}`);
   await browser2.close();
   console.log('  Browser 2 geschlossen.');
+
+  // ── Consent Mode Transition Analysis ──────────────────────────────────────
+  reportData.consentModeTransition = analyzeConsentModeTransition(reportData);
+  if (reportData.consentModeTransition.status !== 'no_consent_mode') {
+    console.log(`\n  Consent Mode: ${reportData.consentModeTransition.preGcs} → ${reportData.consentModeTransition.postGcs} (${reportData.consentModeTransition.status})`);
+  }
 
   // ── Phase 5: Report Generation ──────────────────────────────────────────────
 

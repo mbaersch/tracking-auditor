@@ -6,6 +6,7 @@
 # Projekt-Dateien
 !.gitignore
 !audit.js
+!browser-ui.js
 !learn.js
 !cmp-library.json
 !package.json

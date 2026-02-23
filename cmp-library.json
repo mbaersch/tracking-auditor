@@ -3,7 +3,9 @@
     "name": "Usercentrics",
     "accept": "[data-testid=\"uc-accept-all-button\"]",
     "reject": "[data-testid=\"uc-deny-all-button\"]",
-    "detect": ["#usercentrics-root"],
+    "detect": [
+      "#usercentrics-root"
+    ],
     "shadowDom": true,
     "learnedAt": "2026-02-23T00:02:20.990Z"
   },
@@ -15,7 +17,10 @@
       "[data-action=\"consent\"][data-action-type=\"more\"]",
       "[data-action=\"consent\"][data-action-type=\"deny\"]"
     ],
-    "detect": ["#usercentrics-cmp-ui", "#usercentrics-root"],
+    "detect": [
+      "#usercentrics-cmp-ui",
+      "#usercentrics-root"
+    ],
     "shadowDom": true,
     "learnedAt": "2026-02-23T01:15:00.000Z"
   },
@@ -23,7 +28,10 @@
     "name": "OneTrust/CookiePro",
     "accept": "#onetrust-accept-btn-handler",
     "reject": "#onetrust-reject-all-handler",
-    "detect": ["#onetrust-consent-sdk", "#onetrust-banner-sdk"],
+    "detect": [
+      "#onetrust-consent-sdk",
+      "#onetrust-banner-sdk"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T00:06:32.047Z"
   },
@@ -31,7 +39,10 @@
     "name": "Cookiebot",
     "accept": "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
     "reject": "#CybotCookiebotDialogBodyButtonDecline",
-    "detect": ["#CybotCookiebotDialog", "#CookiebotWidget"],
+    "detect": [
+      "#CybotCookiebotDialog",
+      "#CookiebotWidget"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T00:07:33.074Z"
   },
@@ -39,7 +50,10 @@
     "name": "CCM19",
     "accept": ".button.ccm--save-settings.ccm--button-primary.ccm--ctrl-init",
     "reject": ".button.ccm--decline-cookies.ccm--ctrl-init",
-    "detect": [".ccm-root", "[id^=\"ccm-widget\"]"],
+    "detect": [
+      ".ccm-root",
+      "[id^=\"ccm-widget\"]"
+    ],
     "shadowDom": true,
     "learnedAt": "2026-02-23T08:07:37.811Z"
   },
@@ -47,7 +61,10 @@
     "name": "consentmanager.net",
     "accept": "a.cmptxt_btn_yes",
     "reject": "a.cmptxt_btn_no",
-    "detect": ["#cmpbox", "#cmpbox2"],
+    "detect": [
+      "#cmpbox",
+      "#cmpbox2"
+    ],
     "shadowDom": true,
     "learnedAt": "2026-02-23T09:00:51.092Z"
   },
@@ -62,7 +79,11 @@
     "name": "Borlabs Cookie",
     "accept": "button.brlbs-btn-accept-all",
     "reject": "button.brlbs-btn-accept-only-essential",
-    "detect": [".brlbs-cmpnt-app", "#BorlabsCookieBox", "[class*=\"brlbs-\"]"],
+    "detect": [
+      ".brlbs-cmpnt-app",
+      "#BorlabsCookieBox",
+      "[class*=\"brlbs-\"]"
+    ],
     "shadowDom": true,
     "learnedAt": "2026-02-23T11:45:00.000Z"
   },
@@ -70,7 +91,10 @@
     "name": "Cookie Information",
     "accept": "button.coi-banner__accept",
     "reject": "button.coi-banner__decline",
-    "detect": [".coi-banner", "#coiPage-1"],
+    "detect": [
+      ".coi-banner",
+      "#coiPage-1"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:15:00.000Z"
   },
@@ -78,7 +102,10 @@
     "name": "CookieYes",
     "accept": "button.cky-btn-accept",
     "reject": "button.cky-btn-reject",
-    "detect": [".cky-consent-container", "#cookie-law-info-bar"],
+    "detect": [
+      ".cky-consent-container",
+      "#cookie-law-info-bar"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:00:00.000Z"
   },
@@ -86,7 +113,10 @@
     "name": "Acris",
     "accept": "#ccConsentAcceptAllButton",
     "reject": "#ccAcceptOnlyFunctional",
-    "detect": ["#ccConsentTable", "#ccConsentBanner"],
+    "detect": [
+      "#ccConsentTable",
+      "#ccConsentBanner"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:00:00.000Z"
   },
@@ -94,7 +124,10 @@
     "name": "CookieFirst",
     "accept": "button[data-cookiefirst-action=\"accept\"]",
     "reject": "button[data-cookiefirst-action=\"save\"]",
-    "detect": ["[data-cookiefirst-widget]", ".cookiefirst-root"],
+    "detect": [
+      "[data-cookiefirst-widget]",
+      ".cookiefirst-root"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:00:00.000Z"
   },
@@ -102,7 +135,10 @@
     "name": "Axeptio",
     "accept": "#axeptio_btn_acceptAll",
     "reject": "#axeptio_btn_dismiss",
-    "detect": ["#axeptio_overlay", "#axeptio_widget"],
+    "detect": [
+      "#axeptio_overlay",
+      "#axeptio_widget"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:00:00.000Z"
   },
@@ -110,7 +146,10 @@
     "name": "Complianz",
     "accept": "button.cmplz-btn.cmplz-accept",
     "reject": "button.cmplz-btn.cmplz-deny",
-    "detect": [".cmplz-cookiebanner", "#cmplz-cookiebanner-container"],
+    "detect": [
+      ".cmplz-cookiebanner",
+      "#cmplz-cookiebanner-container"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:00:00.000Z"
   },
@@ -118,7 +157,10 @@
     "name": "Cookie Script",
     "accept": "#cookiescript_accept",
     "reject": "#cookiescript_reject",
-    "detect": ["#cookiescript_injected", "#cookiescript_badge"],
+    "detect": [
+      "#cookiescript_injected",
+      "#cookiescript_badge"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:00:00.000Z"
   },
@@ -126,7 +168,10 @@
     "name": "Didomi",
     "accept": "#didomi-notice-agree-button",
     "reject": "#didomi-notice-disagree-button",
-    "detect": ["#didomi-host", "#didomi-notice"],
+    "detect": [
+      "#didomi-host",
+      "#didomi-notice"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T12:00:00.000Z"
   },
@@ -134,8 +179,14 @@
     "name": "Consentmo",
     "accept": ".isense-cc-allow",
     "reject": ".isense-cc-deny",
-    "rejectSteps": [".isense-cc-settings", ".isense-cc-deny"],
-    "detect": [".cc-window", ".isense-cc-message"],
+    "rejectSteps": [
+      ".isense-cc-settings",
+      ".isense-cc-deny"
+    ],
+    "detect": [
+      ".cc-window",
+      ".isense-cc-message"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -143,7 +194,9 @@
     "name": "HubSpot",
     "accept": "#hs-eu-confirmation-button",
     "reject": "#hs-eu-decline-button",
-    "detect": ["#hs-eu-cookie-confirmation"],
+    "detect": [
+      "#hs-eu-cookie-confirmation"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -151,7 +204,10 @@
     "name": "Klaro",
     "accept": ".cm-btn-accept-all",
     "reject": ".cn-decline",
-    "detect": ["#klaro", ".klaro"],
+    "detect": [
+      "#klaro",
+      ".klaro"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -159,7 +215,9 @@
     "name": "Iubenda",
     "accept": ".iubenda-cs-accept-btn",
     "reject": ".iubenda-cs-reject-btn",
-    "detect": ["#iubenda-cs-banner"],
+    "detect": [
+      "#iubenda-cs-banner"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -167,7 +225,9 @@
     "name": "Cookie Notice & Compliance",
     "accept": "#cn-accept-cookie",
     "reject": "#cn-refuse-cookie",
-    "detect": ["#cookie-notice"],
+    "detect": [
+      "#cookie-notice"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -175,7 +235,10 @@
     "name": "CookieHub",
     "accept": ".ch2-allow-all-btn",
     "reject": ".ch2-deny-all-btn",
-    "detect": ["#ch2-container", "#ch2-dialog"],
+    "detect": [
+      "#ch2-container",
+      "#ch2-dialog"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -183,7 +246,9 @@
     "name": "Datareporter",
     "accept": ".cc-btn.cc-allow",
     "reject": ".cc-btn.cc-deny",
-    "detect": ["#dr-privacynotice-div"],
+    "detect": [
+      "#dr-privacynotice-div"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -191,7 +256,9 @@
     "name": "DP Cookie Consent",
     "accept": ".cc-btn.cc-allow",
     "reject": ".cc-btn.cc-deny",
-    "detect": [".dp--cookie-consent"],
+    "detect": [
+      ".dp--cookie-consent"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -199,7 +266,9 @@
     "name": "Orestbida CookieConsent",
     "accept": ".cm__btn[data-role='all']",
     "reject": ".cm__btn[data-role='necessary']",
-    "detect": ["#cc-main"],
+    "detect": [
+      "#cc-main"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -207,7 +276,10 @@
     "name": "Osano",
     "accept": ".osano-cm-button--type_accept",
     "reject": ".osano-cm-button--type_deny",
-    "detect": [".osano-cm-dialog", ".osano-cm-window"],
+    "detect": [
+      ".osano-cm-dialog",
+      ".osano-cm-window"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -215,7 +287,9 @@
     "name": "Piwik PRO",
     "accept": "#PiwikPROConsentForm-agree-to-all",
     "reject": "#PiwikPROConsentForm-reject-all",
-    "detect": ["#PiwikPROConsentForm-container"],
+    "detect": [
+      "#PiwikPROConsentForm-container"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -223,8 +297,14 @@
     "name": "TrustArc",
     "accept": "#truste-consent-button",
     "reject": "#truste-consent-required",
-    "rejectSteps": ["#truste-show-consent", "#truste-consent-required"],
-    "detect": ["#truste-consent-track", "#consent_blackbar"],
+    "rejectSteps": [
+      "#truste-show-consent",
+      "#truste-consent-required"
+    ],
+    "detect": [
+      "#truste-consent-track",
+      "#consent_blackbar"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -232,7 +312,10 @@
     "name": "Tarte au citron",
     "accept": "#tarteaucitronPersonalize2",
     "reject": "#tarteaucitronAllDenied2",
-    "detect": ["#tarteaucitronRoot", "#tarteaucitronAlertBig"],
+    "detect": [
+      "#tarteaucitronRoot",
+      "#tarteaucitronAlertBig"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -240,7 +323,10 @@
     "name": "Webtoffee / Cookie Law Info",
     "accept": "#wt-cli-accept-all-btn",
     "reject": "#wt-cli-reject-btn",
-    "detect": ["#cookie-law-info-bar", ".cli-bar-container"],
+    "detect": [
+      "#cookie-law-info-bar",
+      ".cli-bar-container"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -248,8 +334,13 @@
     "name": "Sourcepoint",
     "accept": "button.sp_choice_type_11",
     "reject": "button.sp_choice_type_13",
-    "rejectSteps": ["button.sp_choice_type_12", "button.sp_choice_type_13"],
-    "detect": ["[id^='sp_message_container']"],
+    "rejectSteps": [
+      "button.sp_choice_type_12",
+      "button.sp_choice_type_13"
+    ],
+    "detect": [
+      "[id^='sp_message_container']"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -257,7 +348,9 @@
     "name": "Shopify",
     "accept": "#shopify-pc__banner__btn-accept",
     "reject": "#shopify-pc__banner__btn-decline",
-    "detect": ["#shopify-pc__banner"],
+    "detect": [
+      "#shopify-pc__banner"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -265,7 +358,10 @@
     "name": "Real Cookie Banner",
     "accept": ".rcb-btn-accept-all",
     "reject": ".rcb-btn-accept-only-essential",
-    "detect": [".rcb-banner", "[class*='rcb-']"],
+    "detect": [
+      ".rcb-banner",
+      "[class*='rcb-']"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -273,7 +369,10 @@
     "name": "Amasty Cookie Consent",
     "accept": ".amgdprcookie-btn.-allow",
     "reject": ".amgdprcookie-btn.-decline",
-    "detect": [".amgdprcookie-bar-container", ".amgdprcookie-modal-container"],
+    "detect": [
+      ".amgdprcookie-bar-container",
+      ".amgdprcookie-modal-container"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -281,7 +380,10 @@
     "name": "Truendo",
     "accept": "#cc-accept",
     "reject": "#cc-necessary",
-    "detect": ["#cc-banner", "[src*='cdn.truendo.com']"],
+    "detect": [
+      "#cc-banner",
+      "[src*='cdn.truendo.com']"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -289,7 +391,9 @@
     "name": "Silktide",
     "accept": "#stcm-accept-all",
     "reject": "#stcm-reject-non-essential",
-    "detect": ["#stcm-wrapper"],
+    "detect": [
+      "#stcm-wrapper"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -297,7 +401,9 @@
     "name": "MediaWiki CookieWarning",
     "accept": ".mw-cookiewarning-dismiss",
     "reject": ".mw-cookiewarning-dismiss",
-    "detect": [".mw-cookiewarning-container"],
+    "detect": [
+      ".mw-cookiewarning-container"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
   },
@@ -305,8 +411,18 @@
     "name": "Magento 1 Cookie Restriction",
     "accept": "#btn-cookie-allow",
     "reject": "#btn-cookie-allow",
-    "detect": [".notice-cookie-block", ".cookie-restriction-notice"],
+    "detect": [
+      ".notice-cookie-block",
+      ".cookie-restriction-notice"
+    ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z"
+  },
+  "simple-consent-manager": {
+    "name": "Simple Consent Manager",
+    "accept": ".consentlink",
+    "reject": ".noconsentlink",
+    "shadowDom": true,
+    "learnedAt": "2026-02-23T18:17:31.705Z"
   }
 }
