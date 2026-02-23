@@ -34,9 +34,10 @@ const get = (flag) => { const i = args.indexOf(flag); return i !== -1 ? args[i +
 
 const url = get('--url');
 const cmpName = get('--cmp');
+const twoStepReject = args.indexOf('--two-step-reject') !== -1;
 
 if (!url || !cmpName) {
-  console.error('Usage: node learn.js --url <url> --cmp "<CMP Name>"');
+  console.error('Usage: node learn.js --url <url> --cmp "<CMP Name>" [--two-step-reject]');
   process.exit(1);
 }
 
@@ -198,6 +199,148 @@ async function learnSelector(browser, page, label) {
   return result.selector;
 }
 
+/**
+ * Learn a two-step reject flow in a single browser session.
+ * Step 1: Settings/More button → Step 2: Reject button (visible after Step 1 click).
+ * Returns [step1Selector, step2Selector].
+ */
+async function learnTwoStepReject(browser, url) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+
+  // Step 1: Learn settings/more button
+  console.log(`\n→ TWO-STEP REJECT: Bitte klicke den Settings/More-Button (1. Schritt)...`);
+  console.log(`  (Wenn nichts passiert, drücke Enter für manuelle Eingabe)`);
+
+  const result1 = await Promise.race([
+    waitForClick(page),
+    new Promise(res => {
+      const rl = readline.createInterface({ input: process.stdin });
+      rl.once('line', () => { rl.close(); res(null); });
+    }),
+  ]);
+
+  let step1Selector;
+
+  if (!result1 || !isPlausibleResult(result1)) {
+    if (result1) console.log(`\n⚠ Click landed on <${result1.tag}> – likely Shadow DOM.`);
+    console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
+    const freshContext = await browser.newContext();
+    const freshPage = await freshContext.newPage();
+    await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
+    await freshPage.waitForTimeout(1500);
+    step1Selector = await manualSelectorInput(freshPage, 'SETTINGS/MORE (Step 1)');
+    await freshContext.close();
+
+    // Re-open page and execute step 1 to reveal step 2
+    await context.close();
+    const ctx2 = await browser.newContext();
+    const pg2 = await ctx2.newPage();
+    await pg2.goto(url, { waitUntil: 'domcontentloaded' });
+    await pg2.waitForTimeout(1500);
+
+    console.log(`  Klicke Step 1 (${step1Selector})...`);
+    await pg2.locator(step1Selector).click({ timeout: 10000 });
+    await pg2.waitForTimeout(2000);
+
+    // Step 2: Learn reject button
+    console.log(`\n→ TWO-STEP REJECT: Bitte klicke den Reject-Button (2. Schritt)...`);
+    console.log(`  (Wenn nichts passiert, drücke Enter für manuelle Eingabe)`);
+
+    const result2 = await Promise.race([
+      waitForClick(pg2),
+      new Promise(res => {
+        const rl = readline.createInterface({ input: process.stdin });
+        rl.once('line', () => { rl.close(); res(null); });
+      }),
+    ]);
+
+    let step2Selector;
+    if (!result2 || !isPlausibleResult(result2)) {
+      if (result2) console.log(`\n⚠ Click landed on <${result2.tag}> – likely Shadow DOM.`);
+      step2Selector = await manualSelectorInput(pg2, 'REJECT (Step 2)');
+    } else {
+      console.log(`\n✓ Click captured: ${result2.selector} (${result2.text ?? '—'})`);
+      const confirmed = await prompt('\n  Use this selector? [Y/n] ');
+      if (confirmed.toLowerCase() === 'n') {
+        step2Selector = await manualSelectorInput(pg2, 'REJECT (Step 2)');
+      } else {
+        step2Selector = result2.selector;
+      }
+    }
+
+    await ctx2.close();
+    console.log(`\n✓ Two-Step Reject gelernt:`);
+    console.log(`  Step 1 (Settings/More): ${step1Selector}`);
+    console.log(`  Step 2 (Reject):        ${step2Selector}`);
+    return [step1Selector, step2Selector];
+  }
+
+  // Step 1 auto-detected
+  console.log(`\n✓ Click captured: ${result1.selector} (${result1.text ?? '—'})`);
+  const confirmed1 = await prompt('\n  Use this selector for Step 1? [Y/n] ');
+  if (confirmed1.toLowerCase() === 'n') {
+    // Manual input for step 1, need fresh context
+    console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
+    const freshContext = await browser.newContext();
+    const freshPage = await freshContext.newPage();
+    await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
+    await freshPage.waitForTimeout(1500);
+    step1Selector = await manualSelectorInput(freshPage, 'SETTINGS/MORE (Step 1)');
+    await freshContext.close();
+  } else {
+    step1Selector = result1.selector;
+  }
+
+  // The click on step 1 may have already triggered the UI change.
+  // But since the click listener consumed it, we may need to execute it explicitly.
+  // Create fresh context to get clean state, then execute step 1
+  await context.close();
+  const ctx2 = await browser.newContext();
+  const pg2 = await ctx2.newPage();
+  await pg2.goto(url, { waitUntil: 'domcontentloaded' });
+  await pg2.waitForTimeout(1500);
+
+  console.log(`\n  Klicke Step 1 (${step1Selector}) um zweiten Layer zu öffnen...`);
+  await pg2.locator(step1Selector).click({ timeout: 10000 });
+  await pg2.waitForTimeout(2000);
+
+  // Step 2: Learn reject button in now-visible second layer
+  console.log(`\n→ TWO-STEP REJECT: Bitte klicke den Reject-Button (2. Schritt)...`);
+  console.log(`  (Wenn nichts passiert, drücke Enter für manuelle Eingabe)`);
+
+  const result2 = await Promise.race([
+    waitForClick(pg2),
+    new Promise(res => {
+      const rl = readline.createInterface({ input: process.stdin });
+      rl.once('line', () => { rl.close(); res(null); });
+    }),
+  ]);
+
+  let step2Selector;
+  if (!result2 || !isPlausibleResult(result2)) {
+    if (result2) console.log(`\n⚠ Click landed on <${result2.tag}> – likely Shadow DOM.`);
+    step2Selector = await manualSelectorInput(pg2, 'REJECT (Step 2)');
+  } else {
+    console.log(`\n✓ Click captured: ${result2.selector} (${result2.text ?? '—'})`);
+    const confirmed2 = await prompt('\n  Use this selector for Step 2? [Y/n] ');
+    if (confirmed2.toLowerCase() === 'n') {
+      step2Selector = await manualSelectorInput(pg2, 'REJECT (Step 2)');
+    } else {
+      step2Selector = result2.selector;
+    }
+  }
+
+  await ctx2.close();
+
+  console.log(`\n✓ Two-Step Reject gelernt:`);
+  console.log(`  Step 1 (Settings/More): ${step1Selector}`);
+  console.log(`  Step 2 (Reject):        ${step2Selector}`);
+  return [step1Selector, step2Selector];
+}
+
 async function launchFresh() {
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext();
@@ -212,10 +355,12 @@ async function launchFresh() {
   console.log(` CMP Learn Mode`);
   console.log(` CMP  : ${cmpName}`);
   console.log(` URL  : ${url}`);
+  if (twoStepReject) console.log(` Mode : Two-Step Reject`);
   console.log(`═══════════════════════════════════════`);
 
-  let acceptSelector, rejectSelector;
+  let acceptSelector, rejectSelector, rejectSteps;
 
+  // Accept: always learned normally
   const { browser: b1, page: p1 } = await launchFresh();
   try {
     acceptSelector = await learnSelector(b1, p1, 'ACCEPT');
@@ -223,12 +368,25 @@ async function launchFresh() {
     await b1.close();
   }
 
-  console.log('\n─ Restarting browser fresh for reject button ─');
-  const { browser: b2, page: p2 } = await launchFresh();
-  try {
-    rejectSelector = await learnSelector(b2, p2, 'REJECT');
-  } finally {
-    await b2.close();
+  if (twoStepReject) {
+    // Two-step reject: learn settings + reject in one session
+    console.log('\n─ Restarting browser fresh for two-step reject ─');
+    const { browser: b2 } = await launchFresh();
+    try {
+      rejectSteps = await learnTwoStepReject(b2, url);
+      rejectSelector = rejectSteps[1]; // echten Deny-Selektor
+    } finally {
+      await b2.close();
+    }
+  } else {
+    // Normal: single reject button
+    console.log('\n─ Restarting browser fresh for reject button ─');
+    const { browser: b2, page: p2 } = await launchFresh();
+    try {
+      rejectSelector = await learnSelector(b2, p2, 'REJECT');
+    } finally {
+      await b2.close();
+    }
   }
 
   const lib = loadLibrary();
@@ -246,6 +404,7 @@ async function launchFresh() {
     name: cmpName,
     accept: acceptSelector,
     reject: rejectSelector,
+    ...(rejectSteps ? { rejectSteps } : {}),
     shadowDom: acceptSelector.startsWith('[data-') || !acceptSelector.startsWith('#'),
     learnedAt: new Date().toISOString(),
   };
@@ -255,4 +414,7 @@ async function launchFresh() {
   console.log(`\n✓ Saved to cmp-library.json:`);
   console.log(`  ${key}.accept = ${acceptSelector}`);
   console.log(`  ${key}.reject = ${rejectSelector}`);
+  if (rejectSteps) {
+    console.log(`  ${key}.rejectSteps = ${JSON.stringify(rejectSteps)}`);
+  }
 })();

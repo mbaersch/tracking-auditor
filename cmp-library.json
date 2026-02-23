@@ -3,6 +3,7 @@
     "name": "Usercentrics",
     "accept": "[data-testid=\"uc-accept-all-button\"]",
     "reject": "[data-testid=\"uc-deny-all-button\"]",
+    "detect": ["#usercentrics-root"],
     "shadowDom": true,
     "learnedAt": "2026-02-23T00:02:20.990Z"
   },
@@ -10,6 +11,11 @@
     "name": "Usercentrics v2",
     "accept": "[data-action=\"consent\"][data-action-type=\"accept\"]",
     "reject": "[data-action=\"consent\"][data-action-type=\"deny\"]",
+    "rejectSteps": [
+      "[data-action=\"consent\"][data-action-type=\"more\"]",
+      "[data-action=\"consent\"][data-action-type=\"deny\"]"
+    ],
+    "detect": ["#usercentrics-cmp-ui", "#usercentrics-root"],
     "shadowDom": true,
     "learnedAt": "2026-02-23T01:15:00.000Z"
   },
@@ -17,6 +23,7 @@
     "name": "OneTrust/CookiePro",
     "accept": "#onetrust-accept-btn-handler",
     "reject": "#onetrust-reject-all-handler",
+    "detect": ["#onetrust-consent-sdk", "#onetrust-banner-sdk"],
     "shadowDom": false,
     "learnedAt": "2026-02-23T00:06:32.047Z"
   },
@@ -24,6 +31,7 @@
     "name": "Cookiebot",
     "accept": "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
     "reject": "#CybotCookiebotDialogBodyButtonDecline",
+    "detect": ["#CybotCookiebotDialog", "#CookiebotWidget"],
     "shadowDom": false,
     "learnedAt": "2026-02-23T00:07:33.074Z"
   },
@@ -31,6 +39,7 @@
     "name": "CCM19",
     "accept": ".button.ccm--save-settings.ccm--button-primary.ccm--ctrl-init",
     "reject": ".button.ccm--decline-cookies.ccm--ctrl-init",
+    "detect": [".ccm-root", "[id^=\"ccm-widget\"]"],
     "shadowDom": true,
     "learnedAt": "2026-02-23T08:07:37.811Z"
   },
@@ -38,7 +47,87 @@
     "name": "consentmanager.net",
     "accept": "a.cmptxt_btn_yes",
     "reject": "a.cmptxt_btn_no",
+    "detect": ["#cmpbox", "#cmpbox2"],
     "shadowDom": true,
     "learnedAt": "2026-02-23T09:00:51.092Z"
+  },
+  "none": {
+    "name": "None",
+    "accept": ".woocommerce-store-notice__dismiss-link",
+    "reject": ".woocommerce-store-notice__dismiss-link",
+    "shadowDom": true,
+    "learnedAt": "2026-02-23T10:11:47.342Z"
+  },
+  "borlabs-cookie": {
+    "name": "Borlabs Cookie",
+    "accept": "button.brlbs-btn-accept-all",
+    "reject": "button.brlbs-btn-accept-only-essential",
+    "detect": [".brlbs-cmpnt-app", "#BorlabsCookieBox", "[class*=\"brlbs-\"]"],
+    "shadowDom": true,
+    "learnedAt": "2026-02-23T11:45:00.000Z"
+  },
+  "cookie-information": {
+    "name": "Cookie Information",
+    "accept": "button.coi-banner__accept",
+    "reject": "button.coi-banner__decline",
+    "detect": [".coi-banner", "#coiPage-1"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:15:00.000Z"
+  },
+  "cookieyes": {
+    "name": "CookieYes",
+    "accept": "button.cky-btn-accept",
+    "reject": "button.cky-btn-reject",
+    "detect": [".cky-consent-container", "#cookie-law-info-bar"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:00:00.000Z"
+  },
+  "acris": {
+    "name": "Acris",
+    "accept": "#ccConsentAcceptAllButton",
+    "reject": "#ccAcceptOnlyFunctional",
+    "detect": ["#ccConsentTable", "#ccConsentBanner"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:00:00.000Z"
+  },
+  "cookiefirst": {
+    "name": "CookieFirst",
+    "accept": "button[data-cookiefirst-action=\"accept\"]",
+    "reject": "button[data-cookiefirst-action=\"save\"]",
+    "detect": ["[data-cookiefirst-widget]", ".cookiefirst-root"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:00:00.000Z"
+  },
+  "axeptio": {
+    "name": "Axeptio",
+    "accept": "#axeptio_btn_acceptAll",
+    "reject": "#axeptio_btn_dismiss",
+    "detect": ["#axeptio_overlay", "#axeptio_widget"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:00:00.000Z"
+  },
+  "complianz": {
+    "name": "Complianz",
+    "accept": "button.cmplz-btn.cmplz-accept",
+    "reject": "button.cmplz-btn.cmplz-deny",
+    "detect": [".cmplz-cookiebanner", "#cmplz-cookiebanner-container"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:00:00.000Z"
+  },
+  "cookie-script": {
+    "name": "Cookie Script",
+    "accept": "#cookiescript_accept",
+    "reject": "#cookiescript_reject",
+    "detect": ["#cookiescript_injected", "#cookiescript_badge"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:00:00.000Z"
+  },
+  "didomi": {
+    "name": "Didomi",
+    "accept": "#didomi-notice-agree-button",
+    "reject": "#didomi-notice-disagree-button",
+    "detect": ["#didomi-host", "#didomi-notice"],
+    "shadowDom": false,
+    "learnedAt": "2026-02-23T12:00:00.000Z"
   }
 }

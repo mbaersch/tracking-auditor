@@ -224,6 +224,177 @@ function deduplicateRequests(classified) {
   return result;
 }
 
+// ── Server-Side Tagging Detection ────────────────────────────────────────────
+
+/**
+ * Detect SST setups from raw request URLs.
+ * Scans for GTM/gtag loaders on any host and GA4 first-party collect endpoints.
+ */
+function detectSSTFromUrls(requestUrls, siteHost) {
+  const siteDomain = getSiteDomain(siteHost);
+  const loaders = [];
+  const collectEndpoints = [];
+  const containers = new Set();
+  const measurementIds = new Set();
+  const seenLoaders = new Set();
+  const seenCollects = new Set();
+
+  for (const reqUrl of requestUrls) {
+    let u;
+    try { u = new URL(reqUrl); } catch { continue; }
+
+    const host = u.hostname;
+    const path = u.pathname;
+    const isFirstParty = getSiteDomain(reqUrl) === siteDomain;
+    const isStandardHost = host === 'www.googletagmanager.com' || host === 'googletagmanager.com';
+
+    // GTM Loader: /gtm.js with id=GTM-XXX
+    if (path.endsWith('/gtm.js') || path.includes('/gtm.js')) {
+      const id = u.searchParams.get('id');
+      if (id && /^GTM-[A-Z0-9]+$/i.test(id)) {
+        const key = `gtm|${host}|${id}`;
+        if (!seenLoaders.has(key)) {
+          seenLoaders.add(key);
+          containers.add(id.toUpperCase());
+          loaders.push({
+            type: 'GTM',
+            host,
+            path: path + u.search,
+            id,
+            isStandard: isStandardHost,
+            isFirstParty,
+          });
+        }
+      }
+    }
+
+    // gtag Loader: /gtag/js with id=G-XXX
+    if (path.includes('/gtag/js')) {
+      const id = u.searchParams.get('id');
+      if (id && /^G-[A-Z0-9]+$/i.test(id)) {
+        const key = `gtag|${host}|${id}`;
+        if (!seenLoaders.has(key)) {
+          seenLoaders.add(key);
+          measurementIds.add(id.toUpperCase());
+          loaders.push({
+            type: 'gtag',
+            host,
+            path: path + u.search,
+            id,
+            isStandard: isStandardHost,
+            isFirstParty,
+          });
+        }
+      }
+    }
+
+    // GA4 First-Party Collect: same-domain /g/collect or /collect with v=2 + tid=G-XXX
+    if (isFirstParty && (path.includes('/g/collect') || path.includes('/collect'))) {
+      const tid = u.searchParams.get('tid');
+      const v = u.searchParams.get('v');
+      if (tid && /^G-[A-Z0-9]+$/i.test(tid) && v === '2') {
+        const key = `${host}|${tid}`;
+        if (!seenCollects.has(key)) {
+          seenCollects.add(key);
+          measurementIds.add(tid.toUpperCase());
+          collectEndpoints.push({ host, path, tid });
+        }
+      }
+    }
+  }
+
+  return { containers, measurementIds, loaders, collectEndpoints };
+}
+
+/**
+ * Scan first-party JS response bodies for GTM/gtag fingerprints.
+ * Skips files already identified as loaders by URL pattern.
+ */
+function detectSSTFromResponseBodies(responseBodies, siteHost) {
+  const results = [];
+  const gtmIdRe = /GTM-[A-Z0-9]{5,}/gi;
+  const gTagIdRe = /G-[A-Z0-9]{5,}/gi;
+
+  for (const { url, body } of responseBodies) {
+    if (!body) continue;
+
+    // Skip known loader URLs
+    try {
+      const u = new URL(url);
+      if (u.pathname.includes('/gtm.js') || u.pathname.includes('/gtag/js')) continue;
+    } catch { continue; }
+
+    const fingerprints = [];
+    const hasGtmRef = body.includes('googletagmanager');
+    const hasGtagCall = body.includes('gtag(');
+
+    if (hasGtmRef) {
+      const ids = [...body.matchAll(gtmIdRe)].map(m => m[0].toUpperCase());
+      const unique = [...new Set(ids)];
+      if (unique.length > 0) {
+        fingerprints.push({ type: 'GTM Container Code', ids: unique });
+      }
+    }
+
+    if (hasGtagCall) {
+      const ids = [...body.matchAll(gTagIdRe)].map(m => m[0].toUpperCase());
+      const unique = [...new Set(ids)];
+      if (unique.length > 0) {
+        fingerprints.push({ type: 'gtag Code', ids: unique });
+      }
+    }
+
+    if (fingerprints.length > 0) {
+      results.push({ url, fingerprints });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Merge SST results from multiple phases (deduplicated).
+ */
+function mergeSST(...sstResults) {
+  const containers = new Set();
+  const measurementIds = new Set();
+  const loaderMap = new Map();
+  const collectMap = new Map();
+
+  for (const r of sstResults) {
+    if (!r) continue;
+    for (const c of r.containers) containers.add(c);
+    for (const m of r.measurementIds) measurementIds.add(m);
+    for (const l of r.loaders) {
+      const key = `${l.type}|${l.host}|${l.id}`;
+      if (!loaderMap.has(key)) loaderMap.set(key, l);
+    }
+    for (const e of r.collectEndpoints) {
+      const key = `${e.host}|${e.tid}`;
+      if (!collectMap.has(key)) collectMap.set(key, e);
+    }
+  }
+
+  return {
+    containers,
+    measurementIds,
+    loaders: [...loaderMap.values()],
+    collectEndpoints: [...collectMap.values()],
+    customLoaders: [],
+  };
+}
+
+/**
+ * Check if any SST indicators were detected.
+ */
+function hasSSTDetected(sstData) {
+  if (!sstData) return false;
+  const hasCustomLoader = sstData.loaders.some(l => !l.isStandard);
+  const hasCollect = sstData.collectEndpoints.length > 0;
+  const hasCustomFromBody = sstData.customLoaders && sstData.customLoaders.length > 0;
+  return hasCustomLoader || hasCollect || hasCustomFromBody;
+}
+
 // ── E-Commerce Product Analysis ──────────────────────────────────────────────
 
 const EXPECTED_EVENTS = {
@@ -369,14 +540,20 @@ function analyzeEcommerceProducts(ecomSteps) {
   const primaryFormat = formats.length > 0 ? formats[0] : null;
   const formatPath = stepProducts.find(s => s.formatPath)?.formatPath || null;
 
-  // Find focus product (from PDP first, then Add-to-Cart)
+  // Find focus product: prefer single-product events (view_product, view_item, detail)
+  // over list events (view_product_list, view_item_list) since lists contain cross-sells
   let focusProduct = null;
   const pdpStep = stepProducts.find(s => s.name === 'Produkt-Seite');
   const atcStep = stepProducts.find(s => s.name === 'Add-to-Cart');
+  const singleProductEvents = ['view_product', 'view_item', 'detail', 'productDetail'];
 
   if (pdpStep && pdpStep.products.length > 0) {
-    focusProduct = pdpStep.products[0].normalized;
-  } else if (atcStep && atcStep.products.length > 0) {
+    const singleProduct = pdpStep.products.find(p =>
+      p.event && singleProductEvents.some(e => p.event.toLowerCase() === e.toLowerCase())
+    );
+    focusProduct = singleProduct ? singleProduct.normalized : pdpStep.products[0].normalized;
+  }
+  if (!focusProduct && atcStep && atcStep.products.length > 0) {
     focusProduct = atcStep.products[0].normalized;
   }
 
@@ -542,6 +719,42 @@ function setupRequestCollector(page) {
 }
 
 /**
+ * Set up response body collection for first-party JS resources.
+ * Returns an async getter that resolves to [{ url, body }].
+ */
+function setupResponseBodyCollector(page, siteHost) {
+  const siteDomain = getSiteDomain(siteHost);
+  const pending = [];
+
+  page.on('response', (response) => {
+    const reqUrl = response.url();
+    const reqDomain = getSiteDomain(reqUrl);
+    if (reqDomain !== siteDomain) return;
+
+    const contentType = response.headers()['content-type'] || '';
+    const isJS = contentType.includes('javascript') || contentType.includes('ecmascript');
+    let isJSExt = false;
+    try { isJSExt = new URL(reqUrl).pathname.endsWith('.js'); } catch {}
+
+    if (!isJS && !isJSExt) return;
+
+    const bodyPromise = response.body()
+      .then(buf => {
+        if (buf.length > 500 * 1024) return null; // skip >500KB
+        return { url: reqUrl, body: buf.toString('utf-8') };
+      })
+      .catch(() => null);
+
+    pending.push(bodyPromise);
+  });
+
+  return async () => {
+    const results = await Promise.all(pending);
+    return results.filter(Boolean);
+  };
+}
+
+/**
  * Wait for network to settle (approximation: wait fixed time after load).
  */
 async function waitForSettle(page, ms = 3000) {
@@ -550,15 +763,61 @@ async function waitForSettle(page, ms = 3000) {
 
 // ── CMP Detection ─────────────────────────────────────────────────────────────
 
-async function detectCMP(page, library) {
+async function tryCMPSelectors(page, library) {
+  const matches = [];
   for (const [key, entry] of Object.entries(library)) {
     try {
-      await page.locator(entry.accept).waitFor({ state: 'visible', timeout: 3000 });
-      console.log(`  CMP erkannt: ${entry.name} (${key})`);
-      return { key, ...entry };
+      await page.locator(entry.accept).first().waitFor({ state: 'visible', timeout: 3000 });
+      matches.push({ key, ...entry });
     } catch { /* not found, try next */ }
   }
-  return null;
+  return matches;
+}
+
+async function disambiguateCMP(page, matches) {
+  if (matches.length === 0) return null;
+  if (matches.length === 1) {
+    console.log(`  CMP erkannt: ${matches[0].name} (${matches[0].key})`);
+    return matches[0];
+  }
+
+  // Mehrere CMPs matchen auf accept – detect-Selektoren prüfen
+  console.log(`  ${matches.length} CMPs matchen: ${matches.map(m => m.name).join(', ')}`);
+  console.log('  Disambiguierung via detect-Selektoren...');
+
+  for (const match of matches) {
+    if (!match.detect || !Array.isArray(match.detect)) continue;
+    for (const selector of match.detect) {
+      try {
+        const count = await page.locator(selector).count();
+        if (count > 0) {
+          console.log(`  CMP eindeutig: ${match.name} (${match.key}) via detect "${selector}"`);
+          return match;
+        }
+      } catch { /* selector invalid or not found */ }
+    }
+  }
+
+  // Fallback: ersten Match nehmen
+  console.log(`  WARNUNG: Keine detect-Disambiguierung möglich, verwende ersten Match: ${matches[0].name}`);
+  return matches[0];
+}
+
+async function detectCMP(page, library) {
+  // Erster Durchlauf
+  let matches = await tryCMPSelectors(page, library);
+  let result = await disambiguateCMP(page, matches);
+  if (result) return result;
+
+  // Scroll-Retry: manche CMPs (z.B. Borlabs) erscheinen erst nach Scroll
+  console.log('  Kein CMP-Banner gefunden, versuche Scroll...');
+  await page.evaluate(() => window.scrollBy(0, 400));
+  await page.waitForTimeout(2000);
+
+  matches = await tryCMPSelectors(page, library);
+  result = await disambiguateCMP(page, matches);
+  if (result) console.log('  CMP nach Scroll erkannt!');
+  return result;
 }
 
 // ── Report Generation ─────────────────────────────────────────────────────────
@@ -636,6 +895,61 @@ function formatConsentMode(params) {
   for (const p of params) {
     md += `| ${p.gcs} | ${p.gcd} | \`${p.url}\` |\n`;
   }
+  return md;
+}
+
+function formatSSTSection(sstData) {
+  if (!sstData || !hasSSTDetected(sstData)) return '';
+
+  let md = '## Server-Side Tagging Analyse\n\n';
+
+  // Container IDs
+  if (sstData.containers.size > 0) {
+    const customLoaders = sstData.loaders.filter(l => !l.isStandard && l.type === 'GTM');
+    for (const id of sstData.containers) {
+      const loader = customLoaders.find(l => l.id.toUpperCase() === id);
+      if (loader) {
+        md += `**GTM Container:** ${id} (geladen von \`${loader.host}${loader.path.split('?')[0]}\`)\n\n`;
+      } else {
+        md += `**GTM Container:** ${id}\n\n`;
+      }
+    }
+  }
+
+  // Loader table
+  if (sstData.loaders.length > 0) {
+    md += '**Loader:**\n\n';
+    md += '| Typ | Host | Pfad | Standard? |\n';
+    md += '|-----|------|------|-----------|\n';
+    for (const l of sstData.loaders) {
+      const standard = l.isStandard ? 'Standard' : 'Custom (First-Party)';
+      md += `| ${l.type} | ${l.host} | \`${truncate(l.path, 60)}\` | ${standard} |\n`;
+    }
+    md += '\n';
+  }
+
+  // Collect endpoints table
+  if (sstData.collectEndpoints.length > 0) {
+    md += '**Collect Endpoints:**\n\n';
+    md += '| Endpoint | Host | Pfad | Measurement ID |\n';
+    md += '|----------|------|------|----------------|\n';
+    for (const e of sstData.collectEndpoints) {
+      md += `| GA4 Collect | ${e.host} | ${e.path} | ${e.tid} |\n`;
+    }
+    md += '\n';
+  }
+
+  // Custom loaders from response body analysis
+  if (sstData.customLoaders && sstData.customLoaders.length > 0) {
+    md += '**Custom Loader (Response-Analyse):**\n\n';
+    for (const cl of sstData.customLoaders) {
+      for (const fp of cl.fingerprints) {
+        md += `- \`${cl.url}\` enthaelt ${fp.type} (${fp.ids.join(', ')})\n`;
+      }
+    }
+    md += '\n';
+  }
+
   return md;
 }
 
@@ -757,6 +1071,13 @@ function generateTLDR(data) {
   const rejectCount = rejectOther.reduce((n, t) => n + t.hostnames.length, 0);
   md += `**Sonstige Third-Party Domains:** Pre-Consent ${preCount}, Post-Accept +${acceptCount}, Post-Reject +${rejectCount}\n\n`;
 
+  // SST summary
+  if (data.sst && hasSSTDetected(data.sst)) {
+    const customLoaderCount = data.sst.loaders.filter(l => !l.isStandard).length + (data.sst.customLoaders?.length || 0);
+    const collectCount = data.sst.collectEndpoints.length;
+    md += `**Server-Side Tagging:** Erkannt (${customLoaderCount} Custom Loader, ${collectCount} Collect Endpoints)\n\n`;
+  }
+
   // E-Commerce: tracker per step
   if (data.ecommerce && data.ecommerce.length > 0) {
     md += '**E-Commerce – Tracker pro Schritt:**\n\n';
@@ -776,11 +1097,10 @@ function generateTLDR(data) {
 }
 
 function generateReport(data) {
-  const date = new Date().toISOString().split('T')[0];
   let md = '';
 
   md += `# Tagging Audit: ${data.project}\n\n`;
-  md += `**URL:** ${data.url} | **Datum:** ${date} | **CMP:** ${data.cmpName}\n\n`;
+  md += `**URL:** ${data.url} | **Datum:** ${data.timestamp} | **CMP:** ${data.cmpName}\n\n`;
 
   // ── TL;DR ──
   md += generateTLDR(data);
@@ -796,6 +1116,9 @@ function generateReport(data) {
     md += '- Keine Service Worker erkannt\n';
   }
   md += '\n';
+
+  // ── SST ──
+  md += formatSSTSection(data.sst);
 
   // ── Pre-Consent ──
   md += '## Pre-Consent\n\n';
@@ -963,6 +1286,7 @@ function generateReport(data) {
   const page1 = await context1.newPage();
 
   const getPreRequests = setupRequestCollector(page1);
+  const getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
 
   await page1.goto(url, { waitUntil: 'networkidle' });
   await waitForSettle(page1, 3000);
@@ -988,6 +1312,7 @@ function generateReport(data) {
     postReject: {},
     ecommerce: [],
     ecommerceAnalysis: null,
+    sst: null,
   };
 
   // dataLayer
@@ -1032,16 +1357,22 @@ function generateReport(data) {
     localStorage: preLocalStorage,
   };
 
+  // SST detection from pre-consent requests
+  const preSSTUrls = detectSSTFromUrls(preRequestUrls, siteHost);
+  const preResponseBodies = await getPreResponseBodies();
+  const preSSTBodies = detectSSTFromResponseBodies(preResponseBodies, siteHost);
+
   // ── Phase 2: Post-Accept (same browser) ─────────────────────────────────────
 
   console.log('\nPhase 2: Post-Accept...');
 
   // Clear request collector and set up fresh one for this phase
   const getPostAcceptRequests = setupRequestCollector(page1);
+  const getPostAcceptResponseBodies = setupResponseBodyCollector(page1, siteHost);
 
   // Click accept
   try {
-    const acceptLocator = page1.locator(cmp.accept);
+    const acceptLocator = page1.locator(cmp.accept).first();
     await acceptLocator.click({ timeout: 10000 });
     console.log('  Accept-Button geklickt');
   } catch (err) {
@@ -1083,6 +1414,22 @@ function generateReport(data) {
     cookiesDiff: postAcceptCookiesDiff,
     localStorageDiff: postAcceptLocalStorageDiff,
   };
+
+  // SST detection from post-accept requests + merge with pre-consent
+  const postAcceptSSTUrls = detectSSTFromUrls(postAcceptRequestUrls, siteHost);
+  reportData.sst = mergeSST(preSSTUrls, postAcceptSSTUrls);
+
+  // Response body analysis for custom loaders
+  const postAcceptResponseBodies = await getPostAcceptResponseBodies();
+  const allResponseBodies = [...preResponseBodies, ...postAcceptResponseBodies];
+  const sstBodies = detectSSTFromResponseBodies(allResponseBodies, siteHost);
+  reportData.sst.customLoaders = sstBodies;
+
+  if (hasSSTDetected(reportData.sst)) {
+    const customCount = reportData.sst.loaders.filter(l => !l.isStandard).length;
+    const collectCount = reportData.sst.collectEndpoints.length;
+    console.log(`  SST erkannt: ${customCount} Custom Loader, ${collectCount} Collect Endpoints, ${sstBodies.length} Body-Fingerprints`);
+  }
 
   // ── Phase 3: E-Commerce (same browser, only if --category) ──────────────────
 
@@ -1194,13 +1541,46 @@ function generateReport(data) {
   // Set up fresh collector for post-reject
   const getRejectPostRequests = setupRequestCollector(page2);
 
-  // Click reject
+  // Scroll-Retry: CMP-Banner muss sichtbar sein vor Reject-Klick
+  const rejectFirstSelector = (cmp.rejectSteps && cmp.rejectSteps.length >= 1) ? cmp.rejectSteps[0] : cmp.reject;
   try {
-    const rejectLocator = page2.locator(cmp.reject);
-    await rejectLocator.click({ timeout: 10000 });
+    await page2.locator(rejectFirstSelector).first().waitFor({ state: 'visible', timeout: 3000 });
+  } catch {
+    console.log('  CMP-Banner nicht sichtbar, versuche Scroll...');
+    await page2.evaluate(() => window.scrollBy(0, 400));
+    await page2.waitForTimeout(2000);
+  }
+
+  // Click reject (direct or two-step)
+  let rejectClicked = false;
+
+  // Versuch 1: Direkter Reject-Button
+  try {
+    const rejectLocator = page2.locator(cmp.reject).first();
+    await rejectLocator.click({ timeout: 5000 });
+    rejectClicked = true;
     console.log('  Reject-Button geklickt');
-  } catch (err) {
-    console.error(`  FEHLER: Reject-Button nicht klickbar: ${err.message}`);
+  } catch {
+    // Reject-Button nicht direkt gefunden
+  }
+
+  // Versuch 2: Two-Step Fallback (rejectSteps)
+  if (!rejectClicked && cmp.rejectSteps && cmp.rejectSteps.length === 2) {
+    try {
+      console.log('  Reject nicht direkt gefunden, versuche Two-Step...');
+      await page2.locator(cmp.rejectSteps[0]).first().click({ timeout: 5000 });
+      console.log(`  Step 1 geklickt (${cmp.rejectSteps[0]})`);
+      await page2.waitForTimeout(2000);
+      await page2.locator(cmp.rejectSteps[1]).first().click({ timeout: 5000 });
+      rejectClicked = true;
+      console.log(`  Step 2 geklickt (${cmp.rejectSteps[1]})`);
+    } catch (err) {
+      console.error(`  FEHLER: Two-Step Reject fehlgeschlagen: ${err.message}`);
+    }
+  }
+
+  if (!rejectClicked) {
+    console.error('  FEHLER: Reject konnte weder direkt noch per Two-Step geklickt werden');
   }
 
   await waitForSettle(page2, 3000);
@@ -1235,9 +1615,13 @@ function generateReport(data) {
 
   console.log('\nPhase 5: Report generieren...');
 
-  const date = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const date = now.toISOString().split('T')[0];
+  const time = now.toTimeString().slice(0, 5).replace(':', '');
+  const timestamp = `${date}-${time}`;
+  reportData.timestamp = `${date} ${now.toTimeString().slice(0, 5)}`;
   const reportDir = resolve(__dirname, 'reports', project);
-  const reportFile = resolve(reportDir, `audit-${date}.md`);
+  const reportFile = resolve(reportDir, `audit-${timestamp}.md`);
 
   if (!existsSync(reportDir)) {
     mkdirSync(reportDir, { recursive: true });
