@@ -572,7 +572,7 @@ export async function showStatusBar(page, phase, detail = '') {
       '<div id="__audit-statusbar-phase">' + phase + '</div>' +
       '<div id="__audit-statusbar-detail">' + detail + '</div>' +
       '<div id="__audit-statusbar-stats"></div>' +
-      '<button id="__audit-statusbar-skip">Skip \u2192 Notmodus</button>';
+      '<button id="__audit-statusbar-skip">Skip \u2192 Manuell</button>';
     document.body.appendChild(bar);
   }, { styles: STATUS_BAR_STYLES, phase, detail });
 }

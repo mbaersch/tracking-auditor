@@ -860,7 +860,7 @@ async function detectCMP(page, library) {
   return result;
 }
 
-// ── Emergency CMP Learning (Notmodus) ────────────────────────────────────────
+// ── Emergency CMP Learning (Manueller Modus) ────────────────────────────────────────
 
 /**
  * Interactive fallback when CMP auto-detection fails.
@@ -869,16 +869,16 @@ async function detectCMP(page, library) {
  * Returns a cmp object compatible with the normal flow.
  */
 async function emergencyLearnCMP(page, library) {
-  console.log('  Notmodus: CMP manuell einlernen...');
+  console.log('  Manueller Modus: CMP einlernen...');
 
-  await updateStatusBar(page, 'Notmodus', 'CMP manuell einlernen...', '');
+  await updateStatusBar(page, 'Manuell', 'CMP manuell einlernen...', '');
 
-  await showMessage(page, 'CMP nicht automatisch erkannt. Notmodus aktiv – bitte Accept- und Reject-Button manuell klicken.', {
-    type: 'warning', title: 'Notmodus',
+  await showMessage(page, 'CMP nicht automatisch erkannt. Manueller Modus aktiv – bitte Accept- und Reject-Button manuell klicken.', {
+    type: 'warning', title: 'Manuell',
   });
 
   // ── Learn Accept ──
-  await updateStatusBar(page, 'Notmodus', 'Warte auf Accept-Klick...', '');
+  await updateStatusBar(page, 'Manuell', 'Warte auf Accept-Klick...', '');
   const acceptResult = await showClickPrompt(page, 'ACCEPT');
   let acceptSelector;
 
@@ -899,7 +899,7 @@ async function emergencyLearnCMP(page, library) {
 
   // ── Learn Reject ──
   // Fresh context needed – the accept click may have dismissed the banner
-  await updateStatusBar(page, 'Notmodus', 'Accept OK – Seite wird neu geladen...', '');
+  await updateStatusBar(page, 'Manuell', 'Accept OK – Seite wird neu geladen...', '');
   await showMessage(page, 'Accept-Selektor gespeichert. Seite wird neu geladen fuer den Reject-Button.', { type: 'info' });
 
   const currentUrl = page.url();
@@ -910,7 +910,7 @@ async function emergencyLearnCMP(page, library) {
   await page.waitForTimeout(3000);
 
   // Re-inject status bar after navigation (page.goto destroys injected DOM)
-  await showStatusBar(page, 'Notmodus', 'Warte auf Reject-Klick...', '');
+  await showStatusBar(page, 'Manuell', 'Warte auf Reject-Klick...', '');
 
   // Scroll-retry for banner visibility
   try {
@@ -942,7 +942,7 @@ async function emergencyLearnCMP(page, library) {
     if (entry.accept === acceptSelector || entry.reject === rejectSelector) {
       const { useExisting } = await showCMPMatch(page, { key, ...entry });
       if (useExisting) {
-        console.log(`  Notmodus: Verwende bestehendes CMP "${entry.name}" aus Library`);
+        console.log(`  Manuell: Verwende bestehendes CMP "${entry.name}" aus Library`);
         await context.clearCookies();
         await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
         await page.waitForTimeout(3000);
@@ -965,9 +965,9 @@ async function emergencyLearnCMP(page, library) {
 
   library[key] = newEntry;
   saveLibrary(library);
-  console.log(`  Notmodus: Neues CMP "${cmpName}" in Library gespeichert`);
+  console.log(`  Manuell: Neues CMP "${cmpName}" in Library gespeichert`);
 
-  await showMessage(page, `CMP "${cmpName}" gespeichert. Audit wird fortgesetzt.`, { type: 'info', title: 'Notmodus' });
+  await showMessage(page, `CMP "${cmpName}" gespeichert. Audit wird fortgesetzt.`, { type: 'info', title: 'Manuell' });
 
   // Reload page with clean cookies for the normal audit flow
   await context.clearCookies();
@@ -1506,7 +1506,7 @@ function generateReport(data) {
   console.log('Phase 0: CMP-Erkennung...');
 
   let cmp;
-  let cmpFromNotmodus = false;  // Track if CMP came from Notmodus to prevent re-triggering
+  let cmpFromManualMode = false;  // Track if CMP came from manual mode to prevent re-triggering
 
   if (cmpFlag) {
     // Direct lookup by key
@@ -1545,10 +1545,10 @@ function generateReport(data) {
     await updateStatusBar(page1, 'Phase 0', 'Starte CMP-Erkennung...');
     cmp = await detectCMP(page1, library);
     if (!cmp) {
-      console.log('  CMP nicht automatisch erkannt – starte Notmodus...');
+      console.log('  CMP nicht automatisch erkannt – starte manuellen Modus...');
       cmp = await emergencyLearnCMP(page1, library);
-      cmpFromNotmodus = true;
-      // Notmodus did page.goto() — flush old collectors and set up fresh ones
+      cmpFromManualMode = true;
+      // Manual mode did page.goto() — flush old collectors and set up fresh ones
       // so Phase 1 captures clean pre-consent data from the reloaded page
       getPreRequests(); // discard
       getPreRequests = setupRequestCollector(page1);
@@ -1650,24 +1650,24 @@ function generateReport(data) {
     } catch { /* still failed */ }
   }
 
-  if (!acceptClicked && !cmpFromNotmodus) {
-    // Only trigger Notmodus if we haven't already been through it
-    console.log('  Accept-Button nicht klickbar – starte Notmodus...');
+  if (!acceptClicked && !cmpFromManualMode) {
+    // Only trigger manual mode if we haven't already been through it
+    console.log('  Accept-Button nicht klickbar – starte manuellen Modus...');
     const freshCmp = await emergencyLearnCMP(page1, library);
     cmp = freshCmp;
-    cmpFromNotmodus = true;
+    cmpFromManualMode = true;
     reportData.cmpName = cmp.name;
-    await showStatusBar(page1, 'Phase 2', 'Post-Accept – klicke Accept (Notmodus)...', '');
+    await showStatusBar(page1, 'Phase 2', 'Post-Accept – klicke Accept (manuell)...', '');
     try {
       await page1.locator(cmp.accept).first().waitFor({ state: 'visible', timeout: 5000 });
       await page1.locator(cmp.accept).first().click({ timeout: 10000 });
       acceptClicked = true;
-      console.log('  Accept-Button geklickt (Notmodus-Selektor)');
+      console.log('  Accept-Button geklickt (manueller Selektor)');
     } catch (err2) {
-      console.error(`  FEHLER: Accept auch mit Notmodus-Selektor nicht klickbar: ${err2.message}`);
+      console.error(`  FEHLER: Accept auch mit manueller Selektor nicht klickbar: ${err2.message}`);
     }
   } else if (!acceptClicked) {
-    console.error('  FEHLER: Accept-Button nicht klickbar (Notmodus war bereits aktiv, kein erneuter Versuch)');
+    console.error('  FEHLER: Accept-Button nicht klickbar (Manueller Modus war bereits aktiv, kein erneuter Versuch)');
   }
 
   await waitForSettle(page1, 3000);
@@ -1892,8 +1892,8 @@ function generateReport(data) {
   }
 
   if (!rejectClicked) {
-    console.log('  Reject konnte nicht geklickt werden – Notmodus fuer Reject...');
-    await showMessage(page2, 'Reject-Button konnte nicht automatisch geklickt werden. Bitte manuell klicken.', { type: 'warning', title: 'Notmodus' });
+    console.log('  Reject konnte nicht geklickt werden – Manueller Modus fuer Reject...');
+    await showMessage(page2, 'Reject-Button konnte nicht automatisch geklickt werden. Bitte manuell klicken.', { type: 'warning', title: 'Manuell' });
     const rejectResult = await showClickPrompt(page2, 'REJECT');
     if (rejectResult && isPlausibleResult(rejectResult)) {
       const { confirmed } = await showSelectorResult(page2, rejectResult, 'REJECT');
@@ -1901,7 +1901,7 @@ function generateReport(data) {
         try {
           await page2.locator(rejectResult.selector).first().click({ timeout: 5000 });
           rejectClicked = true;
-          console.log(`  Reject-Button geklickt (Notmodus: ${rejectResult.selector})`);
+          console.log(`  Reject-Button geklickt (Manuell: ${rejectResult.selector})`);
         } catch { /* still failed */ }
       }
     }

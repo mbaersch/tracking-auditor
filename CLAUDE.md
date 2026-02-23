@@ -5,8 +5,9 @@ Dieses Projekt ist ein Node.js-basiertes Toolkit zur Unterstützung von Tag-Audi
 ## Dateien
 
 ```
-learn.js          – CMP-Selektoren einsammeln und in cmp-library.json speichern
 audit.js          – automatisierter Audit-Runner (Consent + E-Commerce)
+learn.js          – CMP-Selektoren einsammeln und in cmp-library.json speichern
+browser-ui.js     – Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
 cmp-library.json  – Datenbank bekannter CMP-Selektoren (accept/reject)
 reports/          – Ablageort für Audit-Markdown-Reports (nach Projekt strukturieren)
 ```
