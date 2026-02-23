@@ -13,6 +13,7 @@
  * Optional:
  *   --cmp         CMP name (skips auto-detection if provided)
  *   --disable-sw  Deregister service workers via CDP
+ *   --ecom        Interactive E-Commerce mode (navigate manually in browser)
  *
  * E-Commerce (--category activates the path):
  *   --category    Category page URL (relative or absolute)
@@ -30,6 +31,7 @@ import {
   showMessage, showClickPrompt, showSelectorResult,
   showTextInput, showConfirm, showCMPMatch, showCMPNameInput,
   showStatusBar, updateStatusBar, enableCMPSelect, removeStatusBar,
+  showEcomStepPrompt, showEcomClickWait,
 } from './browser-ui.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -45,6 +47,7 @@ const url       = get('--url');
 const project   = get('--project');
 const cmpFlag   = get('--cmp');
 const disableSW = has('--disable-sw');
+const ecomInteractive = has('--ecom');
 
 // E-Commerce (fix Git Bash path mangling for relative URLs)
 const categoryUrl  = fixMangledPath(get('--category'), '--category');
@@ -56,6 +59,7 @@ const checkoutUrl  = fixMangledPath(get('--checkout'), '--checkout');
 if (!url || !project) {
   console.error('Usage: node audit.js --url <url> --project <name> [--cmp <name>] [--disable-sw]');
   console.error('  E-Commerce: [--category <url>] [--product <url>] [--add-to-cart <sel>] [--view-cart <url>] [--checkout <url>]');
+  console.error('  Interaktiv: [--ecom] (E-Commerce-Pfad manuell im Browser durchlaufen)');
   process.exit(1);
 }
 
@@ -1517,6 +1521,52 @@ function generateReport(data) {
   return md;
 }
 
+// ── E-Commerce Step Data Collection ──────────────────────────────────────────
+
+/**
+ * Collect tracking data for a single E-Commerce step.
+ * Used by both automatic and interactive E-Commerce modes.
+ */
+async function collectEcomStepData(page, context, step, prevCookies, prevLocalStorage, prevDataLayer, siteHost) {
+  const getStepRequests = setupRequestCollector(page);
+  await waitForSettle(page, 3000);
+
+  const stepDataLayer = await collectDataLayer(page);
+  const stepBaseline = step.type === 'navigate' ? [] : prevDataLayer;
+  const stepDataLayerDiff = diffDataLayer(stepBaseline, stepDataLayer);
+
+  const stepRequestUrls = getStepRequests();
+  const stepClassified = stepRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
+  const stepTrackers = deduplicateRequests(stepClassified);
+
+  const stepConsentMode = extractConsentModeParams(
+    stepRequestUrls.filter(r => {
+      const c = classifyRequest(r, siteHost);
+      return c && c.vendor === 'Google';
+    })
+  );
+
+  const stepCookies = await collectCookies(context);
+  const stepLocalStorage = await collectLocalStorage(page);
+  const stepCookiesDiff = diffCookies(prevCookies, stepCookies);
+  const stepLocalStorageDiff = diffLocalStorage(prevLocalStorage, stepLocalStorage);
+
+  return {
+    data: {
+      name: step.name,
+      dataLayerDiff: stepDataLayerDiff,
+      trackers: stepTrackers,
+      consentMode: stepConsentMode,
+      cookiesDiff: stepCookiesDiff,
+      localStorageDiff: stepLocalStorageDiff,
+    },
+    stepDataLayer,
+    stepCookies,
+    stepLocalStorage,
+    stepClassified,
+  };
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -1526,6 +1576,7 @@ function generateReport(data) {
   console.log(` URL     : ${url}`);
   if (cmpFlag) console.log(` CMP     : ${cmpFlag}`);
   if (categoryUrl) console.log(` E-Commerce Pfad aktiv`);
+  if (ecomInteractive) console.log(` E-Commerce Pfad interaktiv`);
   if (disableSW) console.log(` Service Worker werden deregistriert`);
   console.log(`=======================================\n`);
 
@@ -1754,9 +1805,9 @@ function generateReport(data) {
     console.log(`  SST erkannt: ${customCount} Custom Loader, ${collectCount} Collect Endpoints, ${sstBodies.length} Body-Fingerprints`);
   }
 
-  // ── Phase 3: E-Commerce (same browser, only if --category) ──────────────────
+  // ── Phase 3: E-Commerce (same browser, --category or --ecom) ────────────────
 
-  if (categoryUrl) {
+  if (categoryUrl || ecomInteractive) {
     console.log('\nPhase 3: E-Commerce Pfad...');
     await updateStatusBar(page1, 'Phase 3', 'E-Commerce Pfad...', '');
 
@@ -1765,81 +1816,181 @@ function generateReport(data) {
     let prevLocalStorage = postAcceptLocalStorage;
     let prevDataLayer = postAcceptDataLayer;
 
-    const ecomSteps = [
-      { name: 'Kategorie-Seite', type: 'navigate', value: resolveUrl(url, categoryUrl) },
-      productUrl ? { name: 'Produkt-Seite', type: 'navigate', value: resolveUrl(url, productUrl) } : null,
-      addToCartSel ? { name: 'Add-to-Cart', type: 'click', value: addToCartSel } : null,
-      viewCartUrl ? { name: 'Warenkorb', type: 'navigate', value: resolveUrl(url, viewCartUrl) } : null,
-      checkoutUrl ? { name: 'Checkout', type: 'navigate', value: resolveUrl(url, checkoutUrl) } : null,
-    ].filter(Boolean);
+    if (ecomInteractive) {
+      // ── Interaktiver Modus: User navigiert selbst ──
+      const interactiveSteps = [
+        { name: 'Kategorie-Seite', type: 'navigate' },
+        { name: 'Produkt-Seite', type: 'navigate' },
+        { name: 'Add-to-Cart', type: 'click' },
+        { name: 'Warenkorb', type: 'navigate' },
+        { name: 'Checkout', type: 'navigate' },
+      ];
 
-    for (const step of ecomSteps) {
-      console.log(`  Schritt: ${step.name}...`);
-      await updateStatusBar(page1, 'Phase 3', `E-Commerce: ${step.name}`, '');
+      // Re-inject status bar after user navigation (DOM is destroyed on page load)
+      let currentStepLabel = '';
+      const onLoadStatusBar = async () => {
+        try { await showStatusBar(page1, 'Phase 3', currentStepLabel); } catch { /* page may close */ }
+      };
+      page1.on('load', onLoadStatusBar);
 
-      // Safety: skip navigate steps where URL resolution failed
-      if (step.type === 'navigate' && !step.value) {
-        console.error(`    ÜBERSPRUNGEN: URL für "${step.name}" konnte nicht aufgelöst werden.`);
-        continue;
-      }
+      for (let i = 0; i < interactiveSteps.length; i++) {
+        const step = interactiveSteps[i];
+        currentStepLabel = `E-Commerce: ${step.name} (interaktiv)`;
+        await updateStatusBar(page1, 'Phase 3', currentStepLabel, `Schritt ${i + 1}/${interactiveSteps.length}`);
 
-      // Fresh request collector for this step
-      const getStepRequests = setupRequestCollector(page1);
+        if (step.type === 'click') {
+          // ── Click-Step (z.B. Add-to-Cart): Bereit → Klick-Erkennung → Auto-Collect ──
 
-      if (step.type === 'navigate') {
-        console.log(`    → ${step.value}`);
-        try {
-          await page1.goto(step.value, { waitUntil: 'networkidle', timeout: 20000 });
-        } catch { /* networkidle timeout, continue */ }
-      } else if (step.type === 'click') {
-        try {
-          await page1.locator(step.value).first().click({ timeout: 10000 });
-        } catch (err) {
-          console.error(`    FEHLER: Klick auf "${step.value}" fehlgeschlagen: ${err.message}`);
+          // Phase A: User bereitet vor (Menge, Variante etc.)
+          const prepAction = await showEcomStepPrompt(page1, step.name, i + 1, interactiveSteps.length, {
+            nextLabel: 'Bereit',
+            instruction: 'Bereite alles vor (Menge, Variante, Optionen...). Klicke "Bereit" wenn du gleich den Button klicken wirst.',
+          });
+          if (prepAction === 'done') {
+            console.log(`  Audit abgeschlossen nach Schritt ${i} von ${interactiveSteps.length}`);
+            break;
+          }
+
+          // Collectors starten VOR dem Klick
+          const getStepRequests = setupRequestCollector(page1);
+          const urlBeforeClick = page1.url();
+
+          // dataLayer-Capture: Monkey-Patch fängt DL-Pushes ab und schickt sie
+          // per exposeFunction an Node.js – überlebt Navigation
+          const dlCapture = [];
+          const dlCapCbName = '__audit_dlcap_' + Date.now();
+          try {
+            await page1.exposeFunction(dlCapCbName, (json) => {
+              try { dlCapture.push(JSON.parse(json)); } catch { /* */ }
+            });
+          } catch { /* */ }
+          await page1.evaluate((cbName) => {
+            if (!window.dataLayer) return;
+            const origPush = window.dataLayer.push.bind(window.dataLayer);
+            window.dataLayer.push = function(...args) {
+              for (const a of args) {
+                try { window[cbName](JSON.stringify(a)); } catch {}
+              }
+              return origPush(...args);
+            };
+          }, dlCapCbName);
+
+          // Phase B: Nächster Klick auf der Seite = ATC (automatische Erkennung)
+          const clickResult = await showEcomClickWait(page1);
+          if (clickResult === 'done') {
+            console.log(`  Audit abgeschlossen nach Schritt ${i} von ${interactiveSteps.length}`);
+            break;
+          }
+
+          console.log(`  Schritt: ${step.name} (interaktiv, click)...`);
+
+          // Settle – Navigation kann stattfinden
+          await waitForSettle(page1, 3000);
+
+          // Daten sammeln
+          const navigated = page1.url() !== urlBeforeClick;
+          if (navigated) console.log(`    Navigation erkannt: ${urlBeforeClick} → ${page1.url()}`);
+
+          const dlAfterSettle = await collectDataLayer(page1);
+          // Bei Navigation: DL-Events von der alten Seite (monkey-patch) + neue Seite komplett
+          // Ohne Navigation: normaler Diff gegen vorherigen Stand
+          const stepDataLayerDiff = navigated
+            ? [...dlCapture, ...dlAfterSettle]
+            : diffDataLayer(prevDataLayer, dlAfterSettle);
+
+          const stepRequestUrls = getStepRequests();
+          const stepClassified = stepRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
+          const stepTrackers = deduplicateRequests(stepClassified);
+          const stepConsentMode = extractConsentModeParams(
+            stepRequestUrls.filter(r => { const c = classifyRequest(r, siteHost); return c && c.vendor === 'Google'; })
+          );
+
+          const stepCookies = await collectCookies(context1);
+          const stepLocalStorage = await collectLocalStorage(page1);
+          const stepCookiesDiff = diffCookies(prevCookies, stepCookies);
+          const stepLocalStorageDiff = diffLocalStorage(prevLocalStorage, stepLocalStorage);
+
+          console.log(`    dataLayer Diff: ${stepDataLayerDiff.length} (${dlCapture.length} pre-nav, ${dlAfterSettle.length} post), Requests: ${stepClassified.length} 3P, Cookies: +${stepCookiesDiff.length}`);
+
+          reportData.ecommerce.push({
+            name: step.name,
+            dataLayerDiff: stepDataLayerDiff,
+            trackers: stepTrackers,
+            consentMode: stepConsentMode,
+            cookiesDiff: stepCookiesDiff,
+            localStorageDiff: stepLocalStorageDiff,
+          });
+
+          prevCookies = stepCookies;
+          prevLocalStorage = stepLocalStorage;
+          prevDataLayer = dlAfterSettle;
+
+        } else {
+          // ── Navigate-Steps: User navigiert, dann bestätigt ──
+          const action = await showEcomStepPrompt(page1, step.name, i + 1, interactiveSteps.length);
+          if (action === 'done') {
+            console.log(`  Audit abgeschlossen nach Schritt ${i} von ${interactiveSteps.length}`);
+            break;
+          }
+
+          console.log(`  Schritt: ${step.name} (interaktiv)...`);
+
+          const result = await collectEcomStepData(page1, context1, step, prevCookies, prevLocalStorage, prevDataLayer, siteHost);
+
+          console.log(`    dataLayer Diff: ${result.data.dataLayerDiff.length}, Requests: ${result.stepClassified.length} 3P, Cookies: +${result.data.cookiesDiff.length}`);
+
+          reportData.ecommerce.push(result.data);
+
+          prevCookies = result.stepCookies;
+          prevLocalStorage = result.stepLocalStorage;
+          prevDataLayer = result.stepDataLayer;
         }
       }
 
-      await waitForSettle(page1, 3000);
+      page1.off('load', onLoadStatusBar);
+    } else {
+      // ── Automatischer Modus (--category etc.) ──
+      const ecomSteps = [
+        { name: 'Kategorie-Seite', type: 'navigate', value: resolveUrl(url, categoryUrl) },
+        productUrl ? { name: 'Produkt-Seite', type: 'navigate', value: resolveUrl(url, productUrl) } : null,
+        addToCartSel ? { name: 'Add-to-Cart', type: 'click', value: addToCartSel } : null,
+        viewCartUrl ? { name: 'Warenkorb', type: 'navigate', value: resolveUrl(url, viewCartUrl) } : null,
+        checkoutUrl ? { name: 'Checkout', type: 'navigate', value: resolveUrl(url, checkoutUrl) } : null,
+      ].filter(Boolean);
 
-      // Collect
-      const stepDataLayer = await collectDataLayer(page1);
-      // On full page navigation, dataLayer is a completely new array – compare against empty baseline.
-      // On click (same page), dataLayer is append-only – compare against previous snapshot.
-      const stepBaseline = step.type === 'navigate' ? [] : prevDataLayer;
-      const stepDataLayerDiff = diffDataLayer(stepBaseline, stepDataLayer);
+      for (const step of ecomSteps) {
+        console.log(`  Schritt: ${step.name}...`);
+        await updateStatusBar(page1, 'Phase 3', `E-Commerce: ${step.name}`, '');
 
-      const stepRequestUrls = getStepRequests();
-      const stepClassified = stepRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
-      const stepTrackers = deduplicateRequests(stepClassified);
+        // Safety: skip navigate steps where URL resolution failed
+        if (step.type === 'navigate' && !step.value) {
+          console.error(`    ÜBERSPRUNGEN: URL für "${step.name}" konnte nicht aufgelöst werden.`);
+          continue;
+        }
 
-      // Consent Mode params for this step
-      const stepConsentMode = extractConsentModeParams(
-        stepRequestUrls.filter(r => {
-          const c = classifyRequest(r, siteHost);
-          return c && c.vendor === 'Google';
-        })
-      );
+        if (step.type === 'navigate') {
+          console.log(`    → ${step.value}`);
+          try {
+            await page1.goto(step.value, { waitUntil: 'networkidle', timeout: 20000 });
+          } catch { /* networkidle timeout, continue */ }
+        } else if (step.type === 'click') {
+          try {
+            await page1.locator(step.value).first().click({ timeout: 10000 });
+          } catch (err) {
+            console.error(`    FEHLER: Klick auf "${step.value}" fehlgeschlagen: ${err.message}`);
+          }
+        }
 
-      const stepCookies = await collectCookies(context1);
-      const stepLocalStorage = await collectLocalStorage(page1);
-      const stepCookiesDiff = diffCookies(prevCookies, stepCookies);
-      const stepLocalStorageDiff = diffLocalStorage(prevLocalStorage, stepLocalStorage);
+        const result = await collectEcomStepData(page1, context1, step, prevCookies, prevLocalStorage, prevDataLayer, siteHost);
 
-      console.log(`    dataLayer Diff: ${stepDataLayerDiff.length}, Requests: ${stepClassified.length} 3P, Cookies: +${stepCookiesDiff.length}`);
+        console.log(`    dataLayer Diff: ${result.data.dataLayerDiff.length}, Requests: ${result.stepClassified.length} 3P, Cookies: +${result.data.cookiesDiff.length}`);
 
-      reportData.ecommerce.push({
-        name: step.name,
-        dataLayerDiff: stepDataLayerDiff,
-        trackers: stepTrackers,
-        consentMode: stepConsentMode,
-        cookiesDiff: stepCookiesDiff,
-        localStorageDiff: stepLocalStorageDiff,
-      });
+        reportData.ecommerce.push(result.data);
 
-      // Update baselines for next step
-      prevCookies = stepCookies;
-      prevLocalStorage = stepLocalStorage;
-      prevDataLayer = stepDataLayer;
+        prevCookies = result.stepCookies;
+        prevLocalStorage = result.stepLocalStorage;
+        prevDataLayer = result.stepDataLayer;
+      }
     }
 
     // Product consistency analysis

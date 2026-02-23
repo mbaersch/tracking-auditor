@@ -685,6 +685,315 @@ export async function removeStatusBar(page) {
   });
 }
 
+// ── E-Commerce Step Prompt (non-blocking floating card) ─────────────────────
+
+const ECOM_PROMPT_STYLES = `
+  #__audit-ecomprompt, #__audit-ecomprompt * {
+    box-sizing: border-box !important; margin: 0 !important; padding: 0 !important;
+    line-height: 1.5 !important; text-transform: none !important;
+    font-style: normal !important; text-decoration: none !important;
+    float: none !important; border: none !important; outline: none !important;
+  }
+  #__audit-ecomprompt {
+    position: fixed !important; bottom: 24px !important; left: 50% !important;
+    transform: translateX(-50%) !important; z-index: 2147483647 !important;
+    background: #fff !important; border-radius: 12px !important;
+    padding: 20px 28px !important; max-width: 480px !important; width: 90% !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 14px !important; color: #333 !important;
+    pointer-events: auto !important;
+    box-sizing: border-box !important;
+    cursor: grab !important; user-select: none !important;
+  }
+  #__audit-ecomprompt.--dragging { cursor: grabbing !important; }
+  #__audit-ecomprompt-title {
+    font-size: 15px !important; font-weight: 700 !important; color: #111 !important;
+    margin: 0 0 8px 0 !important; padding: 0 !important; display: block !important;
+  }
+  #__audit-ecomprompt-msg {
+    font-size: 13px !important; color: #555 !important;
+    margin: 0 0 14px 0 !important; padding: 0 !important; display: block !important;
+    line-height: 1.6 !important;
+  }
+  #__audit-ecomprompt-actions {
+    display: flex !important; gap: 10px !important; margin: 0 !important; padding: 0 !important;
+  }
+  #__audit-ecomprompt-next {
+    display: inline-block !important; padding: 10px 20px !important; border: none !important;
+    border-radius: 8px !important; font-size: 13px !important; font-weight: 600 !important;
+    cursor: pointer !important; background: #2563eb !important; color: #fff !important;
+    font-family: inherit !important; transition: opacity 0.15s !important;
+  }
+  #__audit-ecomprompt-next:hover { opacity: 0.85 !important; }
+  #__audit-ecomprompt-done {
+    display: inline-block !important; padding: 10px 20px !important; border: none !important;
+    border-radius: 8px !important; font-size: 13px !important; font-weight: 600 !important;
+    cursor: pointer !important; background: #e5e7eb !important; color: #333 !important;
+    font-family: inherit !important; transition: opacity 0.15s !important;
+  }
+  #__audit-ecomprompt-done:hover { opacity: 0.85 !important; }
+`;
+
+const ECOM_STEP_INSTRUCTIONS = {
+  'Kategorie-Seite': 'Navigiere zu einer Kategorie-/Listing-Seite und klicke dann "Schritt abschließen".',
+  'Produkt-Seite': 'Navigiere zu einer Produktdetailseite (PDP) und klicke dann "Schritt abschließen".',
+  'Add-to-Cart': 'Klicke den "In den Warenkorb"-Button und klicke dann "Schritt abschließen".',
+  'Warenkorb': 'Navigiere zum Warenkorb und klicke dann "Schritt abschließen".',
+  'Checkout': 'Navigiere zum Checkout und klicke dann "Schritt abschließen".',
+};
+
+/**
+ * Show a floating E-Commerce step prompt (non-blocking, page stays navigable).
+ * Re-injects itself after navigation so the prompt survives page.goto() by the user.
+ * page.exposeFunction() survives navigations; only the DOM needs re-injection.
+ *
+ * @param {import('playwright').Page} page
+ * @param {string} stepName – e.g. 'Kategorie-Seite'
+ * @param {number} stepNumber – 1-based
+ * @param {number} totalSteps
+ * @param {{ nextLabel?: string, instruction?: string }} [options]
+ * @returns {Promise<'next'|'done'>}
+ */
+export async function showEcomStepPrompt(page, stepName, stepNumber, totalSteps, options = {}) {
+  const callbackName = nextCallbackName('ecom');
+
+  let resolvePromise;
+  const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+
+  try {
+    await page.exposeFunction(callbackName, (value) => {
+      resolvePromise(value);
+    });
+  } catch { /* unique name should prevent collisions */ }
+
+  const instruction = options.instruction
+    || ECOM_STEP_INSTRUCTIONS[stepName]
+    || 'Führe den Schritt aus und klicke dann "Schritt abschließen".';
+  const nextLabel = options.nextLabel || 'Schritt abschlie\u00DFen';
+
+  const injectArgs = {
+    styles: ECOM_PROMPT_STYLES,
+    title: '\uD83D\uDCE6 Schritt ' + stepNumber + '/' + totalSteps + ': ' + escapeHTML(stepName),
+    instruction: escapeHTML(instruction),
+    nextLabel: escapeHTML(nextLabel),
+    cbName: callbackName,
+  };
+
+  // Injection function – called initially and after every navigation
+  async function injectPrompt() {
+    const { styles, title, instruction, nextLabel, cbName } = injectArgs;
+    await page.evaluate(({ styles, title, instruction, nextLabel, cbName }) => {
+      // Guard: don't double-inject
+      if (document.getElementById('__audit-ecomprompt')) return;
+
+      const style = document.createElement('style');
+      style.id = '__audit-ecomprompt-style';
+      style.textContent = styles;
+      document.head.appendChild(style);
+
+      const card = document.createElement('div');
+      card.id = '__audit-ecomprompt';
+      card.innerHTML =
+        '<div id="__audit-ecomprompt-title">' + title + '</div>' +
+        '<div id="__audit-ecomprompt-msg">' + instruction + '</div>' +
+        '<div id="__audit-ecomprompt-actions">' +
+          '<button id="__audit-ecomprompt-next">' + nextLabel + '</button>' +
+          '<button id="__audit-ecomprompt-done">Audit abschlie\u00DFen</button>' +
+        '</div>';
+      document.body.appendChild(card);
+
+      // Button callbacks
+      document.getElementById('__audit-ecomprompt-next').addEventListener('click', () => {
+        window[cbName]('next');
+      });
+      document.getElementById('__audit-ecomprompt-done').addEventListener('click', () => {
+        window[cbName]('done');
+      });
+
+      // Drag handling
+      let dragging = false, startX, startY, origX, origY;
+      card.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        dragging = true;
+        card.classList.add('--dragging');
+        const rect = card.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        origX = rect.left; origY = rect.top;
+        card.style.setProperty('bottom', 'auto', 'important');
+        card.style.setProperty('left', origX + 'px', 'important');
+        card.style.setProperty('top', origY + 'px', 'important');
+        card.style.setProperty('transform', 'none', 'important');
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        card.style.setProperty('left', (origX + dx) + 'px', 'important');
+        card.style.setProperty('top', (origY + dy) + 'px', 'important');
+      });
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        card.classList.remove('--dragging');
+      });
+    }, { styles, title, instruction, nextLabel, cbName });
+  }
+
+  // Initial injection
+  await injectPrompt();
+
+  // Re-inject after every navigation (DOM is destroyed, exposeFunction survives)
+  const onLoad = async () => {
+    try { await injectPrompt(); } catch { /* page may have been closed */ }
+  };
+  page.on('load', onLoad);
+
+  const result = await resultPromise;
+
+  // Clean up: remove listener and DOM
+  page.off('load', onLoad);
+  try {
+    await page.evaluate(() => {
+      const el = document.getElementById('__audit-ecomprompt');
+      if (el) el.remove();
+      const st = document.getElementById('__audit-ecomprompt-style');
+      if (st) st.remove();
+    });
+  } catch { /* page may have navigated */ }
+
+  return result;
+}
+
+/**
+ * Wait for the user to click anywhere on the page (outside our UI).
+ * Shows a floating indicator with pulsing "Warte auf Klick..." and an abort button.
+ * Re-injects after navigation. Returns 'click' or 'done'.
+ *
+ * Used for interactive Add-to-Cart: after "Bereit", the next page click = ATC.
+ */
+export async function showEcomClickWait(page) {
+  const callbackName = nextCallbackName('ecomclick');
+
+  let resolvePromise;
+  const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
+  let resolved = false;
+
+  try {
+    await page.exposeFunction(callbackName, (value) => {
+      if (resolved) return;
+      resolved = true;
+      resolvePromise(value);
+    });
+  } catch { /* */ }
+
+  const injectArgs = { styles: ECOM_PROMPT_STYLES, cbName: callbackName };
+
+  async function inject() {
+    const { styles, cbName } = injectArgs;
+    await page.evaluate(({ styles, cbName }) => {
+      if (document.getElementById('__audit-ecomprompt')) return;
+
+      const oldStyle = document.getElementById('__audit-ecomprompt-style');
+      if (oldStyle) oldStyle.remove();
+
+      const style = document.createElement('style');
+      style.id = '__audit-ecomprompt-style';
+      style.textContent = styles + `
+        #__audit-ecomprompt-status {
+          font-size: 13px !important; color: #6b7280 !important;
+          margin: 0 0 12px 0 !important; padding: 0 !important; display: block !important;
+          animation: __audit-ecom-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes __audit-ecom-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+      `;
+      document.head.appendChild(style);
+
+      const card = document.createElement('div');
+      card.id = '__audit-ecomprompt';
+      card.innerHTML =
+        '<div id="__audit-ecomprompt-title">\uD83D\uDDB1\uFE0F Klick erforderlich</div>' +
+        '<div id="__audit-ecomprompt-msg">Dein n\u00E4chster Klick auf der Seite wird als Add-to-Cart erfasst.</div>' +
+        '<div id="__audit-ecomprompt-status">Warte auf Klick...</div>' +
+        '<div id="__audit-ecomprompt-actions">' +
+          '<button id="__audit-ecomprompt-done">Audit abschlie\u00DFen</button>' +
+        '</div>';
+      document.body.appendChild(card);
+
+      document.getElementById('__audit-ecomprompt-done').addEventListener('click', () => {
+        window[cbName]('done');
+      });
+
+      // Click listener – any click outside our UI = ATC click
+      document.addEventListener('click', function handler(e) {
+        if (e.target.closest('#__audit-ecomprompt')) return;
+        if (e.target.closest('#__audit-statusbar')) return;
+        document.removeEventListener('click', handler, true);
+
+        const status = document.getElementById('__audit-ecomprompt-status');
+        if (status) {
+          status.textContent = 'Klick erkannt \u2013 sammle Daten...';
+          status.style.setProperty('color', '#16a34a', 'important');
+          status.style.animation = 'none';
+        }
+
+        // Call back to Node BEFORE navigation can destroy the page
+        window[cbName]('click');
+      }, { capture: true });
+
+      // Drag handling
+      let dragging = false, startX, startY, origX, origY;
+      card.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        dragging = true;
+        card.classList.add('--dragging');
+        const rect = card.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        origX = rect.left; origY = rect.top;
+        card.style.setProperty('bottom', 'auto', 'important');
+        card.style.setProperty('left', origX + 'px', 'important');
+        card.style.setProperty('top', origY + 'px', 'important');
+        card.style.setProperty('transform', 'none', 'important');
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        card.style.setProperty('left', (origX + dx) + 'px', 'important');
+        card.style.setProperty('top', (origY + dy) + 'px', 'important');
+      });
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        card.classList.remove('--dragging');
+      });
+    }, { styles, cbName });
+  }
+
+  await inject();
+
+  // Re-inject after navigation (click listener needs to be re-installed too)
+  const onLoad = async () => {
+    if (resolved) return;
+    try { await inject(); } catch { /* page may close */ }
+  };
+  page.on('load', onLoad);
+
+  const result = await resultPromise;
+
+  page.off('load', onLoad);
+  try {
+    await page.evaluate(() => {
+      const el = document.getElementById('__audit-ecomprompt');
+      if (el) el.remove();
+      const st = document.getElementById('__audit-ecomprompt-style');
+      if (st) st.remove();
+    });
+  } catch { /* page may have navigated */ }
+
+  return result;
+}
+
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 function escapeHTML(str) {

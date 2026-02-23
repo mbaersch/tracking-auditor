@@ -56,7 +56,7 @@ Die Interaktion findet komplett im Browser-Overlay statt. Mit `--terminal` kann 
 node audit.js --url https://example.com --project mein-projekt
 ```
 
-**Mit E-Commerce-Pfad:**
+**E-Commerce automatisch (URLs/Selektoren vorab bekannt):**
 
 ```bash
 node audit.js \
@@ -69,6 +69,14 @@ node audit.js \
   --checkout /kasse
 ```
 
+**E-Commerce interaktiv (ohne Vorbereitung):**
+
+```bash
+node audit.js --url https://example.com --project mein-projekt --ecom
+```
+
+Im interaktiven Modus navigierst du selbst durch den Shop. Eine schwebende Card fuehrt durch 5 Schritte (Kategorie, PDP, Add-to-Cart, Warenkorb, Checkout). Jeder Schritt ist per "Audit abschliessen" ueberspringbar -- es wird ausgewertet was erhoben wurde.
+
 ### Parameter
 
 | Parameter | Pflicht | Beschreibung |
@@ -77,7 +85,8 @@ node audit.js \
 | `--project` | ja | Projektname, bestimmt Report-Pfad |
 | `--cmp` | nein | CMP-Name, ueberspringt Auto-Erkennung |
 | `--disable-sw` | nein | Service Worker deregistrieren |
-| `--category` | nein | Kategorie-URL (aktiviert E-Commerce-Pfad) |
+| `--ecom` | nein | Interaktiver E-Commerce-Modus (manuell navigieren) |
+| `--category` | nein | Kategorie-URL (aktiviert automatischen E-Commerce-Pfad) |
 | `--product` | nein | Produkt-URL |
 | `--add-to-cart` | nein | CSS-Selektor fuer Add-to-Cart-Button |
 | `--view-cart` | nein | Warenkorb-URL |
@@ -87,12 +96,12 @@ node audit.js \
 
 Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
-1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` (mit Fortschrittsanzeige pro CMP). Ein Skip-Button erlaubt den direkten Wechsel in den manuellen Modus.
-2. **Pre-Consent** -- dataLayer, Third-Party-Requests, Consent Mode (gcs/gcd), Cookies, localStorage
+1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` nach Prioritaet (haeufigste CMPs zuerst). Waehrend der Auto-Erkennung kann per Dropdown eine CMP aus der Liste gewaehlt oder in den manuellen Modus gewechselt werden.
+2. **Pre-Consent** -- dataLayer, Third-Party-Requests, Consent Mode (gcs/gcd), Cookies, localStorage, SST-Erkennung
 3. **Post-Accept** -- CMP Accept klicken, Diffs gegenueber Pre-Consent erfassen
-4. **E-Commerce** (optional) -- Pro Schritt: Navigation/Klick + dataLayer + Requests + Consent Mode + Cookie/localStorage-Diff
+4. **E-Commerce** (optional) -- Automatisch (`--category`) oder interaktiv (`--ecom`). Pro Schritt: dataLayer + Requests + Consent Mode + Cookie/localStorage-Diff
 5. **Post-Reject** -- Komplett neuer Browser, Reject klicken, Diffs erfassen
-6. **Report** -- Markdown-Ausgabe nach `reports/<project>/audit-<YYYY-MM-DD>.md`
+6. **Report** -- Markdown-Ausgabe nach `reports/<project>/audit-<YYYY-MM-DD-HHMM>.md`
 
 ### Manueller Modus
 
@@ -115,6 +124,7 @@ Der generierte Report enthaelt:
 - **Consent Mode Verification** -- Prueft ob nach Accept ein gcs-Update erfolgt (G100 -> G1xx). Zeigt Advanced vs. Basic Consent Mode Diagnose mit Erklaerung
 - **Pre-Consent** -- Tracking vor jeglicher Consent-Entscheidung (Verstoesse sofort erkennbar)
 - **Post-Accept / Post-Reject** -- Diffs bei Cookies, localStorage, Requests, dataLayer
+- **Server-Side Tagging** -- Erkennung von Custom GTM/gtag-Loadern und First-Party Collect Endpoints
 - **E-Commerce-Pfad** -- dataLayer-Events und Tracker pro Schritt (Kategorie bis Checkout), inkl. Consent Mode Status pro Step
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
 
@@ -124,8 +134,28 @@ Alle interaktiven Elemente (Dialoge, Click-Prompts, Selektor-Eingabe) werden als
 
 - **Dialoge** sind per Drag verschiebbar, falls sie CMP-Banner verdecken
 - **Click-Prompts** erscheinen als schwebende Card am unteren Rand ohne die Seite zu verdecken
-- **Status Bar** zeigt Phase, Fortschritt und optionalen Skip-Button
+- **E-Commerce-Prompts** fuehren durch die interaktiven Schritte; sie ueberleben Seitennavigation (automatische Re-Injection)
+- **Status Bar** zeigt Phase, Fortschritt und CMP-Auswahl-Dropdown waehrend der Erkennung
 - CSS ist gegen globale Resets gehaertet (funktioniert auf jeder Seite)
+
+## Interaktiver E-Commerce-Modus
+
+Mit `--ecom` laeuft der E-Commerce-Pfad ohne Vorbereitung. Du navigierst selbst, das Tool sammelt die Daten:
+
+| Schritt | Typ | Ablauf |
+|---------|-----|--------|
+| Kategorie-Seite | Navigate | Zur Kategorieseite surfen, "Schritt abschliessen" klicken |
+| Produkt-Seite | Navigate | Zur PDP surfen, "Schritt abschliessen" klicken |
+| Add-to-Cart | Click | "Bereit" klicken, dann den Warenkorb-Button auf der Seite -- der Klick wird automatisch erkannt |
+| Warenkorb | Navigate | Zum Warenkorb surfen, "Schritt abschliessen" klicken |
+| Checkout | Navigate | Zum Checkout surfen, "Schritt abschliessen" klicken |
+
+**Add-to-Cart Besonderheiten:**
+- Nach "Bereit" startet der Request-Collector und ein dataLayer-Monkey-Patch
+- Der naechste Klick auf der Seite wird automatisch als Add-to-Cart erkannt
+- Falls der Klick eine Navigation ausloest (z.B. Redirect zum Warenkorb), werden dataLayer-Events von _beiden_ Seiten erfasst: die Events vor der Navigation (per Monkey-Patch + `exposeFunction`) und die Events auf der neuen Seite
+
+Jeder Schritt ist per "Audit abschliessen" ueberspringbar. Der Report enthaelt nur die Schritte, die tatsaechlich durchlaufen wurden.
 
 ## Tracking-Domain-Klassifizierung
 
