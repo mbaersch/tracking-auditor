@@ -21,3 +21,13 @@
 !.claude/skills/tagging-audit/
 .claude/skills/tagging-audit/*
 !.claude/skills/tagging-audit/skill.md
+
+# Helper-Scripts
+!helpers/
+helpers/*
+!helpers/generate-docs-screenshots.js
+
+# Dokumentations-Bilder
+!images/
+images/*
+!images/*.png

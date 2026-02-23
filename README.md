@@ -96,6 +96,8 @@ Im interaktiven Modus navigierst du selbst durch den Shop. Eine schwebende Card 
 
 Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
+![CMP-Erkennung mit StatusBar und Dropdown](images/cmp-detection-statusbar.png)
+
 1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` nach Prioritaet (haeufigste CMPs zuerst). Waehrend der Auto-Erkennung kann per Dropdown eine CMP aus der Liste gewaehlt oder in den manuellen Modus gewechselt werden.
 2. **Pre-Consent** -- dataLayer, Third-Party-Requests, Consent Mode (gcs/gcd), Cookies, localStorage, SST-Erkennung
 3. **Post-Accept** -- CMP Accept klicken, Diffs gegenueber Pre-Consent erfassen
@@ -107,8 +109,14 @@ Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
 Wenn die CMP-Auto-Erkennung fehlschlaegt oder per Skip-Button uebersprungen wird, aktiviert sich der manuelle Modus:
 
+![Click-Prompt fuer Accept-Button](images/manual-mode-click.png)
+
 1. Browser-Overlay fordert zum Klick auf Accept-Button auf
 2. Erkannter Selektor wird zur Bestaetigung angezeigt (oder manuelle Eingabe)
+
+![Erkannter Selektor zur Bestaetigung](images/manual-mode-selector.png)
+
+![Manuelle Selektor-Eingabe](images/manual-mode-input.png)
 3. Seite wird neu geladen fuer den Reject-Button
 4. Selektoren werden gegen die Library abgeglichen -- bei Match kann das bestehende CMP verwendet werden
 5. Ansonsten: neues CMP benennen und in `cmp-library.json` speichern
@@ -142,6 +150,8 @@ Alle interaktiven Elemente (Dialoge, Click-Prompts, Selektor-Eingabe) werden als
 
 Mit `--ecom` laeuft der E-Commerce-Pfad ohne Vorbereitung. Du navigierst selbst, das Tool sammelt die Daten:
 
+![E-Commerce Schritt: Kategorie-Seite](images/ecom-step-navigate.png)
+
 | Schritt | Typ | Ablauf |
 |---------|-----|--------|
 | Kategorie-Seite | Navigate | Zur Kategorieseite surfen, "Schritt abschliessen" klicken |
@@ -149,6 +159,10 @@ Mit `--ecom` laeuft der E-Commerce-Pfad ohne Vorbereitung. Du navigierst selbst,
 | Add-to-Cart | Click | "Bereit" klicken, dann den Warenkorb-Button auf der Seite -- der Klick wird automatisch erkannt |
 | Warenkorb | Navigate | Zum Warenkorb surfen, "Schritt abschliessen" klicken |
 | Checkout | Navigate | Zum Checkout surfen, "Schritt abschliessen" klicken |
+
+![E-Commerce Schritt: Add-to-Cart Bereit](images/ecom-step-atc-ready.png)
+
+![E-Commerce Schritt: Klick-Erkennung](images/ecom-step-atc-waiting.png)
 
 **Add-to-Cart Besonderheiten:**
 - Nach "Bereit" startet der Request-Collector und ein dataLayer-Monkey-Patch
