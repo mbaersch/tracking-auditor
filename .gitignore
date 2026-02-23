@@ -10,7 +10,7 @@
 !cmp-library.json
 !package.json
 !package-lock.json
-!CLAUDE.md
+!README.md
 
 # Skill: Verzeichnisse stufenweise freigeben
 !.claude/
