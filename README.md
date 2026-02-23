@@ -39,9 +39,14 @@ node learn.js --url https://example.com --cmp "Borlabs Cookie" --two-step-reject
 ```
 
 **Ablauf:**
+
+![learn.js: Click-Prompt fuer Accept-Button](images/learn-click-prompt.png)
+
 1. Browser oeffnet die URL
 2. Ein Overlay am unteren Rand zeigt Anweisungen -- du klickst den Accept-Button auf der Seite
 3. Das Script erkennt den Selektor automatisch und zeigt ihn zur Bestaetigung an
+
+![learn.js: Erkannter Selektor zur Bestaetigung](images/learn-selector-result.png)
 4. Bei Shadow DOM CMPs: automatischer Fallback auf manuelle Selektor-Eingabe mit Live-Validierung
 5. Browser-Neustart, dann Reject-Button
 6. Beide Selektoren werden in `cmp-library.json` gespeichert
@@ -174,6 +179,30 @@ Jeder Schritt ist per "Audit abschliessen" ueberspringbar. Der Report enthaelt n
 ## Tracking-Domain-Klassifizierung
 
 Bekannte Tracker werden automatisch zugeordnet: Google, Meta, TikTok, Pinterest, LinkedIn, Microsoft, Criteo, Taboola, Outbrain, Hotjar. Alles andere wird als "Sonstige Third-Party" gefuehrt.
+
+## Claude Code Skills
+
+Dieses Projekt bringt zwei [Claude Code Skills](https://docs.anthropic.com/en/docs/claude-code/skills) mit, die das Toolkit per natuerlicher Sprache nutzbar machen:
+
+### tagging-audit
+
+Startet einen Tracking-Audit. Normalfall: nur die URL angeben, alles andere laeuft automatisch.
+
+```
+"Mach einen Tagging-Audit von gandke.de"
+"Audit example.com mit E-Commerce"
+```
+
+### cmp-learn
+
+Lernt eine neue CMP ein (Accept/Reject-Selektoren) und speichert sie in der Library.
+
+```
+"Lerne die CMP auf example.com ein"
+"CMP 'MeineCMP' zu example.com hinzufuegen"
+```
+
+Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch erkannt.
 
 ## Hinweise
 

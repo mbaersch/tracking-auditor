@@ -109,7 +109,7 @@ const MOCK_SELECTOR_RESULT = {
 };
 
 let screenshotIndex = 0;
-const TOTAL_SCREENSHOTS = 8;
+const TOTAL_SCREENSHOTS = 10;
 
 function logStep(label, site) {
   screenshotIndex++;
@@ -264,6 +264,53 @@ async function captureEcomPrompts() {
   });
 }
 
+// ── 9 + 10: Learn mode screenshots (gandke.de) ─────────────────────────────
+
+async function captureLearnMode() {
+  // Screenshot 9: Learn click prompt (Accept)
+  await withBrowser(async (page) => {
+    logStep('Learn Click-Prompt', 'gandke.de');
+    try {
+      await navigateTo(page, 'https://www.gandke.de');
+    } catch (err) {
+      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
+      screenshotIndex++; // skip #10 as well
+      return;
+    }
+
+    const clickPromise = showClickPrompt(page, 'Accept');
+    clickPromise.catch(() => {});
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'learn-click-prompt.png');
+  });
+
+  // Screenshot 10: Learn selector result
+  await withBrowser(async (page) => {
+    logStep('Learn Selektor-Ergebnis', 'gandke.de');
+    try {
+      await navigateTo(page, 'https://www.gandke.de');
+    } catch (err) {
+      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
+      return;
+    }
+
+    const mockCookiebot = {
+      selector: '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+      id: 'CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+      tag: 'button',
+      text: 'Alle Cookies akzeptieren',
+      classes: 'CybotCookiebotDialogBodyButton',
+      allDataAttrs: [],
+    };
+    const resultPromise = showSelectorResult(page, mockCookiebot, 'Accept-Selektor');
+    resultPromise.catch(() => {});
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'learn-selector-result.png');
+  });
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -271,6 +318,7 @@ async function main() {
   await ensureImagesDir();
 
   await captureCMPStatusBar();
+  await captureLearnMode();
   await captureManualMode();
   await captureEcomPrompts();
 
