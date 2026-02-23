@@ -29,7 +29,7 @@ import { fileURLToPath } from 'url';
 import {
   showMessage, showClickPrompt, showSelectorResult,
   showTextInput, showConfirm, showCMPMatch, showCMPNameInput,
-  showStatusBar, updateStatusBar, enableSkipButton, removeStatusBar,
+  showStatusBar, updateStatusBar, enableCMPSelect, removeStatusBar,
 } from './browser-ui.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -827,22 +827,41 @@ async function disambiguateCMP(page, matches) {
 }
 
 async function detectCMP(page, library) {
-  // Signal object for skip button – shared across all passes
+  // Signal object for CMP select – shared across all passes
   const signal = { skipped: false };
 
-  // Enable skip button and set up race
-  const skipPromise = enableSkipButton(page).then(() => {
+  // Sort library by priority (lower = first, no priority = Infinity)
+  const sortedLibrary = Object.fromEntries(
+    Object.entries(library).sort(([, a], [, b]) =>
+      (a.priority ?? Infinity) - (b.priority ?? Infinity)
+    )
+  );
+
+  // Build alphabetically sorted CMP list for the dropdown
+  const cmpEntries = Object.entries(library)
+    .map(([key, entry]) => ({ key, name: entry.name || key }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Enable CMP select UI and set up race
+  let userChoice = null;
+  const selectPromise = enableCMPSelect(page, cmpEntries).then((result) => {
     signal.skipped = true;
-    return '__SKIPPED__';
+    userChoice = result;
   });
 
   const onProgress = (current, total, name) => {
     updateStatusBar(page, 'Phase 0', `CMP ${current}/${total}: ${name}`, 'Auto-Erkennung...').catch(() => {});
   };
 
-  // Erster Durchlauf
-  let matches = await tryCMPSelectors(page, library, { onProgress, signal });
-  if (signal.skipped) return null;
+  // Erster Durchlauf (nach Prioritaet sortiert)
+  let matches = await tryCMPSelectors(page, sortedLibrary, { onProgress, signal });
+  if (signal.skipped) {
+    if (userChoice.type === 'select') {
+      console.log(`  CMP manuell gewählt: ${library[userChoice.key].name}`);
+      return { key: userChoice.key, ...library[userChoice.key] };
+    }
+    return null; // manual mode
+  }
   let result = await disambiguateCMP(page, matches);
   if (result) return result;
 
@@ -851,10 +870,22 @@ async function detectCMP(page, library) {
   await updateStatusBar(page, 'Phase 0', 'Scroll-Retry...', 'Kein Banner beim 1. Durchlauf');
   await page.evaluate(() => window.scrollBy(0, 400));
   await page.waitForTimeout(2000);
-  if (signal.skipped) return null;
+  if (signal.skipped) {
+    if (userChoice.type === 'select') {
+      console.log(`  CMP manuell gewählt: ${library[userChoice.key].name}`);
+      return { key: userChoice.key, ...library[userChoice.key] };
+    }
+    return null; // manual mode
+  }
 
-  matches = await tryCMPSelectors(page, library, { onProgress, signal });
-  if (signal.skipped) return null;
+  matches = await tryCMPSelectors(page, sortedLibrary, { onProgress, signal });
+  if (signal.skipped) {
+    if (userChoice.type === 'select') {
+      console.log(`  CMP manuell gewählt: ${library[userChoice.key].name}`);
+      return { key: userChoice.key, ...library[userChoice.key] };
+    }
+    return null; // manual mode
+  }
   result = await disambiguateCMP(page, matches);
   if (result) console.log('  CMP nach Scroll erkannt!');
   return result;

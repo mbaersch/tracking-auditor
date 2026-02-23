@@ -543,14 +543,27 @@ const STATUS_BAR_STYLES = `
     font-size: 11px !important; color: #fca5a5 !important; white-space: nowrap !important;
     display: inline !important;
   }
-  #__audit-statusbar-skip {
+  #__audit-statusbar-actions {
+    display: none !important; margin-left: auto !important; align-items: center !important;
+    gap: 6px !important; flex-shrink: 0 !important;
+  }
+  #__audit-statusbar-actions.--visible { display: flex !important; }
+  #__audit-cmp-select {
+    background: rgba(255,255,255,0.15) !important; color: #fecaca !important;
+    border: 1px solid rgba(255,255,255,0.3) !important; border-radius: 4px !important;
+    padding: 3px 6px !important; font-size: 11px !important; cursor: pointer !important;
+    font-family: inherit !important; max-width: 180px !important;
+    appearance: auto !important; -webkit-appearance: menulist !important;
+  }
+  #__audit-cmp-select option { background: #1c1c1c !important; color: #fecaca !important; }
+  #__audit-cmp-use-btn, #__audit-cmp-manual-btn {
     background: rgba(255,255,255,0.15) !important; color: #fecaca !important;
     border: 1px solid rgba(255,255,255,0.3) !important; border-radius: 4px !important;
     padding: 3px 10px !important; font-size: 11px !important; cursor: pointer !important;
     white-space: nowrap !important; font-family: inherit !important;
-    display: none !important; margin-left: auto !important;
   }
-  #__audit-statusbar-skip:hover { background: rgba(255,255,255,0.25) !important; }
+  #__audit-cmp-use-btn:hover, #__audit-cmp-manual-btn:hover { background: rgba(255,255,255,0.25) !important; }
+  #__audit-cmp-use-btn:disabled { opacity: 0.4 !important; cursor: not-allowed !important; }
 `;
 
 export async function showStatusBar(page, phase, detail = '') {
@@ -572,7 +585,7 @@ export async function showStatusBar(page, phase, detail = '') {
       '<div id="__audit-statusbar-phase">' + phase + '</div>' +
       '<div id="__audit-statusbar-detail">' + detail + '</div>' +
       '<div id="__audit-statusbar-stats"></div>' +
-      '<button id="__audit-statusbar-skip">Skip \u2192 Manuell</button>';
+      '<div id="__audit-statusbar-actions"></div>';
     document.body.appendChild(bar);
   }, { styles: STATUS_BAR_STYLES, phase, detail });
 }
@@ -591,29 +604,74 @@ export async function updateStatusBar(page, phase, detail = '', stats = '') {
 }
 
 /**
- * Enable the Skip button on the status bar.
- * Returns a promise that resolves to true if the user clicks Skip, or null if not clicked.
- * Caller should race this against the detection logic.
+ * Show a CMP dropdown + "Verwenden" + "Manueller Modus" in the status bar.
+ * @param {import('playwright').Page} page
+ * @param {{ key: string, name: string }[]} cmpEntries – alphabetically sorted
+ * @returns {Promise<{ type: 'select', key: string } | { type: 'manual' }>}
  */
-export async function enableSkipButton(page) {
-  const callbackName = nextCallbackName('skip');
+export async function enableCMPSelect(page, cmpEntries) {
+  const callbackName = nextCallbackName('cmpsel');
 
   let resolvePromise;
   const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
 
   try {
-    await page.exposeFunction(callbackName, () => {
-      resolvePromise(true);
+    await page.exposeFunction(callbackName, (json) => {
+      resolvePromise(JSON.parse(json));
     });
   } catch { /* */ }
 
-  await page.evaluate((cbName) => {
-    const btn = document.getElementById('__audit-statusbar-skip');
-    if (btn) {
-      btn.style.setProperty('display', 'inline-block', 'important');
-      btn.onclick = () => window[cbName]();
+  await page.evaluate(({ cbName, entries }) => {
+    const container = document.getElementById('__audit-statusbar-actions');
+    if (!container) return;
+
+    // Build select
+    const select = document.createElement('select');
+    select.id = '__audit-cmp-select';
+    const placeholder = document.createElement('option');
+    placeholder.textContent = '\u2014 CMP w\u00e4hlen \u2014';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    placeholder.value = '';
+    select.appendChild(placeholder);
+    for (const e of entries) {
+      const opt = document.createElement('option');
+      opt.value = e.key;
+      opt.textContent = e.name;
+      select.appendChild(opt);
     }
-  }, callbackName);
+
+    // Build "Verwenden" button
+    const useBtn = document.createElement('button');
+    useBtn.id = '__audit-cmp-use-btn';
+    useBtn.textContent = 'Verwenden';
+    useBtn.disabled = true;
+
+    // Build "Manueller Modus" button
+    const manualBtn = document.createElement('button');
+    manualBtn.id = '__audit-cmp-manual-btn';
+    manualBtn.textContent = 'Manueller Modus';
+
+    // Enable "Verwenden" when a CMP is selected
+    select.addEventListener('change', () => {
+      useBtn.disabled = !select.value;
+    });
+
+    // Callbacks
+    useBtn.addEventListener('click', () => {
+      if (select.value) {
+        window[cbName](JSON.stringify({ type: 'select', key: select.value }));
+      }
+    });
+    manualBtn.addEventListener('click', () => {
+      window[cbName](JSON.stringify({ type: 'manual' }));
+    });
+
+    container.appendChild(select);
+    container.appendChild(useBtn);
+    container.appendChild(manualBtn);
+    container.classList.add('--visible');
+  }, { cbName: callbackName, entries: cmpEntries });
 
   return resultPromise;
 }

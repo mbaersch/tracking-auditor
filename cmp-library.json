@@ -7,6 +7,7 @@
       "#usercentrics-root"
     ],
     "shadowDom": true,
+    "priority": 1,
     "learnedAt": "2026-02-23T00:02:20.990Z"
   },
   "usercentrics-v2": {
@@ -22,6 +23,7 @@
       "#usercentrics-root"
     ],
     "shadowDom": true,
+    "priority": 1,
     "learnedAt": "2026-02-23T01:15:00.000Z"
   },
   "onetrust/cookiepro": {
@@ -44,6 +46,7 @@
       "#CookiebotWidget"
     ],
     "shadowDom": false,
+    "priority": 1,
     "learnedAt": "2026-02-23T00:07:33.074Z"
   },
   "ccm19": {
@@ -55,6 +58,7 @@
       "[id^=\"ccm-widget\"]"
     ],
     "shadowDom": true,
+    "priority": 1,
     "learnedAt": "2026-02-23T08:07:37.811Z"
   },
   "consentmanager.net": {
@@ -66,6 +70,7 @@
       "#cmpbox2"
     ],
     "shadowDom": true,
+    "priority": 1,
     "learnedAt": "2026-02-23T09:00:51.092Z"
   },
   "none": {
@@ -85,6 +90,7 @@
       "[class*=\"brlbs-\"]"
     ],
     "shadowDom": true,
+    "priority": 1,
     "learnedAt": "2026-02-23T11:45:00.000Z"
   },
   "cookie-information": {
@@ -96,6 +102,7 @@
       "#coiPage-1"
     ],
     "shadowDom": false,
+    "priority": 1,
     "learnedAt": "2026-02-23T12:15:00.000Z"
   },
   "cookieyes": {
