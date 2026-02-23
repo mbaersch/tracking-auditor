@@ -1,79 +1,103 @@
 ---
 name: tagging-audit
-description: Use when user wants to audit tagging, tracking, consent, or dataLayer on a website. Triggers on keywords like audit, tagging check, consent check, tracking verification, CMP test, dataLayer inspection.
+description: Use when user wants to audit tagging, tracking, consent, or dataLayer on a website. Triggers on keywords like audit, tagging check, consent check, tracking verification, CMP test, dataLayer inspection. NOT for learning/adding CMPs -- use cmp-learn skill for that.
 ---
 
 # Tagging Audit
 
-Run automated tagging audits on websites using Playwright. Collects dataLayer, network requests, cookies, and localStorage across consent states and e-commerce paths.
+Automatisierte Analyse von Tracking-Setups auf Websites. Erfasst dataLayer, Netzwerk-Requests, Cookies und localStorage in verschiedenen Consent-Zustaenden.
 
 ## Toolkit Location
 
-Project root directory (where this skill lives).
+`c:\Users\mbaer\Documents\Dev\tracking-auditor\`
 
 All commands run from this directory.
 
-## Workflow
+## Default-Workflow (bevorzugt)
 
-### 1. Collect Parameters
+Der Normalfall ist maximal einfach. Keine CMP-Auswahl, keine Vorbereitung.
 
-Ask for (use AskUserQuestion):
+### 1. URL erfragen
 
-**Required:**
-- URL (start page)
-- Project name: Derive automatically from the URL as `subdomain_domain_tld` (e.g. `www_gandke_de`, `visit_freiburg_de`, `shop_example_co_uk`). Do not ask the user for this – just derive it. If the URL has no subdomain, use `domain_tld` (e.g. `gandke_de`).
+Nur die URL ist noetig. Alles andere ergibt sich:
 
-**Optional - ask if e-commerce site:**
-- Category page URL
-- Product page URL
-- Add-to-cart CSS selector
-- View cart URL
-- Checkout URL
+- **Project name:** Automatisch aus URL ableiten als `subdomain_domain_tld` (z.B. `www_gandke_de`, `shop_example_co_uk`). Ohne Subdomain: `domain_tld`. Nicht fragen -- einfach ableiten.
+- **CMP:** Wird automatisch erkannt. Nicht fragen, nicht angeben.
 
-### 2. Check CMP Library
+### 2. E-Commerce?
 
-Read `cmp-library.json` from the toolkit directory. Show user which CMPs are known.
+Wenn erkennbar ein Shop (oder User sagt es): Frage ob E-Commerce-Pfad gewuenscht ist.
 
-If the site's CMP is unknown or uncertain, run auto-detection first (audit.js does this automatically). If detection fails, run learn.js first:
+- **Ja** -> `--ecom` (interaktiv, der User navigiert selbst durch den Shop)
+- **Nein** -> nur Consent-Check
 
-```bash
-node learn.js --url <url> --cmp "<CMP Name>"
-```
+Im Zweifelsfall: einfach ohne `--ecom` starten. E-Commerce kann beim naechsten Lauf ergaenzt werden.
 
-Then restart the audit.
-
-### 3. Run Audit
+### 3. Audit starten
 
 ```bash
-node audit.js --url <url> --project <name> [options]
+# Consent-only (Normalfall)
+node audit.js --url https://example.com --project example_com
+
+# Mit interaktivem E-Commerce
+node audit.js --url https://example.com --project example_com --ecom
 ```
 
-**Options:**
-- `--disable-sw` - deregister service workers (use on second run if SW warning in report)
-- `--category <url>` - activates e-commerce path
-- `--product <url>`
-- `--add-to-cart "<selector>"`
-- `--view-cart <url>`
-- `--checkout <url>`
+Das ist alles. Der Browser oeffnet sich, die CMP wird automatisch erkannt (Dropdown + manueller Modus als Fallback), der Audit laeuft durch.
 
-**WICHTIG:** Niemals `--cmp` verwenden. Immer die Auto-Erkennung nutzen.
+### 4. Report auswerten
 
-### 4. Present Results
+Report liegt unter `reports/<project>/audit-<YYYY-MM-DD-HHMM>.md`. Lies ihn und fasse die wichtigsten Findings zusammen:
 
-Read the report from `reports/<project>/audit-<date>.md`.
+- **Pre-Consent Tracking** -- Tracker vor Consent-Entscheidung? (Verstoss)
+- **Tracking nach Reject** -- Bekannte Tracker trotz Reject? (Verstoss)
+- **Consent Mode** -- gcs/gcd Parameter vorhanden und korrekt?
+- **Cookie-Inventar** -- Anzahl Cookies pre vs. post Consent
+- **E-Commerce Events** -- dataLayer-Events vorhanden? Produktdaten konsistent?
 
-Summarize key findings, especially:
-- **Pre-consent tracking** - any trackers firing before consent? (violation)
-- **Tracking after reject** - any known trackers despite reject? (violation)
-- **Consent Mode** - are gcs/gcd parameters present and correct?
-- **Cookie inventory** - how many cookies pre vs post consent?
-- **E-commerce events** - are expected dataLayer events firing?
+## Wenn es Probleme gibt
 
-## Quick Reference
+Folgende Parameter helfen bei Sonderfaellen. Sie sind NICHT fuer den Normalfall gedacht.
 
-| Scenario | Command |
-|----------|---------|
-| Consent-only audit | `node audit.js --url <url> --project <name>` |
-| With e-commerce | Add `--category`, `--product`, `--add-to-cart` |
-| Service worker issue | Add `--disable-sw` on second run |
-| Unknown CMP | Run `node learn.js --url <url> --cmp "<Name>"` first |
+### CMP wird nicht erkannt
+
+Die Auto-Erkennung deckt ~40 CMPs ab und bietet im Browser ein Dropdown zur manuellen Auswahl sowie einen Skip-Button fuer den manuellen Modus (Klick-basierte Selektor-Erkennung). Falls das alles nicht reicht:
+
+1. CMP zuerst einlernen mit dem **cmp-learn** Skill
+2. Dann Audit erneut starten (ohne `--cmp` -- die Auto-Erkennung findet die neu gelernte CMP)
+
+### Service Worker blockiert Requests
+
+Wenn der Report eine SW-Warnung enthaelt: zweiten Lauf mit `--disable-sw`.
+
+```bash
+node audit.js --url https://example.com --project example_com --disable-sw
+```
+
+### E-Commerce automatisch (URLs bekannt)
+
+Wenn alle E-Commerce-URLs und der ATC-Selektor vorab bekannt sind, kann statt `--ecom` auch der automatische Modus genutzt werden:
+
+```bash
+node audit.js --url https://example.com --project example_com \
+  --category /kategorie/schuhe \
+  --product /produkt/sneaker-xyz \
+  --add-to-cart ".add-to-cart-btn" \
+  --view-cart /warenkorb \
+  --checkout /kasse
+```
+
+### Alle Parameter (Referenz)
+
+| Parameter | Beschreibung |
+|-----------|-------------|
+| `--url` | Startseite URL (Pflicht) |
+| `--project` | Projektname fuer Report-Pfad (Pflicht) |
+| `--ecom` | Interaktiver E-Commerce-Modus |
+| `--disable-sw` | Service Worker deregistrieren |
+| `--category` | Kategorie-URL (automatischer E-Commerce) |
+| `--product` | Produkt-URL |
+| `--add-to-cart` | CSS-Selektor fuer ATC-Button |
+| `--view-cart` | Warenkorb-URL |
+| `--checkout` | Checkout-URL |
+| `--cmp` | CMP-Name, ueberspringt Auto-Erkennung (nur Notfall) |

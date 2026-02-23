@@ -21,6 +21,9 @@
 !.claude/skills/tagging-audit/
 .claude/skills/tagging-audit/*
 !.claude/skills/tagging-audit/skill.md
+!.claude/skills/cmp-learn/
+.claude/skills/cmp-learn/*
+!.claude/skills/cmp-learn/skill.md
 
 # Helper-Scripts
 !helpers/
