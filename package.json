@@ -1,0 +1,13 @@
+{
+  "name": "tagging-audit",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Tag audit toolkit for consent and ecommerce tracking verification",
+  "scripts": {
+    "learn": "node learn.js",
+    "audit": "node audit.js"
+  },
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

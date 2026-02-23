@@ -1,0 +1,22 @@
+# Whitelist-Ansatz: Alles ignorieren, nur explizit freigegebene Dateien tracken
+
+# Alles ignorieren
+*
+
+# Projekt-Dateien
+!.gitignore
+!audit.js
+!learn.js
+!cmp-library.json
+!package.json
+!package-lock.json
+!CLAUDE.md
+
+# Skill: Verzeichnisse stufenweise freigeben
+!.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/tagging-audit/
+.claude/skills/tagging-audit/*
+!.claude/skills/tagging-audit/skill.md
