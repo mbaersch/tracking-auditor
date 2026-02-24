@@ -91,6 +91,7 @@ Im interaktiven Modus navigierst du selbst durch den Shop. Eine schwebende Card 
 | `--cmp` | nein | CMP-Name, ueberspringt Auto-Erkennung |
 | `--disable-sw` | nein | Service Worker deregistrieren |
 | `--ecom` | nein | Interaktiver E-Commerce-Modus (manuell navigieren) |
+| `--no-payload-analysis` | nein | Deep Analysis deaktivieren (CSP-Violations, Payload-Analyse, Stape-Decode) |
 | `--category` | nein | Kategorie-URL (aktiviert automatischen E-Commerce-Pfad) |
 | `--product` | nein | Produkt-URL |
 | `--add-to-cart` | nein | CSS-Selektor fuer Add-to-Cart-Button |
@@ -105,6 +106,7 @@ Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
 1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` nach Prioritaet (haeufigste CMPs zuerst). Waehrend der Auto-Erkennung kann per Dropdown eine CMP aus der Liste gewaehlt oder in den manuellen Modus gewechselt werden.
 2. **Pre-Consent** -- dataLayer, Third-Party-Requests, Consent Mode (gcs/gcd), Cookies, localStorage, SST-Erkennung
+2b. **Deep Analysis** (nach jeder Phase, sofern nicht `--no-payload-analysis`) -- CSP-Violations sammeln (blockierte Tracking-Requests), Stape Custom Loader Transport dekodieren (Base64-codierte Google-URLs), Enhanced Conversions / Dynamic Remarketing / Meta CAPI aus Request-Payloads erkennen
 3. **Post-Accept** -- CMP Accept klicken, Diffs gegenueber Pre-Consent erfassen
 4. **E-Commerce** (optional) -- Automatisch (`--category`) oder interaktiv (`--ecom`). Pro Schritt: dataLayer + Requests + Consent Mode + Cookie/localStorage-Diff
 5. **Post-Reject** -- Komplett neuer Browser, Reject klicken, Diffs erfassen
@@ -133,13 +135,15 @@ Der manuelle Modus wird maximal einmal pro Audit ausgeloest.
 
 Der generierte Report enthaelt:
 
-- **Zusammenfassung** -- Tracker-Uebersicht ueber alle Consent-Phasen, Consent Mode Status
+- **Zusammenfassung** -- Tracker-Uebersicht ueber alle Consent-Phasen, Consent Mode Status, TL;DR-Einzeiler fuer alle Findings
 - **Consent Mode Verification** -- Prueft ob nach Accept ein gcs-Update erfolgt (G100 -> G1xx). Zeigt Advanced vs. Basic Consent Mode Diagnose mit Erklaerung
 - **Pre-Consent** -- Tracking vor jeglicher Consent-Entscheidung (Verstoesse sofort erkennbar)
 - **Post-Accept / Post-Reject** -- Diffs bei Cookies, localStorage, Requests, dataLayer
 - **Server-Side Tagging** -- Erkennung von Custom GTM/gtag-Loadern und First-Party Collect Endpoints
 - **E-Commerce-Pfad** -- dataLayer-Events und Tracker pro Schritt (Kategorie bis Checkout), inkl. Consent Mode Status pro Step
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
+- **CSP-Blockaden** (nur wenn CSP Tracking-Requests blockiert hat) -- Liste der blockierten Tracker-Domains
+- **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions, Dynamic Remarketing, Meta CAPI, Stape Custom Loader IDs
 
 ## Browser-UI
 
@@ -179,6 +183,8 @@ Jeder Schritt ist per "Audit abschliessen" ueberspringbar. Der Report enthaelt n
 ## Tracking-Domain-Klassifizierung
 
 Bekannte Tracker werden automatisch zugeordnet: Google, Meta, TikTok, Pinterest, LinkedIn, Microsoft, Criteo, Taboola, Outbrain, Hotjar. Alles andere wird als "Sonstige Third-Party" gefuehrt.
+
+Google-Requests werden zusaetzlich nach Produkt klassifiziert: GA4, Google Ads, Floodlight, Google Tag. In der Tracker-Tabelle erscheint z.B. "Google (GA4, Ads)".
 
 ## Claude Code Skills
 
