@@ -48,6 +48,7 @@ const project   = get('--project');
 const cmpFlag   = get('--cmp');
 const disableSW = has('--disable-sw');
 const ecomInteractive = has('--ecom');
+const noPayloadAnalysis = has('--no-payload-analysis');
 
 // E-Commerce (fix Git Bash path mangling for relative URLs)
 const categoryUrl  = fixMangledPath(get('--category'), '--category');
@@ -60,6 +61,7 @@ if (!url || !project) {
   console.error('Usage: node audit.js --url <url> --project <name> [--cmp <name>] [--disable-sw]');
   console.error('  E-Commerce: [--category <url>] [--product <url>] [--add-to-cart <sel>] [--view-cart <url>] [--checkout <url>]');
   console.error('  Interaktiv: [--ecom] (E-Commerce-Pfad manuell im Browser durchlaufen)');
+  console.error('  Analyse: [--no-payload-analysis] (Deep Analysis deaktivieren)');
   process.exit(1);
 }
 
@@ -735,9 +737,19 @@ async function deregisterServiceWorkers(page) {
 function setupRequestCollector(page) {
   const requests = [];
   page.on('request', (req) => {
-    requests.push(req.url());
+    requests.push({
+      url: req.url(),
+      method: req.method(),
+      postData: req.method() === 'POST' ? (req.postData() || null) : null,
+    });
   });
-  return () => [...requests];
+  // Backward-compatible: calling the function returns URL array
+  const getUrls = () => requests.map(r => r.url);
+  // .full() returns enriched objects for payload analysis
+  getUrls.full = () => [...requests];
+  // .clear() resets the buffer (used for discard-and-restart patterns)
+  getUrls.clear = () => { requests.length = 0; };
+  return getUrls;
 }
 
 /**
@@ -1536,6 +1548,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const stepDataLayerDiff = diffDataLayer(stepBaseline, stepDataLayer);
 
   const stepRequestUrls = getStepRequests();
+  const stepFullRequests = getStepRequests.full();
   const stepClassified = stepRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
   const stepTrackers = deduplicateRequests(stepClassified);
 
@@ -1564,6 +1577,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     stepCookies,
     stepLocalStorage,
     stepClassified,
+    stepFullRequests,
   };
 }
 
@@ -1578,6 +1592,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   if (categoryUrl) console.log(` E-Commerce Pfad aktiv`);
   if (ecomInteractive) console.log(` E-Commerce Pfad interaktiv`);
   if (disableSW) console.log(` Service Worker werden deregistriert`);
+  if (noPayloadAnalysis) console.log(` Payload-Analyse: deaktiviert`);
   console.log(`=======================================\n`);
 
   const library = loadLibrary();
@@ -1649,6 +1664,17 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     postReject: {},
     ecommerce: [],
     ecommerceAnalysis: null,
+    deepAnalysis: {
+      cspViolations: [],
+      features: {
+        enhancedConversions: null,
+        remarketing: [],
+        metaSetup: null,
+      },
+      stapeTransports: [],
+      googleSubTypes: new Set(),
+      measurementIds: [],
+    },
     sst: null,
   };
 
