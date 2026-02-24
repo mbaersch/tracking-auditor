@@ -268,6 +268,147 @@ function extractStapeFindings(fullRequests) {
 }
 
 /**
+ * Checks GA4 collect requests for Enhanced Conversions indicators.
+ * Params 'ect' or 'em' signal EC is active.
+ */
+function checkEnhancedConversions(requestUrl, postData) {
+  try {
+    const u = new URL(requestUrl);
+    const urlParams = u.searchParams;
+    const bodyParams = postData ? new URLSearchParams(postData) : new URLSearchParams();
+
+    const hasEct = urlParams.has('ect') || bodyParams.has('ect');
+    const hasEm = urlParams.has('em') || bodyParams.has('em');
+
+    if (!hasEct && !hasEm) return null;
+
+    return {
+      active: true,
+      hasHashedEmail: hasEm,
+      eventName: urlParams.get('en') || bodyParams.get('en') || null,
+    };
+  } catch { return null; }
+}
+
+/**
+ * Checks Google Ads requests for Dynamic Remarketing product data.
+ */
+function checkRemarketingPayload(requestUrl, postData) {
+  try {
+    const combined = requestUrl + (postData ? '&' + postData : '');
+    const paramStr = combined.includes('?') ? combined.split('?').slice(1).join('?') : postData || '';
+    const params = new URLSearchParams(paramStr);
+
+    const prodId = params.get('ecomm_prodid') || params.get('dynx_itemid');
+    const pageType = params.get('ecomm_pagetype') || params.get('dynx_pagetype');
+
+    if (!prodId && !pageType) return null;
+
+    return {
+      active: true,
+      hasProductIds: !!prodId,
+      pageType: pageType || null,
+    };
+  } catch { return null; }
+}
+
+/**
+ * Determines Meta tracking setup: Browser Pixel, CAPI indicator, or both.
+ */
+function detectMetaSetup(fullRequests, cookies, siteHost) {
+  const siteDomain = getSiteDomain(siteHost);
+
+  const hasBrowserPixel = fullRequests.some(r =>
+    r.url.includes('connect.facebook.net')
+  );
+
+  const hasFirstPartyEvents = fullRequests.some(r => {
+    try {
+      const u = new URL(r.url);
+      return getSiteDomain(r.url) === siteDomain &&
+             u.pathname.includes('/events');
+    } catch { return false; }
+  });
+
+  const hasFbpCookie = cookies.some(c => c.name === '_fbp');
+
+  if (!hasBrowserPixel && !hasFirstPartyEvents && !hasFbpCookie) return null;
+
+  return { hasBrowserPixel, hasFirstPartyEvents, hasFbpCookie };
+}
+
+/**
+ * Runs all payload analyses on enriched request objects.
+ * Called after each phase, accumulates findings into deepAnalysis.
+ *
+ * @param {Array} fullRequests - [{url, method, postData}]
+ * @param {Array} cookies - current cookies
+ * @param {string} siteHost - site URL for domain comparison
+ * @param {object} deepAnalysis - reportData.deepAnalysis (mutated)
+ */
+function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
+  // 1. Stape transport decode
+  const { transports, decodedUrls } = extractStapeFindings(fullRequests);
+  for (const t of transports) {
+    if (!deepAnalysis.stapeTransports.some(s => s.host === t.host)) {
+      deepAnalysis.stapeTransports.push(t);
+    }
+  }
+
+  // 2. Combine original + decoded URLs for analysis
+  const allRequests = [
+    ...fullRequests,
+    ...decodedUrls.map(url => ({ url, method: 'GET', postData: null })),
+  ];
+
+  // 3. Google sub-types collection
+  for (const req of allRequests) {
+    const sub = getGoogleSubType(req.url);
+    if (sub) deepAnalysis.googleSubTypes.add(sub);
+  }
+
+  // 4. Measurement IDs from decoded Stape URLs
+  for (const url of decodedUrls) {
+    try {
+      const u = new URL(url);
+      const id = u.searchParams.get('id') || u.searchParams.get('tid');
+      if (id && /^(G|AW|GT|DC)-/i.test(id)) {
+        deepAnalysis.measurementIds.push({
+          id: id.toUpperCase(),
+          type: getGoogleSubType(url) || 'unknown',
+          host: u.hostname,
+        });
+      }
+    } catch { /* */ }
+  }
+
+  // 5. Enhanced Conversions (check GA4 collect requests)
+  for (const req of allRequests) {
+    const isCollect = req.url.includes('/g/collect') || req.url.includes('/collect');
+    if (!isCollect) continue;
+    const ec = checkEnhancedConversions(req.url, req.postData);
+    if (ec && !deepAnalysis.features.enhancedConversions) {
+      deepAnalysis.features.enhancedConversions = ec;
+    }
+  }
+
+  // 6. Dynamic Remarketing (check Google Ads requests)
+  for (const req of allRequests) {
+    const isAds = req.url.includes('/pagead/') || req.url.includes('googleads');
+    if (!isAds) continue;
+    const rm = checkRemarketingPayload(req.url, req.postData);
+    if (rm) {
+      deepAnalysis.features.remarketing.push(rm);
+    }
+  }
+
+  // 7. Meta Setup (once, uses all requests + cookies)
+  if (!deepAnalysis.features.metaSetup) {
+    deepAnalysis.features.metaSetup = detectMetaSetup(allRequests, cookies, siteHost);
+  }
+}
+
+/**
  * Classify a request URL.
  * Returns { vendor, hostname, subType } for known trackers,
  * { vendor: 'Sonstige Third-Party', hostname, subType: null } for unknown third-party,
