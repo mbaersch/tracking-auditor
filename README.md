@@ -205,7 +205,7 @@ Lernt eine neue CMP ein (Accept/Reject-Selektoren) und speichert sie in der Libr
 
 ```
 "Lerne die CMP auf example.com ein"
-"CMP 'MeineCMP' zu example.com hinzufuegen"
+"Lerne die CMP 'Usercentrics' auf example.com ein"
 ```
 
 Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch erkannt.
