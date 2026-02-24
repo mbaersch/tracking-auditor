@@ -90,7 +90,7 @@ function fixMangledPath(value, flagName) {
 // ── Tracking Domain Classification ────────────────────────────────────────────
 
 const TRACKING_DOMAINS = {
-  'Google':    ['google-analytics.com', 'googletagmanager.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'googleads.g.doubleclick.net'],
+  'Google':    ['google-analytics.com', 'analytics.google.com', 'googletagmanager.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'googleads.g.doubleclick.net'],
   'Meta':      ['connect.facebook.net', 'facebook.com/tr', 'fbcdn.net'],
   'TikTok':    ['analytics.tiktok.com'],
   'Pinterest': ['ct.pinterest.com'],
@@ -1546,7 +1546,8 @@ function formatTrackingFeaturesSection(deepAnalysis) {
   if (features.metaSetup) {
     const ms = features.metaSetup;
     md += '**Meta**\n';
-    if (ms.hasBrowserPixel) md += '- Browser Pixel aktiv (connect.facebook.net)\n';
+    if (ms.blockedByCSP) md += '- ⚠ Browser Pixel durch CSP blockiert (connect.facebook.net)\n';
+    else if (ms.hasBrowserPixel) md += '- Browser Pixel aktiv (connect.facebook.net)\n';
     if (ms.hasFirstPartyEvents) md += '- ✓ First-Party Events Endpunkt erkannt (CAPI-Indikator)\n';
     if (!ms.hasBrowserPixel && ms.hasFbpCookie) md += '- _fbp Cookie ohne Browser Pixel (vermutlich CAPI-only)\n';
     if (ms.hasBrowserPixel && !ms.hasFirstPartyEvents) md += '- ⚠ Kein CAPI-Endpunkt erkannt\n';
@@ -1695,11 +1696,22 @@ function generateTLDR(data) {
   const rejectCount = rejectOther.reduce((n, t) => n + t.hostnames.length, 0);
   md += `**Sonstige Third-Party Domains:** Pre-Consent ${preCount}, Post-Accept +${acceptCount}, Post-Reject +${rejectCount}\n\n`;
 
-  // SST summary
-  if (data.sst && hasSSTDetected(data.sst)) {
-    const customLoaderCount = data.sst.loaders.filter(l => !l.isStandard).length + (data.sst.customLoaders?.length || 0);
-    const collectCount = data.sst.collectEndpoints.length;
-    md += `**Server-Side Tagging:** Erkannt (${customLoaderCount} Custom Loader, ${collectCount} Collect Endpoints)\n\n`;
+  // SST summary (merged: response-body detection + Stape transport)
+  {
+    const hasSST = data.sst && hasSSTDetected(data.sst);
+    const stapeHosts = data.deepAnalysis?.stapeTransports?.map(t => t.host) || [];
+    if (hasSST || stapeHosts.length > 0) {
+      const parts = [];
+      if (hasSST) {
+        const customLoaderCount = data.sst.loaders.filter(l => !l.isStandard).length + (data.sst.customLoaders?.length || 0);
+        const collectCount = data.sst.collectEndpoints.length;
+        parts.push(`${customLoaderCount} Custom Loader, ${collectCount} Collect Endpoints`);
+      }
+      if (stapeHosts.length > 0) {
+        parts.push(`Stape-Transport auf ${stapeHosts.join(', ')}`);
+      }
+      md += `**Server-Side Tagging:** ${parts.join(' | ')}\n\n`;
+    }
   }
 
   // E-Commerce: tracker per step (with consent mode if available)
@@ -1735,12 +1747,6 @@ function generateTLDR(data) {
   if (data.deepAnalysis) {
     const da = data.deepAnalysis;
 
-    // Stape/Custom Loader
-    if (da.stapeTransports.length > 0) {
-      const hosts = da.stapeTransports.map(t => t.host).join(', ');
-      md += `**Server-Side Tagging:** Custom Loader auf ${hosts} (Stape-Transport)\n\n`;
-    }
-
     // CSP Violations
     if (da.cspViolations.length > 0) {
       md += `**⚠ CSP blockiert ${da.cspViolations.length} Tracking-Request${da.cspViolations.length > 1 ? 's' : ''}**\n\n`;
@@ -1763,7 +1769,9 @@ function generateTLDR(data) {
     // Meta Setup
     if (da.features.metaSetup) {
       const ms = da.features.metaSetup;
-      if (ms.hasBrowserPixel && ms.hasFirstPartyEvents) {
+      if (ms.blockedByCSP) {
+        // Don't add Meta TL;DR line – CSP blockade is already shown in CSP section
+      } else if (ms.hasBrowserPixel && ms.hasFirstPartyEvents) {
         md += '**Meta:** Browser Pixel + First-Party Events Endpunkt (CAPI-Indikator)\n\n';
       } else if (ms.hasBrowserPixel && !ms.hasFirstPartyEvents) {
         md += '**⚠ Meta:** Browser Pixel aktiv, kein CAPI-Endpunkt erkannt\n\n';
@@ -2628,6 +2636,21 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     });
     if (reportData.deepAnalysis.cspViolations.length > 0) {
       console.log(`  CSP-Violations: ${reportData.deepAnalysis.cspViolations.length} blockierte Requests`);
+    }
+  }
+
+  // Fix false positives: if Meta pixel was blocked by CSP, it's not actually active
+  if (!noPayloadAnalysis && reportData.deepAnalysis.features.metaSetup) {
+    const cspBlockedUrls = reportData.deepAnalysis.cspViolations.map(v => v.blockedURI);
+    const metaBlockedByCSP = cspBlockedUrls.some(u => u.includes('connect.facebook.net'));
+    if (metaBlockedByCSP && reportData.deepAnalysis.features.metaSetup.hasBrowserPixel) {
+      reportData.deepAnalysis.features.metaSetup.hasBrowserPixel = false;
+      reportData.deepAnalysis.features.metaSetup.blockedByCSP = true;
+      // Re-check: if nothing remains, clear the metaSetup
+      const ms = reportData.deepAnalysis.features.metaSetup;
+      if (!ms.hasBrowserPixel && !ms.hasFirstPartyEvents && !ms.hasFbpCookie) {
+        reportData.deepAnalysis.features.metaSetup = null;
+      }
     }
   }
 
