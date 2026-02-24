@@ -1384,7 +1384,10 @@ function formatTrackerSection(deduped) {
     md += '| Vendor | Hostnames |\n';
     md += '|--------|-----------|\n';
     for (const d of known) {
-      md += `| ${d.vendor} | ${d.hostnames.join(', ')} |\n`;
+      const vendorLabel = (d.subTypes && d.subTypes.length > 0)
+        ? `${d.vendor} (${d.subTypes.join(', ')})`
+        : d.vendor;
+      md += `| ${vendorLabel} | ${d.hostnames.join(', ')} |\n`;
     }
     md += '\n';
   }
@@ -1420,6 +1423,15 @@ function formatSSTSection(sstData) {
   if (!sstData || !hasSSTDetected(sstData)) return '';
 
   let md = '## Server-Side Tagging Analyse\n\n';
+
+  // Stape Custom Loader transport
+  if (sstData.stapeTransports && sstData.stapeTransports.length > 0) {
+    md += '**Custom Loader Transport (Stape):**\n\n';
+    for (const t of sstData.stapeTransports) {
+      md += `- ${t.host} – Base64-encodierter Transport erkannt\n`;
+    }
+    md += '\n';
+  }
 
   // Container IDs
   if (sstData.containers.size > 0) {
@@ -1465,6 +1477,79 @@ function formatSSTSection(sstData) {
         md += `- \`${cl.url}\` enthaelt ${fp.type} (${fp.ids.join(', ')})\n`;
       }
     }
+    md += '\n';
+  }
+
+  return md;
+}
+
+function formatCSPViolationsSection(violations) {
+  if (!violations || violations.length === 0) return '';
+
+  let md = '## CSP-Blockaden\n\n';
+  md += '| Blockierte Ressource | Direktive |\n';
+  md += '|----------------------|-----------|\n';
+
+  for (const v of violations) {
+    const vendor = (() => {
+      for (const [name, domains] of Object.entries(TRACKING_DOMAINS)) {
+        if (domains.some(d => v.blockedURI.includes(d))) return ` (${name})`;
+      }
+      return '';
+    })();
+    md += `| ${v.blockedURI}${vendor} | ${v.effectiveDirective} |\n`;
+  }
+  md += '\n';
+
+  return md;
+}
+
+function formatTrackingFeaturesSection(deepAnalysis) {
+  if (!deepAnalysis) return '';
+
+  const { features, measurementIds } = deepAnalysis;
+  const hasFindings = features.enhancedConversions?.active ||
+                      features.remarketing.length > 0 ||
+                      (features.metaSetup && (features.metaSetup.hasBrowserPixel || features.metaSetup.hasFirstPartyEvents || features.metaSetup.hasFbpCookie));
+
+  if (!hasFindings && measurementIds.length === 0) return '';
+
+  let md = '## Tracking Features\n\n';
+
+  if (measurementIds.length > 0) {
+    md += '**Erkannte Tag-IDs (aus Payload-Analyse):**\n\n';
+    md += '| Typ | ID | Host |\n';
+    md += '|-----|----|------|\n';
+    for (const m of measurementIds) {
+      md += `| ${m.type} | ${m.id} | ${m.host} |\n`;
+    }
+    md += '\n';
+  }
+
+  if (features.enhancedConversions?.active) {
+    const ec = features.enhancedConversions;
+    md += '**Enhanced Conversions (Google)**\n';
+    md += `- ✓ Aktiv${ec.hasHashedEmail ? ' (hashed email vorhanden)' : ''}\n`;
+    if (ec.eventName) md += `- Event: ${ec.eventName}\n`;
+    md += '\n';
+  }
+
+  if (features.remarketing.length > 0) {
+    md += '**Dynamic Remarketing (Google Ads)**\n';
+    const withProducts = features.remarketing.filter(r => r.hasProductIds);
+    const pageTypes = [...new Set(features.remarketing.map(r => r.pageType).filter(Boolean))];
+    if (withProducts.length > 0) md += `- ✓ Produkt-IDs in ${withProducts.length} Request(s)\n`;
+    if (pageTypes.length > 0) md += `- Seitentypen: ${pageTypes.join(', ')}\n`;
+    md += '\n';
+  }
+
+  if (features.metaSetup) {
+    const ms = features.metaSetup;
+    md += '**Meta**\n';
+    if (ms.hasBrowserPixel) md += '- Browser Pixel aktiv (connect.facebook.net)\n';
+    if (ms.hasFirstPartyEvents) md += '- ✓ First-Party Events Endpunkt erkannt (CAPI-Indikator)\n';
+    if (!ms.hasBrowserPixel && ms.hasFbpCookie) md += '- _fbp Cookie ohne Browser Pixel (vermutlich CAPI-only)\n';
+    if (ms.hasBrowserPixel && !ms.hasFirstPartyEvents) md += '- ⚠ Kein CAPI-Endpunkt erkannt\n';
     md += '\n';
   }
 
@@ -1591,7 +1676,12 @@ function generateTLDR(data) {
       const pre = preKnown.find(t => t.vendor === vendor);
       const accept = acceptKnown.find(t => t.vendor === vendor);
       const reject = rejectKnown.find(t => t.vendor === vendor);
-      md += `| ${vendor} | ${pre ? 'ja' : '–'} | ${accept ? 'ja' : '–'} | ${reject ? 'ja' : '–'} |\n`;
+      const allSubTypes = new Set();
+      for (const t of [pre, accept, reject].filter(Boolean)) {
+        if (t.subTypes) t.subTypes.forEach(s => allSubTypes.add(s));
+      }
+      const vendorLabel = allSubTypes.size > 0 ? `${vendor} (${[...allSubTypes].join(', ')})` : vendor;
+      md += `| ${vendorLabel} | ${pre ? 'ja' : '–'} | ${accept ? 'ja' : '–'} | ${reject ? 'ja' : '–'} |\n`;
     }
     md += '\n';
   }
@@ -1641,6 +1731,48 @@ function generateTLDR(data) {
     md += '\n';
   }
 
+  // Deep Analysis findings
+  if (data.deepAnalysis) {
+    const da = data.deepAnalysis;
+
+    // Stape/Custom Loader
+    if (da.stapeTransports.length > 0) {
+      const hosts = da.stapeTransports.map(t => t.host).join(', ');
+      md += `**Server-Side Tagging:** Custom Loader auf ${hosts} (Stape-Transport)\n\n`;
+    }
+
+    // CSP Violations
+    if (da.cspViolations.length > 0) {
+      md += `**⚠ CSP blockiert ${da.cspViolations.length} Tracking-Request${da.cspViolations.length > 1 ? 's' : ''}**\n\n`;
+    }
+
+    // Enhanced Conversions
+    if (da.features.enhancedConversions?.active) {
+      const detail = da.features.enhancedConversions.hasHashedEmail ? ' (hashed email)' : '';
+      md += `**✓ Enhanced Conversions aktiv${detail}**\n\n`;
+    }
+
+    // Dynamic Remarketing
+    if (da.features.remarketing.length > 0) {
+      const withProducts = da.features.remarketing.filter(r => r.hasProductIds);
+      if (withProducts.length > 0) {
+        md += `**✓ Dynamic Remarketing: Produkt-IDs in ${withProducts.length} Ads-Request${withProducts.length > 1 ? 's' : ''}**\n\n`;
+      }
+    }
+
+    // Meta Setup
+    if (da.features.metaSetup) {
+      const ms = da.features.metaSetup;
+      if (ms.hasBrowserPixel && ms.hasFirstPartyEvents) {
+        md += '**Meta:** Browser Pixel + First-Party Events Endpunkt (CAPI-Indikator)\n\n';
+      } else if (ms.hasBrowserPixel && !ms.hasFirstPartyEvents) {
+        md += '**⚠ Meta:** Browser Pixel aktiv, kein CAPI-Endpunkt erkannt\n\n';
+      } else if (!ms.hasBrowserPixel && ms.hasFbpCookie) {
+        md += '**Meta:** Kein Browser Pixel, aber _fbp Cookie – vermutlich CAPI-only\n\n';
+      }
+    }
+  }
+
   return md;
 }
 
@@ -1665,8 +1797,24 @@ function generateReport(data) {
   }
   md += '\n';
 
+  // Merge Stape findings into SST data for display
+  if (data.deepAnalysis?.stapeTransports?.length > 0) {
+    if (!data.sst) data.sst = { containers: new Set(), measurementIds: new Set(), loaders: [], collectEndpoints: [] };
+    data.sst.stapeTransports = data.deepAnalysis.stapeTransports;
+  }
+
   // ── SST ──
   md += formatSSTSection(data.sst);
+
+  // ── CSP Violations ──
+  if (data.deepAnalysis) {
+    md += formatCSPViolationsSection(data.deepAnalysis.cspViolations);
+  }
+
+  // ── Tracking Features ──
+  if (data.deepAnalysis) {
+    md += formatTrackingFeaturesSection(data.deepAnalysis);
+  }
 
   // ── Pre-Consent ──
   md += '## Pre-Consent\n\n';
