@@ -210,6 +210,64 @@ function getGoogleSubType(requestUrl) {
 }
 
 /**
+ * Detects Stape custom loader transport: Query params with Base64-encoded
+ * Google URLs (e.g. /gtag/js?id=G-XXX or /g/collect?v=2&tid=G-XXX).
+ * Returns decoded path + original host, or null.
+ */
+function tryDecodeStapeTransport(requestUrl) {
+  try {
+    const u = new URL(requestUrl);
+    for (const [key, value] of u.searchParams) {
+      if (!value || value.length < 10) continue;
+      try {
+        const decoded = Buffer.from(decodeURIComponent(value), 'base64').toString('utf-8');
+        if (decoded.startsWith('/gtag/js') ||
+            decoded.startsWith('/g/collect') ||
+            decoded.startsWith('/collect')) {
+          return {
+            host: u.hostname,
+            encodedParam: key,
+            decodedPath: decoded,
+            originalUrl: requestUrl,
+          };
+        }
+      } catch { continue; }
+    }
+  } catch { /* invalid URL */ }
+  return null;
+}
+
+/**
+ * Processes all requests, decodes Stape transports, extracts IDs.
+ * Returns { transports: [], decodedUrls: [] } where decodedUrls are
+ * synthetic URLs that can be fed into existing detection functions.
+ */
+function extractStapeFindings(fullRequests) {
+  const transports = [];
+  const decodedUrls = [];
+  const seenHosts = new Set();
+
+  for (const req of fullRequests) {
+    const stape = tryDecodeStapeTransport(req.url);
+    if (!stape) continue;
+
+    if (!seenHosts.has(stape.host)) {
+      seenHosts.add(stape.host);
+      transports.push({ host: stape.host, type: 'Stape Custom Loader' });
+    }
+
+    // Build synthetic URL so existing functions (detectSSTFromUrls, getGoogleSubType,
+    // extractConsentModeParams) can process the decoded content
+    try {
+      const syntheticUrl = 'https://' + stape.host + stape.decodedPath;
+      decodedUrls.push(syntheticUrl);
+    } catch { /* malformed decoded path */ }
+  }
+
+  return { transports, decodedUrls };
+}
+
+/**
  * Classify a request URL.
  * Returns { vendor, hostname, subType } for known trackers,
  * { vendor: 'Sonstige Third-Party', hostname, subType: null } for unknown third-party,
