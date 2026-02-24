@@ -170,9 +170,49 @@ function getSiteDomain(urlStr) {
 }
 
 /**
+ * Determines the specific Google product from a request URL.
+ * Returns 'GA4', 'Google Ads', 'Floodlight', 'Google Tag', or null.
+ */
+function getGoogleSubType(requestUrl) {
+  try {
+    const u = new URL(requestUrl);
+    const host = u.hostname;
+    const path = u.pathname;
+
+    // GA4 Collect
+    if (path.includes('/g/collect') || path.includes('/collect')) {
+      const tid = u.searchParams.get('tid');
+      if (tid && /^G-/i.test(tid)) return 'GA4';
+    }
+
+    // gtag/js loader – classify by ID prefix
+    if (path.includes('/gtag/js')) {
+      const id = u.searchParams.get('id');
+      if (id) {
+        if (/^G-/i.test(id)) return 'GA4';
+        if (/^AW-/i.test(id)) return 'Google Ads';
+        if (/^GT-/i.test(id)) return 'Google Tag';
+        if (/^DC-/i.test(id)) return 'Floodlight';
+      }
+    }
+
+    // Google Ads endpoints
+    if (path.includes('/pagead/conversion') || path.includes('/pagead/1p-user-list')) return 'Google Ads';
+    if (host === 'googleads.g.doubleclick.net') return 'Google Ads';
+    if (host === 'www.googleadservices.com') return 'Google Ads';
+
+    // Floodlight
+    if ((host === 'ad.doubleclick.net' || host === 'fls.doubleclick.net') &&
+        (path.startsWith('/activity') || path.includes('/activity;'))) return 'Floodlight';
+
+    return null;
+  } catch { return null; }
+}
+
+/**
  * Classify a request URL.
- * Returns { vendor, hostname } for known trackers,
- * { vendor: 'Sonstige Third-Party', hostname } for unknown third-party,
+ * Returns { vendor, hostname, subType } for known trackers,
+ * { vendor: 'Sonstige Third-Party', hostname, subType: null } for unknown third-party,
  * or null for same-domain.
  */
 function classifyRequest(requestUrl, siteHost) {
@@ -194,15 +234,21 @@ function classifyRequest(requestUrl, siteHost) {
         try {
           const u = new URL(requestUrl);
           const check = u.hostname + u.pathname;
-          if (check.includes(d)) return { vendor, hostname };
+          if (check.includes(d)) {
+            const subType = vendor === 'Google' ? getGoogleSubType(requestUrl) : null;
+            return { vendor, hostname, subType };
+          }
         } catch { /* ignore */ }
       } else {
-        if (hostname === d || hostname.endsWith('.' + d)) return { vendor, hostname };
+        if (hostname === d || hostname.endsWith('.' + d)) {
+          const subType = vendor === 'Google' ? getGoogleSubType(requestUrl) : null;
+          return { vendor, hostname, subType };
+        }
       }
     }
   }
 
-  return { vendor: 'Sonstige Third-Party', hostname };
+  return { vendor: 'Sonstige Third-Party', hostname, subType: null };
 }
 
 /**
@@ -232,18 +278,20 @@ function extractConsentModeParams(requests) {
 }
 
 /**
- * Deduplicate requests by vendor+hostname. Returns array of { vendor, hostnames: Set }.
+ * Deduplicate requests by vendor+hostname. Returns array of { vendor, hostnames, subTypes }.
  */
 function deduplicateRequests(classified) {
-  const map = new Map(); // vendor → Set<hostname>
+  const map = new Map();
   for (const c of classified) {
     if (!c) continue;
-    if (!map.has(c.vendor)) map.set(c.vendor, new Set());
-    map.get(c.vendor).add(c.hostname);
+    if (!map.has(c.vendor)) map.set(c.vendor, { hostnames: new Set(), subTypes: new Set() });
+    const entry = map.get(c.vendor);
+    entry.hostnames.add(c.hostname);
+    if (c.subType) entry.subTypes.add(c.subType);
   }
   const result = [];
-  for (const [vendor, hostnames] of map.entries()) {
-    result.push({ vendor, hostnames: [...hostnames] });
+  for (const [vendor, { hostnames, subTypes }] of map.entries()) {
+    result.push({ vendor, hostnames: [...hostnames], subTypes: [...subTypes] });
   }
   return result;
 }
