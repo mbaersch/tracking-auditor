@@ -2004,6 +2004,12 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const preResponseBodies = await getPreResponseBodies();
   const preSSTBodies = detectSSTFromResponseBodies(preResponseBodies, siteHost);
 
+  // Deep Analysis: Phase 1
+  if (!noPayloadAnalysis) {
+    const preFullRequests = getPreRequests.full();
+    analyzeRequestPayloads(preFullRequests, preCookies, siteHost, reportData.deepAnalysis);
+  }
+
   // ── Phase 2: Post-Accept (same browser) ─────────────────────────────────────
 
   console.log('\nPhase 2: Post-Accept...');
@@ -2104,6 +2110,12 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     const customCount = reportData.sst.loaders.filter(l => !l.isStandard).length;
     const collectCount = reportData.sst.collectEndpoints.length;
     console.log(`  SST erkannt: ${customCount} Custom Loader, ${collectCount} Collect Endpoints, ${sstBodies.length} Body-Fingerprints`);
+  }
+
+  // Deep Analysis: Phase 2
+  if (!noPayloadAnalysis) {
+    const postAcceptFullRequests = getPostAcceptRequests.full();
+    analyzeRequestPayloads(postAcceptFullRequests, postAcceptCookies, siteHost, reportData.deepAnalysis);
   }
 
   // ── Phase 3: E-Commerce (same browser, --category or --ecom) ────────────────
@@ -2222,6 +2234,12 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
             localStorageDiff: stepLocalStorageDiff,
           });
 
+          // Deep Analysis: E-Commerce Click-Step
+          if (!noPayloadAnalysis) {
+            const stepFullRequests = getStepRequests.full();
+            analyzeRequestPayloads(stepFullRequests, stepCookies, siteHost, reportData.deepAnalysis);
+          }
+
           prevCookies = stepCookies;
           prevLocalStorage = stepLocalStorage;
           prevDataLayer = dlAfterSettle;
@@ -2241,6 +2259,11 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
           console.log(`    dataLayer Diff: ${result.data.dataLayerDiff.length}, Requests: ${result.stepClassified.length} 3P, Cookies: +${result.data.cookiesDiff.length}`);
 
           reportData.ecommerce.push(result.data);
+
+          // Deep Analysis: E-Commerce Navigate-Step
+          if (!noPayloadAnalysis && result.stepFullRequests) {
+            analyzeRequestPayloads(result.stepFullRequests, result.stepCookies, siteHost, reportData.deepAnalysis);
+          }
 
           prevCookies = result.stepCookies;
           prevLocalStorage = result.stepLocalStorage;
@@ -2287,6 +2310,11 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
         console.log(`    dataLayer Diff: ${result.data.dataLayerDiff.length}, Requests: ${result.stepClassified.length} 3P, Cookies: +${result.data.cookiesDiff.length}`);
 
         reportData.ecommerce.push(result.data);
+
+        // Deep Analysis: E-Commerce Step
+        if (!noPayloadAnalysis && result.stepFullRequests) {
+          analyzeRequestPayloads(result.stepFullRequests, result.stepCookies, siteHost, reportData.deepAnalysis);
+        }
 
         prevCookies = result.stepCookies;
         prevLocalStorage = result.stepLocalStorage;
@@ -2429,6 +2457,12 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     localStorageDiff: rejectLocalStorageDiff,
   };
 
+  // Deep Analysis: Phase 4
+  if (!noPayloadAnalysis) {
+    const rejectFullRequests = getRejectPostRequests.full();
+    analyzeRequestPayloads(rejectFullRequests, rejectPostCookies, siteHost, reportData.deepAnalysis);
+  }
+
   await updateStatusBar(page2, 'Phase 5', 'Fertig – Report wird generiert...', `DL: +${rejectDataLayerDiff.length} | 3P: +${rejectPostClassified.length}`);
   await browser2.close();
   console.log('  Browser 2 geschlossen.');
@@ -2447,6 +2481,32 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     if (reportData.deepAnalysis.cspViolations.length > 0) {
       console.log(`  CSP-Violations: ${reportData.deepAnalysis.cspViolations.length} blockierte Requests`);
     }
+  }
+
+  // Deep Analysis summary
+  if (!noPayloadAnalysis) {
+    const da = reportData.deepAnalysis;
+    if (da.stapeTransports.length > 0) {
+      console.log(`  Stape-Transport: ${da.stapeTransports.map(t => t.host).join(', ')}`);
+    }
+    if (da.features.enhancedConversions) {
+      console.log(`  Enhanced Conversions: aktiv (hashed email: ${da.features.enhancedConversions.hasHashedEmail})`);
+    }
+    if (da.features.remarketing.length > 0) {
+      console.log(`  Dynamic Remarketing: ${da.features.remarketing.length} Requests mit Produktdaten`);
+    }
+    if (da.features.metaSetup) {
+      const ms = da.features.metaSetup;
+      console.log(`  Meta: Pixel=${ms.hasBrowserPixel}, CAPI=${ms.hasFirstPartyEvents}, fbp=${ms.hasFbpCookie}`);
+    }
+    // Deduplicate measurement IDs
+    const idMap = new Map();
+    for (const m of da.measurementIds) {
+      idMap.set(m.id, m);
+    }
+    da.measurementIds = [...idMap.values()];
+    // Convert googleSubTypes Set to array for JSON serialization
+    da.googleSubTypes = [...da.googleSubTypes];
   }
 
   // ── Consent Mode Transition Analysis ──────────────────────────────────────
