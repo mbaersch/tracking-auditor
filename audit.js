@@ -789,6 +789,30 @@ function setupResponseBodyCollector(page, siteHost) {
 }
 
 /**
+ * Listens for CSP violations via securitypolicyviolation events.
+ * Uses addInitScript to survive navigations.
+ * Returns getter for accumulated violations.
+ */
+async function setupCSPViolationCollector(page) {
+  const violations = [];
+  await page.exposeFunction('__reportCSPViolation', (blockedURI, violatedDirective, effectiveDirective) => {
+    violations.push({ blockedURI, violatedDirective, effectiveDirective });
+  });
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (e) => {
+      try {
+        window.__reportCSPViolation(
+          e.blockedURI || '',
+          e.violatedDirective || '',
+          e.effectiveDirective || '',
+        );
+      } catch { /* page context may be torn down */ }
+    });
+  });
+  return () => [...violations];
+}
+
+/**
  * Wait for network to settle (approximation: wait fixed time after load).
  */
 async function waitForSettle(page, ms = 3000) {
@@ -1627,6 +1651,10 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   let getPreRequests = setupRequestCollector(page1);
   let getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
+  let getCSPViolations1 = () => [];
+  if (!noPayloadAnalysis) {
+    getCSPViolations1 = await setupCSPViolationCollector(page1);
+  }
 
   try {
     await page1.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
@@ -2040,6 +2068,10 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   // Pre-consent baseline in fresh browser
   const getRejectPreRequests = setupRequestCollector(page2);
+  let getCSPViolations2 = () => [];
+  if (!noPayloadAnalysis) {
+    getCSPViolations2 = await setupCSPViolationCollector(page2);
+  }
 
   try {
     await page2.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
@@ -2153,6 +2185,22 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   await updateStatusBar(page2, 'Phase 5', 'Fertig – Report wird generiert...', `DL: +${rejectDataLayerDiff.length} | 3P: +${rejectPostClassified.length}`);
   await browser2.close();
   console.log('  Browser 2 geschlossen.');
+
+  // ── CSP Violation Merge ────────────────────────────────────────────────────
+  if (!noPayloadAnalysis) {
+    const allViolations = [...getCSPViolations1(), ...getCSPViolations2()];
+    // Deduplicate by blockedURI + effectiveDirective
+    const seen = new Set();
+    reportData.deepAnalysis.cspViolations = allViolations.filter(v => {
+      const key = `${v.blockedURI}|${v.effectiveDirective}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (reportData.deepAnalysis.cspViolations.length > 0) {
+      console.log(`  CSP-Violations: ${reportData.deepAnalysis.cspViolations.length} blockierte Requests`);
+    }
+  }
 
   // ── Consent Mode Transition Analysis ──────────────────────────────────────
   reportData.consentModeTransition = analyzeConsentModeTransition(reportData);
