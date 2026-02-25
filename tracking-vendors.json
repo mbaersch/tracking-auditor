@@ -13,15 +13,15 @@
           "param": "en",
           "values": {
             "page_view": "pageview",
-            "scroll": "event",
-            "click": "event",
-            "purchase": "conversion",
-            "begin_checkout": "conversion",
-            "add_to_cart": "event",
-            "view_item": "event",
-            "view_item_list": "event",
-            "generate_lead": "conversion",
-            "sign_up": "conversion"
+            "scroll": "scroll",
+            "click": "click",
+            "purchase": "purchase",
+            "begin_checkout": "begin_checkout",
+            "add_to_cart": "add_to_cart",
+            "view_item": "view_item",
+            "view_item_list": "view_item_list",
+            "generate_lead": "generate_lead",
+            "sign_up": "sign_up"
           },
           "default": "event"
         }
@@ -32,10 +32,10 @@
           "param": "en",
           "values": {
             "page_view": "pageview",
-            "purchase": "conversion",
-            "begin_checkout": "conversion",
-            "generate_lead": "conversion",
-            "sign_up": "conversion"
+            "purchase": "purchase",
+            "begin_checkout": "begin_checkout",
+            "generate_lead": "generate_lead",
+            "sign_up": "sign_up"
           },
           "default": "event"
         }
@@ -46,10 +46,10 @@
           "param": "en",
           "values": {
             "page_view": "pageview",
-            "purchase": "conversion",
-            "begin_checkout": "conversion",
-            "generate_lead": "conversion",
-            "sign_up": "conversion"
+            "purchase": "purchase",
+            "begin_checkout": "begin_checkout",
+            "generate_lead": "generate_lead",
+            "sign_up": "sign_up"
           },
           "default": "event"
         }
@@ -176,10 +176,10 @@
       { "pattern": "snap.licdn.com/li.lms-analytics/insight.min.js" }
     ],
     "endpoints": [
-      { "pattern": "px.ads.linkedin.com", "type": "event" },
+      { "pattern": "ads.linkedin.com", "type": "event" },
       { "pattern": "linkedin.com/px", "type": "event" }
     ],
-    "domains": ["snap.licdn.com", "px.ads.linkedin.com"]
+    "domains": ["snap.licdn.com", "ads.linkedin.com"]
   },
   "microsoft-ads": {
     "vendor": "Microsoft",
