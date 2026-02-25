@@ -20,6 +20,7 @@ compare.js        Tracking-Vergleich zwischen zwei URLs (Live vs. Staging)
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
 cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~40 CMPs)
+tracking-vendors.json  Datenbank bekannter Tracking-Produkte (Scripts, Endpoints, Domains)
 reports/          Ablageort fuer generierte Reports (lokal, nicht im Repo)
 ```
 
@@ -201,11 +202,48 @@ node compare.js --url-a https://example.com/ --url-b https://example.com/staging
 
 Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Der Consent-Button ist anfangs deaktiviert und wird erst nach dem load-Event + 3 Sekunden freigeschaltet, um saubere Pre-/Post-Consent-Trennung sicherzustellen. Consent wird manuell per Floating Card bestaetigt. Der Report enthaelt einen **Consent Mode Vergleich** (Advanced vs. Basic, gcs/gcd-Flags pre- und post-consent). Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
 
-## Tracking-Domain-Klassifizierung
+## Tracking-Vendor-Library (`tracking-vendors.json`)
 
-Bekannte Tracker werden automatisch zugeordnet: Google, Meta, TikTok, Pinterest, LinkedIn, Microsoft, Criteo, Taboola, Outbrain, Hotjar. Alles andere wird als "Sonstige Third-Party" gefuehrt.
+Zentrale Datenbank bekannter Tracking-Produkte -- analog zur `cmp-library.json` fuer CMPs. Wird von `audit.js` und `compare.js` automatisch geladen.
 
-Google-Requests werden zusaetzlich nach Produkt klassifiziert: GA4, Google Ads, Floodlight, Google Tag. In der Tracker-Tabelle erscheint z.B. "Google (GA4, Ads)".
+### Inhalt
+
+Jeder Eintrag beschreibt ein Tracking-Produkt mit:
+
+- **vendor / product / category** -- z.B. "Google" / "Google Analytics 4" / "analytics"
+- **scripts** -- URL-Patterns fuer eingehende Script-Loads (z.B. `googletagmanager.com/gtag/js` mit `?id=G-*`)
+- **endpoints** -- URL-Patterns fuer ausgehende Tracking-Requests (z.B. `google-analytics.com/g/collect`) mit optionaler Request-Typ-Klassifizierung (pageview, event, conversion)
+- **domains** -- Fallback-Domains fuer Zuordnung wenn kein Script/Endpoint-Pattern matcht
+
+Aktuell ~16 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar.
+
+### Neuen Vendor hinzufuegen
+
+Neuen JSON-Eintrag mit folgendem Schema anlegen:
+
+```json
+"mein-vendor": {
+  "vendor": "Vendor Name",
+  "product": "Produkt Name",
+  "category": "analytics|advertising|retargeting|session-recording|native-ads|tag-management",
+  "scripts": [{ "pattern": "domain.com/script.js" }],
+  "endpoints": [{ "pattern": "domain.com/collect", "type": "event" }],
+  "domains": ["domain.com"]
+}
+```
+
+### Report-Format
+
+Die Tracker-Tabellen in Reports zeigen jetzt produktgenaue Details:
+
+| Spalte | Beschreibung |
+|--------|-------------|
+| **Produkt** | Konkretes Tracking-Produkt (z.B. "Google Analytics 4", nicht nur "Google") |
+| **Kategorie** | Funktionale Kategorie (analytics, advertising, session-recording, ...) |
+| **Richtung** | inbound (Script geladen) oder outbound (Request gesendet) |
+| **Typen** | Request-Klassifizierung (pageview, event, conversion, remarketing) |
+
+Nicht erkannte Third-Party-Requests werden weiterhin als "Sonstige Third-Party" gefuehrt.
 
 ## Claude Code Skills
 

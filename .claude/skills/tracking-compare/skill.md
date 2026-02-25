@@ -50,10 +50,12 @@ Report liegt unter `reports/<project>/compare-<host>-<timestamp>.md`. Daneben zw
 
 #### Checkliste (in dieser Reihenfolge durchgehen)
 
-**Vendor-Abdeckung:**
-- Identische Vendoren auf beiden Seiten -> OK, kurz erwaehnen
-- Exklusive Vendoren (nur auf einer Seite) -> **Hervorheben.** Fehlender Vendor auf Staging = potentiell nicht migriert. Neuer Vendor auf Staging = neue Integration, bewusst pruefen
-- Anzahl Requests pro Vendor vergleichen -- grosse Abweichungen deuten auf Konfigurationsunterschiede hin
+**Tracking-Produkte (Datenquelle: `tracking-vendors.json`):**
+- Reports zeigen jetzt Produkt-Level Detail: z.B. "Google Analytics 4 [analytics]", "Google Ads [advertising]" statt nur "Google"
+- Spalten: Produkt, Kategorie, Request-Typen (pageview/conversion/event) und Richtung (script/request)
+- Identische Produkte auf beiden Seiten -> OK, kurz erwaehnen
+- Exklusive Produkte (nur auf einer Seite) -> **Hervorheben.** Fehlendes Produkt auf Staging = potentiell nicht migriert. Neues Produkt auf Staging = neue Integration, bewusst pruefen
+- Unterschiedliche Request-Typen (z.B. A hat Conversions, B nicht) -> **Hervorheben**
 
 **Container- und Measurement-IDs:**
 - Identisch -> erwartbar bei gleichem GTM-Container

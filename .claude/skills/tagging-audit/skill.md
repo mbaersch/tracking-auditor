@@ -55,6 +55,8 @@ Report liegt unter `reports/<project>/audit-<YYYY-MM-DD-HHMM>.md`. Lies ihn und 
 - **Cookie-Inventar** -- Anzahl Cookies pre vs. post Consent
 - **E-Commerce Events** -- dataLayer-Events vorhanden? Produktdaten konsistent?
 
+**Report-Format:** Die Tracker-Tabellen zeigen Produkt-Level Detail (z.B. "Google Analytics 4", "Google Ads" statt nur "Google"). Spalten: Produkt, Kategorie, Richtung (script/request), Typen (pageview/conversion/event). Datenquelle ist `tracking-vendors.json`.
+
 ## Wenn es Probleme gibt
 
 Folgende Parameter helfen bei Sonderfaellen. Sie sind NICHT fuer den Normalfall gedacht.
