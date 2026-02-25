@@ -87,20 +87,10 @@ function fixMangledPath(value, flagName) {
   return value;
 }
 
-// ── Tracking Domain Classification ────────────────────────────────────────────
+// ── Tracking Vendor Library ──────────────────────────────────────────────────
 
-const TRACKING_DOMAINS = {
-  'Google':    ['google-analytics.com', 'analytics.google.com', 'googletagmanager.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'googleads.g.doubleclick.net'],
-  'Meta':      ['connect.facebook.net', 'facebook.com/tr', 'fbcdn.net'],
-  'TikTok':    ['analytics.tiktok.com'],
-  'Pinterest': ['ct.pinterest.com'],
-  'LinkedIn':  ['snap.licdn.com', 'linkedin.com/px'],
-  'Microsoft': ['bat.bing.com', 'clarity.ms'],
-  'Criteo':    ['dis.criteo.com'],
-  'Taboola':   ['trc.taboola.com'],
-  'Outbrain':  ['outbrain.com'],
-  'Hotjar':    ['hotjar.com', 'hotjar.io'],
-};
+const VENDORS_PATH = resolve(__dirname, 'tracking-vendors.json');
+const VENDORS = JSON.parse(readFileSync(VENDORS_PATH, 'utf-8'));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -169,45 +159,6 @@ function getSiteDomain(urlStr) {
   return parts.length >= 2 ? parts.slice(-2).join('.') : h;
 }
 
-/**
- * Determines the specific Google product from a request URL.
- * Returns 'GA4', 'Google Ads', 'Floodlight', 'Google Tag', or null.
- */
-function getGoogleSubType(requestUrl) {
-  try {
-    const u = new URL(requestUrl);
-    const host = u.hostname;
-    const path = u.pathname;
-
-    // GA4 Collect
-    if (path.includes('/g/collect') || path.includes('/collect')) {
-      const tid = u.searchParams.get('tid');
-      if (tid && /^G-/i.test(tid)) return 'GA4';
-    }
-
-    // gtag/js loader – classify by ID prefix
-    if (path.includes('/gtag/js')) {
-      const id = u.searchParams.get('id');
-      if (id) {
-        if (/^G-/i.test(id)) return 'GA4';
-        if (/^AW-/i.test(id)) return 'Google Ads';
-        if (/^GT-/i.test(id)) return 'Google Tag';
-        if (/^DC-/i.test(id)) return 'Floodlight';
-      }
-    }
-
-    // Google Ads endpoints
-    if (path.includes('/pagead/conversion') || path.includes('/pagead/1p-user-list')) return 'Google Ads';
-    if (host === 'googleads.g.doubleclick.net') return 'Google Ads';
-    if (host === 'www.googleadservices.com') return 'Google Ads';
-
-    // Floodlight
-    if ((host === 'ad.doubleclick.net' || host === 'fls.doubleclick.net') &&
-        (path.startsWith('/activity') || path.includes('/activity;'))) return 'Floodlight';
-
-    return null;
-  } catch { return null; }
-}
 
 /**
  * Detects Stape custom loader transport: Query params with Base64-encoded
@@ -256,7 +207,7 @@ function extractStapeFindings(fullRequests) {
       transports.push({ host: stape.host, type: 'Stape Custom Loader' });
     }
 
-    // Build synthetic URL so existing functions (detectSSTFromUrls, getGoogleSubType,
+    // Build synthetic URL so existing functions (detectSSTFromUrls, matchRequest,
     // extractConsentModeParams) can process the decoded content
     try {
       const syntheticUrl = 'https://' + stape.host + stape.decodedPath;
@@ -363,8 +314,10 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
 
   // 3. Google sub-types collection
   for (const req of allRequests) {
-    const sub = getGoogleSubType(req.url);
-    if (sub) deepAnalysis.googleSubTypes.add(sub);
+    const match = matchRequest(req.url, siteHost);
+    if (match && match.vendor === 'Google' && match.product) {
+      deepAnalysis.googleSubTypes.add(match.product);
+    }
   }
 
   // 4. Measurement IDs from decoded Stape URLs
@@ -375,7 +328,7 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
       if (id && /^(G|AW|GT|DC)-/i.test(id)) {
         deepAnalysis.measurementIds.push({
           id: id.toUpperCase(),
-          type: getGoogleSubType(url) || 'unknown',
+          type: (() => { const m = matchRequest(url, siteHost); return m && m.product ? m.product : 'unknown'; })(),
           host: u.hostname,
         });
       }
@@ -409,57 +362,121 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
 }
 
 /**
- * Classify a request URL.
- * Returns { vendor, hostname, subType } for known trackers,
- * { vendor: 'Sonstige Third-Party', hostname, subType: null } for unknown third-party,
- * or null for same-domain.
+ * Match a request URL against the vendor library.
+ * Returns { key, vendor, product, category, direction, type, hostname } or null (same-domain).
+ * Priority: scripts (with identify) > scripts (without) > endpoints > domains > unknown third-party.
  */
-function classifyRequest(requestUrl, siteHost) {
-  const hostname = getHostname(requestUrl);
-  if (!hostname) return null;
+function matchRequest(requestUrl, siteHost) {
+  let u;
+  try { u = new URL(requestUrl); } catch { return null; }
 
+  const hostname = u.hostname;
+  const hostpath = hostname + u.pathname;
   const siteDomain = getSiteDomain(siteHost);
   const reqDomain = getSiteDomain(requestUrl);
 
-  // Same-domain → ignore
   if (reqDomain === siteDomain) return null;
 
-  // Check known trackers
-  for (const [vendor, domains] of Object.entries(TRACKING_DOMAINS)) {
-    for (const d of domains) {
-      // d can contain a path component (e.g. 'facebook.com/tr')
-      // Check if the full URL contains the tracking domain pattern
+  // Pass 1: Scripts with identify constraint (most specific)
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const s of (v.scripts || [])) {
+      if (!s.identify) continue;
+      if (!hostpath.includes(s.pattern)) continue;
+      const paramVal = u.searchParams.get(s.identify.param);
+      if (paramVal && new RegExp(s.identify.match, 'i').test(paramVal)) {
+        return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'script', type: null, hostname };
+      }
+    }
+  }
+
+  // Pass 2: Scripts without identify constraint
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const s of (v.scripts || [])) {
+      if (s.identify) continue;
+      if (hostpath.includes(s.pattern)) {
+        return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'script', type: null, hostname };
+      }
+    }
+  }
+
+  // Pass 3: Endpoints (with optional classify)
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const ep of (v.endpoints || [])) {
+      if (!hostpath.includes(ep.pattern)) continue;
+      let type = ep.type || null;
+      if (ep.classify) {
+        const paramVal = u.searchParams.get(ep.classify.param);
+        if (paramVal && ep.classify.values[paramVal]) {
+          type = ep.classify.values[paramVal];
+        } else {
+          type = ep.classify.default || 'event';
+        }
+      }
+      return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'request', type, hostname };
+    }
+  }
+
+  // Pass 4: Domain fallback
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const d of (v.domains || [])) {
       if (d.includes('/')) {
-        try {
-          const u = new URL(requestUrl);
-          const check = u.hostname + u.pathname;
-          if (check.includes(d)) {
-            const subType = vendor === 'Google' ? getGoogleSubType(requestUrl) : null;
-            return { vendor, hostname, subType };
-          }
-        } catch { /* ignore */ }
+        if (hostpath.includes(d)) {
+          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'unknown', type: null, hostname };
+        }
       } else {
         if (hostname === d || hostname.endsWith('.' + d)) {
-          const subType = vendor === 'Google' ? getGoogleSubType(requestUrl) : null;
-          return { vendor, hostname, subType };
+          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'unknown', type: null, hostname };
         }
       }
     }
   }
 
-  return { vendor: 'Sonstige Third-Party', hostname, subType: null };
+  // Unknown third-party
+  return { key: null, vendor: 'Sonstige Third-Party', product: null, category: null, direction: 'unknown', type: null, hostname };
+}
+
+/**
+ * Deduplicate matched requests by product key (or hostname for unknown).
+ * Returns [{ key, vendor, product, category, hostnames, directions, types }].
+ */
+function deduplicateMatches(matches) {
+  const map = new Map();
+  for (const m of matches) {
+    if (!m) continue;
+    const groupKey = m.key || ('_tp_' + m.hostname);
+    if (!map.has(groupKey)) {
+      map.set(groupKey, {
+        key: m.key, vendor: m.vendor, product: m.product, category: m.category,
+        hostnames: new Set(), directions: new Set(), types: new Set(),
+      });
+    }
+    const entry = map.get(groupKey);
+    if (m.hostname) entry.hostnames.add(m.hostname);
+    entry.directions.add(m.direction);
+    if (m.type) entry.types.add(m.type);
+  }
+  return [...map.values()].map(e => ({
+    ...e,
+    hostnames: [...e.hostnames],
+    directions: [...e.directions],
+    types: [...e.types],
+  }));
 }
 
 /**
  * Extract Consent Mode parameters (gcs, gcd) from Google request URLs.
  */
 function extractConsentModeParams(requests) {
+  const googleDomains = Object.values(VENDORS)
+    .filter(v => v.vendor === 'Google')
+    .flatMap(v => v.domains || []);
+
   const params = [];
   for (const reqUrl of requests) {
     const hostname = getHostname(reqUrl);
     if (!hostname) continue;
 
-    const isGoogle = TRACKING_DOMAINS['Google'].some(d =>
+    const isGoogle = googleDomains.some(d =>
       hostname === d || hostname.endsWith('.' + d)
     );
     if (!isGoogle) continue;
@@ -476,24 +493,6 @@ function extractConsentModeParams(requests) {
   return params;
 }
 
-/**
- * Deduplicate requests by vendor+hostname. Returns array of { vendor, hostnames, subTypes }.
- */
-function deduplicateRequests(classified) {
-  const map = new Map();
-  for (const c of classified) {
-    if (!c) continue;
-    if (!map.has(c.vendor)) map.set(c.vendor, { hostnames: new Set(), subTypes: new Set() });
-    const entry = map.get(c.vendor);
-    entry.hostnames.add(c.hostname);
-    if (c.subType) entry.subTypes.add(c.subType);
-  }
-  const result = [];
-  for (const [vendor, { hostnames, subTypes }] of map.entries()) {
-    result.push({ vendor, hostnames: [...hostnames], subTypes: [...subTypes] });
-  }
-  return result;
-}
 
 // ── Server-Side Tagging Detection ────────────────────────────────────────────
 
@@ -539,14 +538,14 @@ function detectSSTFromUrls(requestUrls, siteHost) {
       }
     }
 
-    // gtag Loader: /gtag/js with id=G-XXX
+    // gtag Loader: /gtag/js with known id prefix
     if (path.includes('/gtag/js')) {
       const id = u.searchParams.get('id');
-      if (id && /^G-[A-Z0-9]+$/i.test(id)) {
+      if (id && /^(G|AW|GT|DC)-[A-Z0-9]+$/i.test(id)) {
         const key = `gtag|${host}|${id}`;
         if (!seenLoaders.has(key)) {
           seenLoaders.add(key);
-          measurementIds.add(id.toUpperCase());
+          if (/^G-/i.test(id)) measurementIds.add(id.toUpperCase());
           loaders.push({
             type: 'gtag',
             host,
@@ -1372,8 +1371,8 @@ function formatDataLayer(dl) {
 }
 
 function formatTrackerSection(deduped) {
-  const known = deduped.filter(d => d.vendor !== 'Sonstige Third-Party');
-  const other = deduped.filter(d => d.vendor === 'Sonstige Third-Party');
+  const known = deduped.filter(d => d.key !== null);
+  const other = deduped.filter(d => d.key === null);
 
   let md = '';
 
@@ -1381,13 +1380,12 @@ function formatTrackerSection(deduped) {
   if (!known.length) {
     md += '_Keine bekannten Tracker._\n\n';
   } else {
-    md += '| Vendor | Hostnames |\n';
-    md += '|--------|-----------|\n';
+    md += '| Produkt | Kategorie | Richtung | Typen |\n';
+    md += '|---------|-----------|----------|-------|\n';
     for (const d of known) {
-      const vendorLabel = (d.subTypes && d.subTypes.length > 0)
-        ? `${d.vendor} (${d.subTypes.join(', ')})`
-        : d.vendor;
-      md += `| ${vendorLabel} | ${d.hostnames.join(', ')} |\n`;
+      const dirs = d.directions.join(', ');
+      const types = d.types.length > 0 ? d.types.join(', ') : '-';
+      md += `| ${d.product} | ${d.category || '-'} | ${dirs} | ${types} |\n`;
     }
     md += '\n';
   }
@@ -1396,8 +1394,8 @@ function formatTrackerSection(deduped) {
   if (!other.length) {
     md += '_Keine sonstigen Third-Party Requests._\n\n';
   } else {
-    md += '| Hostnames |\n';
-    md += '|-----------|\n';
+    md += '| Hostname |\n';
+    md += '|----------|\n';
     for (const d of other) {
       for (const h of d.hostnames) {
         md += `| ${h} |\n`;
@@ -1491,13 +1489,10 @@ function formatCSPViolationsSection(violations) {
   md += '|----------------------|-----------|\n';
 
   for (const v of violations) {
-    const vendor = (() => {
-      for (const [name, domains] of Object.entries(TRACKING_DOMAINS)) {
-        if (domains.some(d => v.blockedURI.includes(d))) return ` (${name})`;
-      }
-      return '';
-    })();
-    md += `| ${v.blockedURI}${vendor} | ${v.effectiveDirective} |\n`;
+    const match = matchRequest(v.blockedURI, 'csp-check.invalid');
+    const vendor = match ? (match.product || match.vendor) : 'Unbekannt';
+    const vendorLabel = vendor && vendor !== 'Sonstige Third-Party' ? ` (${vendor})` : '';
+    md += `| ${v.blockedURI}${vendorLabel} | ${v.effectiveDirective} |\n`;
   }
   md += '\n';
 
@@ -1976,12 +1971,12 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   const stepRequestUrls = getStepRequests();
   const stepFullRequests = getStepRequests.full();
-  const stepClassified = stepRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
-  const stepTrackers = deduplicateRequests(stepClassified);
+  const stepClassified = stepRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
+  const stepTrackers = deduplicateMatches(stepClassified);
 
   const stepConsentMode = extractConsentModeParams(
     stepRequestUrls.filter(r => {
-      const c = classifyRequest(r, siteHost);
+      const c = matchRequest(r, siteHost);
       return c && c.vendor === 'Google';
     })
   );
@@ -2118,8 +2113,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   // Network requests
   const preRequestUrls = getPreRequests();
-  const preClassified = preRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
-  const preTrackers = deduplicateRequests(preClassified);
+  const preClassified = preRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
+  const preTrackers = deduplicateMatches(preClassified);
   console.log(`  Requests: ${preRequestUrls.length} total, ${preClassified.length} third-party`);
   await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmp.name}`, `DL: ${preDataLayer.length} | 3P: ${preClassified.length}`);
 
@@ -2142,7 +2137,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // Consent Mode params
   const preConsentMode = extractConsentModeParams(
     preRequestUrls.filter(r => {
-      const c = classifyRequest(r, siteHost);
+      const c = matchRequest(r, siteHost);
       return c && c.vendor === 'Google';
     })
   );
@@ -2224,8 +2219,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   // New requests
   const postAcceptRequestUrls = getPostAcceptRequests();
-  const postAcceptClassified = postAcceptRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
-  const postAcceptTrackers = deduplicateRequests(postAcceptClassified);
+  const postAcceptClassified = postAcceptRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
+  const postAcceptTrackers = deduplicateMatches(postAcceptClassified);
   console.log(`  Neue Requests: ${postAcceptRequestUrls.length} total, ${postAcceptClassified.length} third-party`);
   await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Daten gesammelt', `DL: +${postAcceptDataLayerDiff.length} | 3P: +${postAcceptClassified.length}`);
 
@@ -2239,7 +2234,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // Consent Mode params after accept
   const postAcceptConsentMode = extractConsentModeParams(
     postAcceptRequestUrls.filter(r => {
-      const c = classifyRequest(r, siteHost);
+      const c = matchRequest(r, siteHost);
       return c && c.vendor === 'Google';
     })
   );
@@ -2368,10 +2363,10 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
             : diffDataLayer(prevDataLayer, dlAfterSettle);
 
           const stepRequestUrls = getStepRequests();
-          const stepClassified = stepRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
-          const stepTrackers = deduplicateRequests(stepClassified);
+          const stepClassified = stepRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
+          const stepTrackers = deduplicateMatches(stepClassified);
           const stepConsentMode = extractConsentModeParams(
-            stepRequestUrls.filter(r => { const c = classifyRequest(r, siteHost); return c && c.vendor === 'Google'; })
+            stepRequestUrls.filter(r => { const c = matchRequest(r, siteHost); return c && c.vendor === 'Google'; })
           );
 
           const stepCookies = await collectCookies(context1);
@@ -2596,8 +2591,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   console.log(`  dataLayer Diff: ${rejectDataLayerDiff.length} neue Eintraege`);
 
   const rejectPostRequestUrls = getRejectPostRequests();
-  const rejectPostClassified = rejectPostRequestUrls.map(r => classifyRequest(r, siteHost)).filter(Boolean);
-  const rejectPostTrackers = deduplicateRequests(rejectPostClassified);
+  const rejectPostClassified = rejectPostRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
+  const rejectPostTrackers = deduplicateMatches(rejectPostClassified);
   console.log(`  Neue Requests: ${rejectPostRequestUrls.length} total, ${rejectPostClassified.length} third-party`);
 
   const rejectPostCookies = await collectCookies(context2);
