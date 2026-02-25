@@ -1660,24 +1660,20 @@ function generateTLDR(data) {
   const acceptKnown = data.postAccept.trackers.filter(t => t.vendor !== 'Sonstige Third-Party');
   const rejectKnown = data.postReject.trackers.filter(t => t.vendor !== 'Sonstige Third-Party');
 
-  // Collect all vendor names
-  const allVendors = new Set();
-  for (const t of [...preKnown, ...acceptKnown, ...rejectKnown]) allVendors.add(t.vendor);
+  // Collect all product keys
+  const allProducts = new Set();
+  for (const t of [...preKnown, ...acceptKnown, ...rejectKnown]) allProducts.add(t.key || t.vendor);
 
-  if (allVendors.size > 0) {
+  if (allProducts.size > 0) {
     md += '**Bekannte Tracker nach Consent-Phase:**\n\n';
-    md += '| Vendor | Pre-Consent | Post-Accept | Post-Reject |\n';
-    md += '|--------|-------------|-------------|-------------|\n';
-    for (const vendor of allVendors) {
-      const pre = preKnown.find(t => t.vendor === vendor);
-      const accept = acceptKnown.find(t => t.vendor === vendor);
-      const reject = rejectKnown.find(t => t.vendor === vendor);
-      const allSubTypes = new Set();
-      for (const t of [pre, accept, reject].filter(Boolean)) {
-        if (t.subTypes) t.subTypes.forEach(s => allSubTypes.add(s));
-      }
-      const vendorLabel = allSubTypes.size > 0 ? `${vendor} (${[...allSubTypes].join(', ')})` : vendor;
-      md += `| ${vendorLabel} | ${pre ? 'ja' : '–'} | ${accept ? 'ja' : '–'} | ${reject ? 'ja' : '–'} |\n`;
+    md += '| Produkt | Pre-Consent | Post-Accept | Post-Reject |\n';
+    md += '|---------|-------------|-------------|-------------|\n';
+    for (const prodKey of allProducts) {
+      const pre = preKnown.find(t => (t.key || t.vendor) === prodKey);
+      const accept = acceptKnown.find(t => (t.key || t.vendor) === prodKey);
+      const reject = rejectKnown.find(t => (t.key || t.vendor) === prodKey);
+      const label = (pre || accept || reject).product || prodKey;
+      md += `| ${label} | ${pre ? 'ja' : '–'} | ${accept ? 'ja' : '–'} | ${reject ? 'ja' : '–'} |\n`;
     }
     md += '\n';
   }
@@ -1724,7 +1720,7 @@ function generateTLDR(data) {
     for (const step of data.ecommerce) {
       const trackers = step.trackers
         .filter(t => t.vendor !== 'Sonstige Third-Party')
-        .map(t => t.vendor)
+        .map(t => t.product || t.vendor)
         .join(', ') || '_keine_';
       if (hasConsentMode) {
         const gcs = step.consentMode?.[0]?.gcs || '–';
@@ -1898,7 +1894,7 @@ function generateReport(data) {
   if (rejectTrackers.length > 0) {
     md += '**WARNUNG:** Folgende bekannte Tracker wurden trotz Reject gefunden:\n\n';
     for (const t of rejectTrackers) {
-      md += `- **${t.vendor}**: ${t.hostnames.join(', ')}\n`;
+      md += `- **${t.product || t.vendor}**: ${t.hostnames.join(', ')}\n`;
     }
     md += '\n';
   } else {
@@ -1919,7 +1915,7 @@ function generateReport(data) {
         .join(', ') || '-';
       const trackingReqs = step.trackers
         .filter(t => t.vendor !== 'Sonstige Third-Party')
-        .map(t => `${t.vendor} (${t.hostnames.join(', ')})`)
+        .map(t => `${t.product || t.vendor} (${t.hostnames.join(', ')})`)
         .join(', ') || '-';
       const newCookies = step.cookiesDiff.map(c => c.name).join(', ') || '-';
       md += `| ${step.name} | ${dlEvents} | ${trackingReqs} | ${newCookies} |\n`;
