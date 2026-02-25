@@ -18,7 +18,7 @@
  */
 
 import { chromium } from 'playwright';
-import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -74,90 +74,111 @@ function truncate(str, max = 80) {
 const effectiveLabelA = labelA || getHostname(urlA) || 'Seite A';
 const effectiveLabelB = labelB || getHostname(urlB) || 'Seite B';
 
-// ── Tracking Domain Classification (from audit.js) ───────────────────────────
+// ── Tracking Vendor Library ──────────────────────────────────────────────────
 
-const TRACKING_DOMAINS = {
-  'Google':    ['google-analytics.com', 'analytics.google.com', 'googletagmanager.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'googleads.g.doubleclick.net'],
-  'Meta':      ['connect.facebook.net', 'facebook.com/tr', 'fbcdn.net'],
-  'TikTok':    ['analytics.tiktok.com'],
-  'Pinterest': ['ct.pinterest.com'],
-  'LinkedIn':  ['snap.licdn.com', 'linkedin.com/px'],
-  'Microsoft': ['bat.bing.com', 'clarity.ms'],
-  'Criteo':    ['dis.criteo.com'],
-  'Taboola':   ['trc.taboola.com'],
-  'Outbrain':  ['outbrain.com'],
-  'Hotjar':    ['hotjar.com', 'hotjar.io'],
-};
+const VENDORS_PATH = resolve(__dirname, 'tracking-vendors.json');
+const VENDORS = JSON.parse(readFileSync(VENDORS_PATH, 'utf-8'));
 
-function getGoogleSubType(requestUrl) {
-  try {
-    const u = new URL(requestUrl);
-    const host = u.hostname;
-    const path = u.pathname;
-    if (path.includes('/g/collect') || path.includes('/collect')) {
-      const tid = u.searchParams.get('tid');
-      if (tid && /^G-/i.test(tid)) return 'GA4';
-    }
-    if (path.includes('/gtag/js')) {
-      const id = u.searchParams.get('id');
-      if (id) {
-        if (/^G-/i.test(id)) return 'GA4';
-        if (/^AW-/i.test(id)) return 'Google Ads';
-        if (/^GT-/i.test(id)) return 'Google Tag';
-        if (/^DC-/i.test(id)) return 'Floodlight';
-      }
-    }
-    if (path.includes('/pagead/conversion') || path.includes('/pagead/1p-user-list')) return 'Google Ads';
-    if (host === 'googleads.g.doubleclick.net') return 'Google Ads';
-    if (host === 'www.googleadservices.com') return 'Google Ads';
-    if ((host === 'ad.doubleclick.net' || host === 'fls.doubleclick.net') &&
-        (path.startsWith('/activity') || path.includes('/activity;'))) return 'Floodlight';
-    return null;
-  } catch { return null; }
-}
+/**
+ * Match a request URL against the vendor library.
+ * Returns { key, vendor, product, category, direction, type, hostname } or null (same-domain).
+ * Priority: scripts (with identify) > scripts (without) > endpoints > domains > unknown third-party.
+ */
+function matchRequest(requestUrl, siteHost) {
+  let u;
+  try { u = new URL(requestUrl); } catch { return null; }
 
-function classifyRequest(requestUrl, siteHost) {
-  const hostname = getHostname(requestUrl);
-  if (!hostname) return null;
+  const hostname = u.hostname;
+  const hostpath = hostname + u.pathname;
   const siteDomain = getSiteDomain(siteHost);
   const reqDomain = getSiteDomain(requestUrl);
+
   if (reqDomain === siteDomain) return null;
-  for (const [vendor, domains] of Object.entries(TRACKING_DOMAINS)) {
-    for (const d of domains) {
+
+  // Pass 1: Scripts with identify constraint (most specific)
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const s of (v.scripts || [])) {
+      if (!s.identify) continue;
+      if (!hostpath.includes(s.pattern)) continue;
+      const paramVal = u.searchParams.get(s.identify.param);
+      if (paramVal && new RegExp(s.identify.match, 'i').test(paramVal)) {
+        return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'script', type: null, hostname };
+      }
+    }
+  }
+
+  // Pass 2: Scripts without identify constraint
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const s of (v.scripts || [])) {
+      if (s.identify) continue;
+      if (hostpath.includes(s.pattern)) {
+        return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'script', type: null, hostname };
+      }
+    }
+  }
+
+  // Pass 3: Endpoints (with optional classify)
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const ep of (v.endpoints || [])) {
+      if (!hostpath.includes(ep.pattern)) continue;
+      let type = ep.type || null;
+      if (ep.classify) {
+        const paramVal = u.searchParams.get(ep.classify.param);
+        if (paramVal && ep.classify.values[paramVal]) {
+          type = ep.classify.values[paramVal];
+        } else {
+          type = ep.classify.default || 'event';
+        }
+      }
+      return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'request', type, hostname };
+    }
+  }
+
+  // Pass 4: Domain fallback
+  for (const [key, v] of Object.entries(VENDORS)) {
+    for (const d of (v.domains || [])) {
       if (d.includes('/')) {
-        try {
-          const u = new URL(requestUrl);
-          const check = u.hostname + u.pathname;
-          if (check.includes(d)) {
-            const subType = vendor === 'Google' ? getGoogleSubType(requestUrl) : null;
-            return { vendor, hostname, subType };
-          }
-        } catch { /* ignore */ }
+        if (hostpath.includes(d)) {
+          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'unknown', type: null, hostname };
+        }
       } else {
         if (hostname === d || hostname.endsWith('.' + d)) {
-          const subType = vendor === 'Google' ? getGoogleSubType(requestUrl) : null;
-          return { vendor, hostname, subType };
+          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'unknown', type: null, hostname };
         }
       }
     }
   }
-  return { vendor: 'Sonstige Third-Party', hostname, subType: null };
+
+  // Unknown third-party
+  return { key: null, vendor: 'Sonstige Third-Party', product: null, category: null, direction: 'unknown', type: null, hostname };
 }
 
-function deduplicateRequests(classified) {
+/**
+ * Deduplicate matched requests by product key (or hostname for unknown).
+ * Returns [{ key, vendor, product, category, hostnames, directions, types }].
+ */
+function deduplicateMatches(matches) {
   const map = new Map();
-  for (const c of classified) {
-    if (!c) continue;
-    if (!map.has(c.vendor)) map.set(c.vendor, { hostnames: new Set(), subTypes: new Set() });
-    const entry = map.get(c.vendor);
-    entry.hostnames.add(c.hostname);
-    if (c.subType) entry.subTypes.add(c.subType);
+  for (const m of matches) {
+    if (!m) continue;
+    const groupKey = m.key || ('_tp_' + m.hostname);
+    if (!map.has(groupKey)) {
+      map.set(groupKey, {
+        key: m.key, vendor: m.vendor, product: m.product, category: m.category,
+        hostnames: new Set(), directions: new Set(), types: new Set(),
+      });
+    }
+    const entry = map.get(groupKey);
+    if (m.hostname) entry.hostnames.add(m.hostname);
+    entry.directions.add(m.direction);
+    if (m.type) entry.types.add(m.type);
   }
-  const result = [];
-  for (const [vendor, { hostnames, subTypes }] of map.entries()) {
-    result.push({ vendor, hostnames: [...hostnames], subTypes: [...subTypes] });
-  }
-  return result;
+  return [...map.values()].map(e => ({
+    ...e,
+    hostnames: [...e.hostnames],
+    directions: [...e.directions],
+    types: [...e.types],
+  }));
 }
 
 // ── Stape Custom Loader Detection (from audit.js) ────────────────────────────
@@ -427,12 +448,16 @@ async function updateConsentCardReady(page) {
 // ── Consent Mode Extraction (from audit.js) ──────────────────────────────────
 
 function extractConsentModeParams(requestUrls) {
+  const googleDomains = Object.values(VENDORS)
+    .filter(v => v.vendor === 'Google')
+    .flatMap(v => v.domains || []);
+
   const params = [];
   for (const reqUrl of requestUrls) {
     const hostname = getHostname(reqUrl);
     if (!hostname) continue;
 
-    const isGoogle = TRACKING_DOMAINS['Google'].some(d =>
+    const isGoogle = googleDomains.some(d =>
       hostname === d || hostname.endsWith('.' + d)
     );
     if (!isGoogle) continue;
@@ -456,13 +481,13 @@ function analyzeSide(collector, siteUrl) {
   const postConsent = collector.getByPhase('post-consent');
   const allRequests = collector.getAll();
 
-  const preClassified = preConsent.map(r => classifyRequest(r.url, siteUrl)).filter(Boolean);
-  const postClassified = postConsent.map(r => classifyRequest(r.url, siteUrl)).filter(Boolean);
-  const allClassified = allRequests.map(r => classifyRequest(r.url, siteUrl)).filter(Boolean);
+  const preMatched = preConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean);
+  const postMatched = postConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean);
+  const allMatched = allRequests.map(r => matchRequest(r.url, siteUrl)).filter(Boolean);
 
-  const preDeduped = deduplicateRequests(preClassified);
-  const postDeduped = deduplicateRequests(postClassified);
-  const allDeduped = deduplicateRequests(allClassified);
+  const preDeduped = deduplicateMatches(preMatched);
+  const postDeduped = deduplicateMatches(postMatched);
+  const allDeduped = deduplicateMatches(allMatched);
 
   // SST Detection
   const allUrls = allRequests.map(r => r.url);
@@ -505,24 +530,28 @@ function analyzeSide(collector, siteUrl) {
 }
 
 function buildDiff(analysisA, analysisB) {
-  const vendorsA = new Set(analysisA.all.map(d => d.vendor));
-  const vendorsB = new Set(analysisB.all.map(d => d.vendor));
+  const keyOf = (d) => d.key || d.vendor;
+  const keysA = new Set(analysisA.all.map(keyOf));
+  const keysB = new Set(analysisB.all.map(keyOf));
 
-  const onlyA = [...vendorsA].filter(v => !vendorsB.has(v));
-  const onlyB = [...vendorsB].filter(v => !vendorsA.has(v));
-  const both = [...vendorsA].filter(v => vendorsB.has(v));
+  const onlyA = [...keysA].filter(k => !keysB.has(k));
+  const onlyB = [...keysB].filter(k => !keysA.has(k));
+  const both = [...keysA].filter(k => keysB.has(k));
 
   const details = [];
-  for (const vendor of both) {
-    const a = analysisA.all.find(d => d.vendor === vendor);
-    const b = analysisB.all.find(d => d.vendor === vendor);
-    const hostsMatch = JSON.stringify(a.hostnames.sort()) === JSON.stringify(b.hostnames.sort());
-    const subTypesMatch = JSON.stringify(a.subTypes.sort()) === JSON.stringify(b.subTypes.sort());
+  for (const key of both) {
+    const a = analysisA.all.find(d => keyOf(d) === key);
+    const b = analysisB.all.find(d => keyOf(d) === key);
+    const directionsMatch = JSON.stringify([...a.directions].sort()) === JSON.stringify([...b.directions].sort());
+    const typesMatch = JSON.stringify([...a.types].sort()) === JSON.stringify([...b.types].sort());
     details.push({
-      vendor,
-      hostnamesA: a.hostnames, hostnamesB: b.hostnames,
-      subTypesA: a.subTypes, subTypesB: b.subTypes,
-      hostsIdentical: hostsMatch, subTypesIdentical: subTypesMatch,
+      key,
+      vendor: a.vendor,
+      product: a.product || a.vendor,
+      category: a.category,
+      directionsA: a.directions, directionsB: b.directions,
+      typesA: a.types, typesB: b.types,
+      directionsMatch, typesMatch,
     });
   }
 
@@ -624,10 +653,14 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
   // TL;DR
   ln(`## TL;DR`);
   ln();
-  ln(`- **${diff.both.length}** Vendoren auf beiden Seiten`);
-  if (diff.onlyA.length) ln(`- **${diff.onlyA.length}** nur auf ${meta.labelA}: ${diff.onlyA.join(', ')}`);
-  if (diff.onlyB.length) ln(`- **${diff.onlyB.length}** nur auf ${meta.labelB}: ${diff.onlyB.join(', ')}`);
-  if (!diff.onlyA.length && !diff.onlyB.length) ln(`- Keine exklusiven Vendoren`);
+  const productName = (key, analysis) => {
+    const entry = analysis.all.find(d => (d.key || d.vendor) === key);
+    return entry && entry.product ? entry.product : key;
+  };
+  ln(`- **${diff.both.length}** Tracking-Produkte auf beiden Seiten`);
+  if (diff.onlyA.length) ln(`- **${diff.onlyA.length}** nur auf ${meta.labelA}: ${diff.onlyA.map(k => productName(k, analysisA)).join(', ')}`);
+  if (diff.onlyB.length) ln(`- **${diff.onlyB.length}** nur auf ${meta.labelB}: ${diff.onlyB.map(k => productName(k, analysisB)).join(', ')}`);
+  if (!diff.onlyA.length && !diff.onlyB.length) ln(`- Keine exklusiven Produkte`);
   ln(`- Container-IDs: ${diff.sstDiff.containersMatch ? 'identisch' : 'ABWEICHEND'} (A: ${analysisA.sst.containers.join(', ') || 'keine'} | B: ${analysisB.sst.containers.join(', ') || 'keine'})`);
   ln(`- Measurement-IDs: ${diff.sstDiff.measurementIdsMatch ? 'identisch' : 'ABWEICHEND'} (A: ${analysisA.sst.measurementIds.join(', ') || 'keine'} | B: ${analysisB.sst.measurementIds.join(', ') || 'keine'})`);
   if (analysisA.stape.length || analysisB.stape.length) {
@@ -644,43 +677,50 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
   }
   ln();
 
-  // Vendor-Vergleich (Post-Consent)
-  ln(`## Vendor-Vergleich (Post-Consent)`);
+  // Produkt-Vergleich (Post-Consent)
+  ln(`## Tracking-Vergleich (Post-Consent)`);
   ln();
-  ln(`| Vendor | ${meta.labelA} | ${meta.labelB} | Status |`);
-  ln(`|--------|--------|--------|--------|`);
+  ln(`| Produkt | Kategorie | ${meta.labelA} | ${meta.labelB} | Status |`);
+  ln(`|---------|-----------|--------|--------|--------|`);
   for (const d of diff.details) {
-    const aInfo = d.hostnamesA.join(', ');
-    const bInfo = d.hostnamesB.join(', ');
+    const aInfo = d.typesA.length > 0 ? d.typesA.join(', ') : d.directionsA.join(', ');
+    const bInfo = d.typesB.length > 0 ? d.typesB.join(', ') : d.directionsB.join(', ');
     let status = 'identisch';
-    if (!d.hostsIdentical && !d.subTypesIdentical) status = 'ABWEICHEND';
-    else if (!d.hostsIdentical) status = 'Hosts abweichend';
-    else if (!d.subTypesIdentical) status = 'SubTypes abweichend';
-    ln(`| ${d.vendor} | ${aInfo} | ${bInfo} | ${status} |`);
+    if (!d.directionsMatch && !d.typesMatch) status = 'ABWEICHEND';
+    else if (!d.directionsMatch) status = 'Richtung abweichend';
+    else if (!d.typesMatch) status = 'Typen abweichend';
+    ln(`| ${d.product} | ${d.category || '-'} | ${aInfo} | ${bInfo} | ${status} |`);
   }
-  for (const v of diff.onlyA) {
-    const a = analysisA.all.find(d => d.vendor === v);
-    ln(`| ${v} | ${a ? a.hostnames.join(', ') : '-'} | - | nur A |`);
+  for (const key of diff.onlyA) {
+    const a = analysisA.all.find(d => (d.key || d.vendor) === key);
+    const label = a && a.product ? a.product : key;
+    const cat = a && a.category ? a.category : '-';
+    ln(`| ${label} | ${cat} | vorhanden | - | nur ${meta.labelA} |`);
   }
-  for (const v of diff.onlyB) {
-    const b = analysisB.all.find(d => d.vendor === v);
-    ln(`| ${v} | - | ${b ? b.hostnames.join(', ') : '-'} | nur B |`);
+  for (const key of diff.onlyB) {
+    const b = analysisB.all.find(d => (d.key || d.vendor) === key);
+    const label = b && b.product ? b.product : key;
+    const cat = b && b.category ? b.category : '-';
+    ln(`| ${label} | ${cat} | - | vorhanden | nur ${meta.labelB} |`);
   }
   ln();
 
   // Pre-Consent
-  const preVendorsA = new Set(analysisA.preConsent.map(d => d.vendor));
-  const preVendorsB = new Set(analysisB.preConsent.map(d => d.vendor));
-  if (preVendorsA.size > 0 || preVendorsB.size > 0) {
+  const preProductsA = new Set(analysisA.preConsent.map(d => d.key || d.vendor));
+  const preProductsB = new Set(analysisB.preConsent.map(d => d.key || d.vendor));
+  if (preProductsA.size > 0 || preProductsB.size > 0) {
     ln(`## Pre-Consent Requests`);
     ln();
-    ln(`| Vendor | ${meta.labelA} | ${meta.labelB} |`);
-    ln(`|--------|--------|--------|`);
-    const allPreVendors = [...new Set([...preVendorsA, ...preVendorsB])].sort();
-    for (const v of allPreVendors) {
-      const aEntry = analysisA.preConsent.find(d => d.vendor === v);
-      const bEntry = analysisB.preConsent.find(d => d.vendor === v);
-      ln(`| ${v} | ${aEntry ? aEntry.hostnames.join(', ') : '-'} | ${bEntry ? bEntry.hostnames.join(', ') : '-'} |`);
+    ln(`| Produkt | ${meta.labelA} | ${meta.labelB} |`);
+    ln(`|---------|--------|--------|`);
+    const allPreProducts = [...new Set([...preProductsA, ...preProductsB])].sort();
+    for (const key of allPreProducts) {
+      const aEntry = analysisA.preConsent.find(d => (d.key || d.vendor) === key);
+      const bEntry = analysisB.preConsent.find(d => (d.key || d.vendor) === key);
+      const aLabel = aEntry ? (aEntry.types.length > 0 ? aEntry.types.join(', ') : 'vorhanden') : '-';
+      const bLabel = bEntry ? (bEntry.types.length > 0 ? bEntry.types.join(', ') : 'vorhanden') : '-';
+      const name = aEntry ? (aEntry.product || aEntry.vendor) : (bEntry ? (bEntry.product || bEntry.vendor) : key);
+      ln(`| ${name} | ${aLabel} | ${bLabel} |`);
     }
     ln();
   }
@@ -810,8 +850,8 @@ async function main() {
     const analysisB = analyzeSide(collectorB, urlB);
     const diff = buildDiff(analysisA, analysisB);
 
-    console.log(`  Seite A: ${analysisA.requestCount.total} Requests (${analysisA.all.length} Vendoren)`);
-    console.log(`  Seite B: ${analysisB.requestCount.total} Requests (${analysisB.all.length} Vendoren)`);
+    console.log(`  Seite A: ${analysisA.requestCount.total} Requests (${analysisA.all.length} Produkte)`);
+    console.log(`  Seite B: ${analysisB.requestCount.total} Requests (${analysisB.all.length} Produkte)`);
     console.log(`  Nur A: ${diff.onlyA.length} | Nur B: ${diff.onlyB.length} | Beide: ${diff.both.length}\n`);
 
     // Report-Verzeichnis
