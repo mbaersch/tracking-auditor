@@ -1,0 +1,239 @@
+{
+  "ga4": {
+    "vendor": "Google",
+    "product": "Google Analytics 4",
+    "category": "analytics",
+    "scripts": [
+      { "pattern": "googletagmanager.com/gtag/js", "identify": { "param": "id", "match": "^G-" } }
+    ],
+    "endpoints": [
+      {
+        "pattern": "google-analytics.com/g/collect",
+        "classify": {
+          "param": "en",
+          "values": {
+            "page_view": "pageview",
+            "scroll": "event",
+            "click": "event",
+            "purchase": "conversion",
+            "begin_checkout": "conversion",
+            "add_to_cart": "event",
+            "view_item": "event",
+            "view_item_list": "event",
+            "generate_lead": "conversion",
+            "sign_up": "conversion"
+          },
+          "default": "event"
+        }
+      },
+      {
+        "pattern": "analytics.google.com/g/collect",
+        "classify": {
+          "param": "en",
+          "values": {
+            "page_view": "pageview",
+            "purchase": "conversion",
+            "begin_checkout": "conversion",
+            "generate_lead": "conversion",
+            "sign_up": "conversion"
+          },
+          "default": "event"
+        }
+      }
+    ],
+    "domains": ["google-analytics.com", "analytics.google.com"]
+  },
+  "google-ads": {
+    "vendor": "Google",
+    "product": "Google Ads",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "googletagmanager.com/gtag/js", "identify": { "param": "id", "match": "^AW-" } }
+    ],
+    "endpoints": [
+      { "pattern": "googleadservices.com/pagead/conversion", "type": "conversion" },
+      { "pattern": "googleadservices.com/pagead/1p-user-list", "type": "remarketing" },
+      { "pattern": "googleads.g.doubleclick.net/pagead/conversion", "type": "conversion" },
+      { "pattern": "googleads.g.doubleclick.net/pagead/1p-user-list", "type": "remarketing" }
+    ],
+    "domains": ["googleadservices.com", "googleads.g.doubleclick.net"]
+  },
+  "floodlight": {
+    "vendor": "Google",
+    "product": "Floodlight",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "googletagmanager.com/gtag/js", "identify": { "param": "id", "match": "^DC-" } }
+    ],
+    "endpoints": [
+      { "pattern": "ad.doubleclick.net/activity", "type": "conversion" },
+      { "pattern": "fls.doubleclick.net/activity", "type": "conversion" }
+    ],
+    "domains": ["ad.doubleclick.net", "fls.doubleclick.net"]
+  },
+  "google-tag": {
+    "vendor": "Google",
+    "product": "Google Tag",
+    "category": "tag-management",
+    "scripts": [
+      { "pattern": "googletagmanager.com/gtag/js", "identify": { "param": "id", "match": "^GT-" } }
+    ],
+    "endpoints": [],
+    "domains": []
+  },
+  "gtm": {
+    "vendor": "Google",
+    "product": "Google Tag Manager",
+    "category": "tag-management",
+    "scripts": [
+      { "pattern": "googletagmanager.com/gtm.js", "identify": { "param": "id", "match": "^GTM-" } }
+    ],
+    "endpoints": [],
+    "domains": ["googletagmanager.com"]
+  },
+  "google-syndication": {
+    "vendor": "Google",
+    "product": "Google AdSense / Syndication",
+    "category": "advertising",
+    "scripts": [],
+    "endpoints": [],
+    "domains": ["googlesyndication.com", "doubleclick.net"]
+  },
+  "meta-pixel": {
+    "vendor": "Meta",
+    "product": "Meta Pixel",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "connect.facebook.net" }
+    ],
+    "endpoints": [
+      {
+        "pattern": "facebook.com/tr",
+        "classify": {
+          "param": "ev",
+          "values": {
+            "PageView": "pageview",
+            "Purchase": "conversion",
+            "AddToCart": "event",
+            "InitiateCheckout": "conversion",
+            "CompleteRegistration": "conversion",
+            "Lead": "conversion",
+            "ViewContent": "event",
+            "Search": "event",
+            "AddPaymentInfo": "event",
+            "AddToWishlist": "event"
+          },
+          "default": "event"
+        }
+      }
+    ],
+    "domains": ["connect.facebook.net", "fbcdn.net"]
+  },
+  "tiktok-pixel": {
+    "vendor": "TikTok",
+    "product": "TikTok Pixel",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "analytics.tiktok.com/i18n/pixel/events.js" }
+    ],
+    "endpoints": [
+      { "pattern": "analytics.tiktok.com/api/v2/pixel", "type": "event" }
+    ],
+    "domains": ["analytics.tiktok.com"]
+  },
+  "pinterest-tag": {
+    "vendor": "Pinterest",
+    "product": "Pinterest Tag",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "s.pinimg.com/ct/core.js" }
+    ],
+    "endpoints": [
+      { "pattern": "ct.pinterest.com/v3/", "type": "event" }
+    ],
+    "domains": ["ct.pinterest.com", "s.pinimg.com"]
+  },
+  "linkedin-insight": {
+    "vendor": "LinkedIn",
+    "product": "LinkedIn Insight Tag",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "snap.licdn.com/li.lms-analytics/insight.min.js" }
+    ],
+    "endpoints": [
+      { "pattern": "px.ads.linkedin.com", "type": "event" },
+      { "pattern": "linkedin.com/px", "type": "event" }
+    ],
+    "domains": ["snap.licdn.com", "px.ads.linkedin.com"]
+  },
+  "microsoft-ads": {
+    "vendor": "Microsoft",
+    "product": "Microsoft Ads (UET)",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "bat.bing.com/bat.js" }
+    ],
+    "endpoints": [
+      { "pattern": "bat.bing.com/action", "type": "event" }
+    ],
+    "domains": ["bat.bing.com"]
+  },
+  "microsoft-clarity": {
+    "vendor": "Microsoft",
+    "product": "Microsoft Clarity",
+    "category": "session-recording",
+    "scripts": [
+      { "pattern": "clarity.ms/tag/" }
+    ],
+    "endpoints": [],
+    "domains": ["clarity.ms"]
+  },
+  "criteo": {
+    "vendor": "Criteo",
+    "product": "Criteo",
+    "category": "retargeting",
+    "scripts": [
+      { "pattern": "static.criteo.net/js/ld/ld.js" }
+    ],
+    "endpoints": [
+      { "pattern": "dis.criteo.com", "type": "event" }
+    ],
+    "domains": ["dis.criteo.com", "static.criteo.net"]
+  },
+  "taboola": {
+    "vendor": "Taboola",
+    "product": "Taboola Pixel",
+    "category": "native-ads",
+    "scripts": [
+      { "pattern": "cdn.taboola.com/libtrc/" }
+    ],
+    "endpoints": [
+      { "pattern": "trc.taboola.com", "type": "event" }
+    ],
+    "domains": ["trc.taboola.com", "cdn.taboola.com"]
+  },
+  "outbrain": {
+    "vendor": "Outbrain",
+    "product": "Outbrain Pixel",
+    "category": "native-ads",
+    "scripts": [
+      { "pattern": "amplify.outbrain.com/cp/obtp.js" }
+    ],
+    "endpoints": [
+      { "pattern": "tr.outbrain.com", "type": "event" }
+    ],
+    "domains": ["outbrain.com", "amplify.outbrain.com", "tr.outbrain.com"]
+  },
+  "hotjar": {
+    "vendor": "Hotjar",
+    "product": "Hotjar",
+    "category": "session-recording",
+    "scripts": [
+      { "pattern": "static.hotjar.com/c/hotjar-" }
+    ],
+    "endpoints": [
+      { "pattern": "hotjar.io", "type": "event" }
+    ],
+    "domains": ["hotjar.com", "hotjar.io", "static.hotjar.com"]
+  }
+}
