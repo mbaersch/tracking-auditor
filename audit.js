@@ -2696,7 +2696,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const timestamp = `${date}-${time}`;
   reportData.timestamp = `${date} ${now.toTimeString().slice(0, 5)}`;
   const reportDir = resolve(__dirname, 'reports', project);
-  const reportFile = resolve(reportDir, `audit-${timestamp}.md`);
+  const hostSlug = (getHostname(url) || 'unknown').replace(/\./g, '_');
+  const reportFile = resolve(reportDir, `audit-${hostSlug}-${timestamp}.md`);
 
   if (!existsSync(reportDir)) {
     mkdirSync(reportDir, { recursive: true });
