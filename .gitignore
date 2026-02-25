@@ -25,6 +25,9 @@
 !.claude/skills/cmp-learn/
 .claude/skills/cmp-learn/*
 !.claude/skills/cmp-learn/skill.md
+!.claude/skills/tracking-compare/
+.claude/skills/tracking-compare/*
+!.claude/skills/tracking-compare/skill.md
 
 # Helper-Scripts
 !helpers/

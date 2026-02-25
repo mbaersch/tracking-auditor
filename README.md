@@ -16,10 +16,11 @@ npx playwright install chromium
 
 ```
 audit.js          Automatisierter Audit-Runner (Consent + E-Commerce)
+compare.js        Tracking-Vergleich zwischen zwei URLs (Live vs. Staging)
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
 cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~40 CMPs)
-reports/          Ablageort fuer generierte Audit-Reports (lokal, nicht im Repo)
+reports/          Ablageort fuer generierte Reports (lokal, nicht im Repo)
 ```
 
 ## Verwendung
@@ -180,6 +181,26 @@ Mit `--ecom` laeuft der E-Commerce-Pfad ohne Vorbereitung. Du navigierst selbst,
 
 Jeder Schritt ist per "Audit abschliessen" ueberspringbar. Der Report enthaelt nur die Schritte, die tatsaechlich durchlaufen wurden.
 
+## Tracking-Vergleich (compare.js)
+
+Vergleicht Tracking-Setups zwischen zwei URLs (z.B. Live vs. Staging, Standard-GTM vs. sGTM Custom Loader):
+
+```bash
+node compare.js --url-a https://example.com/ --url-b https://example.com/staging --project example_com \
+  --label-a "Live" --label-b "sGTM Staging"
+```
+
+| Parameter | Pflicht | Default | Beschreibung |
+|-----------|---------|---------|--------------|
+| `--url-a` | ja | - | Erste URL (Referenz/Live) |
+| `--url-b` | ja | - | Zweite URL (Staging/Test) |
+| `--project` | ja | - | Projektname |
+| `--label-a` | nein | Host A | Anzeigename Seite A |
+| `--label-b` | nein | Host B | Anzeigename Seite B |
+| `--post-consent-wait` | nein | 5000 | Wartezeit nach Consent (ms) |
+
+Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Consent wird manuell per Floating Card bestaetigt. Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
+
 ## Tracking-Domain-Klassifizierung
 
 Bekannte Tracker werden automatisch zugeordnet: Google, Meta, TikTok, Pinterest, LinkedIn, Microsoft, Criteo, Taboola, Outbrain, Hotjar. Alles andere wird als "Sonstige Third-Party" gefuehrt.
@@ -188,7 +209,7 @@ Google-Requests werden zusaetzlich nach Produkt klassifiziert: GA4, Google Ads, 
 
 ## Claude Code Skills
 
-Dieses Projekt bringt zwei [Claude Code Skills](https://docs.anthropic.com/en/docs/claude-code/skills) mit, die das Toolkit per natuerlicher Sprache nutzbar machen:
+Dieses Projekt bringt drei [Claude Code Skills](https://docs.anthropic.com/en/docs/claude-code/skills) mit, die das Toolkit per natuerlicher Sprache nutzbar machen:
 
 ### tagging-audit
 
@@ -197,6 +218,15 @@ Startet einen Tracking-Audit. Normalfall: nur die URL angeben, alles andere laeu
 ```
 "Mach einen Tagging-Audit von gandke.de"
 "Audit example.com mit E-Commerce"
+```
+
+### tracking-compare
+
+Vergleicht Tracking-Setups auf zwei URLs (z.B. Live vs. Staging, Standard-GTM vs. sGTM).
+
+```
+"Vergleiche das Tracking auf example.com mit example.com/staging"
+"Live vs. sGTM Vergleich fuer elterngeldexperten.de"
 ```
 
 ### cmp-learn

@@ -431,5 +431,12 @@
     "reject": ".noconsentlink",
     "shadowDom": true,
     "learnedAt": "2026-02-23T18:17:31.705Z"
+  },
+  "cybot": {
+    "name": "Cybot",
+    "accept": "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
+    "reject": "#CybotCookiebotDialogBodyButtonDecline",
+    "shadowDom": false,
+    "learnedAt": "2026-02-25T12:07:19.355Z"
   }
 }
