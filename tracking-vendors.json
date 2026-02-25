@@ -39,9 +39,23 @@
           },
           "default": "event"
         }
+      },
+      {
+        "pattern": "stats.g.doubleclick.net/g/collect",
+        "classify": {
+          "param": "en",
+          "values": {
+            "page_view": "pageview",
+            "purchase": "conversion",
+            "begin_checkout": "conversion",
+            "generate_lead": "conversion",
+            "sign_up": "conversion"
+          },
+          "default": "event"
+        }
       }
     ],
-    "domains": ["google-analytics.com", "analytics.google.com"]
+    "domains": ["google-analytics.com", "analytics.google.com", "stats.g.doubleclick.net"]
   },
   "google-ads": {
     "vendor": "Google",
@@ -54,7 +68,8 @@
       { "pattern": "googleadservices.com/pagead/conversion", "type": "conversion" },
       { "pattern": "googleadservices.com/pagead/1p-user-list", "type": "remarketing" },
       { "pattern": "googleads.g.doubleclick.net/pagead/conversion", "type": "conversion" },
-      { "pattern": "googleads.g.doubleclick.net/pagead/1p-user-list", "type": "remarketing" }
+      { "pattern": "googleads.g.doubleclick.net/pagead/1p-user-list", "type": "remarketing" },
+      { "pattern": "googleads.g.doubleclick.net/pagead/viewthroughconversion", "type": "remarketing" }
     ],
     "domains": ["googleadservices.com", "googleads.g.doubleclick.net"]
   },
@@ -171,10 +186,12 @@
     "product": "Microsoft Ads (UET)",
     "category": "advertising",
     "scripts": [
-      { "pattern": "bat.bing.com/bat.js" }
+      { "pattern": "bat.bing.com/bat.js" },
+      { "pattern": "bat.bing.com/p/action/" }
     ],
     "endpoints": [
-      { "pattern": "bat.bing.com/action", "type": "event" }
+      { "pattern": "bat.bing.com/action", "type": "event" },
+      { "pattern": "bat.bing.com/p/insights/", "type": "event" }
     ],
     "domains": ["bat.bing.com"]
   },
@@ -183,9 +200,12 @@
     "product": "Microsoft Clarity",
     "category": "session-recording",
     "scripts": [
-      { "pattern": "clarity.ms/tag/" }
+      { "pattern": "clarity.ms/tag/" },
+      { "pattern": "scripts.clarity.ms/" }
     ],
-    "endpoints": [],
+    "endpoints": [
+      { "pattern": "z.clarity.ms/collect", "type": "event" }
+    ],
     "domains": ["clarity.ms"]
   },
   "criteo": {

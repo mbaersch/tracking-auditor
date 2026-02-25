@@ -139,11 +139,11 @@ function matchRequest(requestUrl, siteHost) {
     for (const d of (v.domains || [])) {
       if (d.includes('/')) {
         if (hostpath.includes(d)) {
-          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'unknown', type: null, hostname };
+          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'domain', type: null, hostname };
         }
       } else {
         if (hostname === d || hostname.endsWith('.' + d)) {
-          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'unknown', type: null, hostname };
+          return { key, vendor: v.vendor, product: v.product, category: v.category, direction: 'domain', type: null, hostname };
         }
       }
     }
