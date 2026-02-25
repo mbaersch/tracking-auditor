@@ -199,7 +199,7 @@ node compare.js --url-a https://example.com/ --url-b https://example.com/staging
 | `--label-b` | nein | Host B | Anzeigename Seite B |
 | `--post-consent-wait` | nein | 5000 | Wartezeit nach Consent (ms) |
 
-Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Consent wird manuell per Floating Card bestaetigt. Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
+Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Der Consent-Button ist anfangs deaktiviert und wird erst nach dem load-Event + 3 Sekunden freigeschaltet, um saubere Pre-/Post-Consent-Trennung sicherzustellen. Consent wird manuell per Floating Card bestaetigt. Der Report enthaelt einen **Consent Mode Vergleich** (Advanced vs. Basic, gcs/gcd-Flags pre- und post-consent). Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
 
 ## Tracking-Domain-Klassifizierung
 

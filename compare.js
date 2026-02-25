@@ -333,8 +333,10 @@ async function injectConsentCard(page, label) {
         font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important;
         display: block !important; width: 100% !important; text-align: center !important;
       }
-      #__compare-card-btn:hover { background: #1d4ed8 !important; }
-      #__compare-card-btn:disabled { background: #22c55e !important; cursor: default !important; }
+      #__compare-card-btn:hover:not(:disabled) { background: #1d4ed8 !important; }
+      #__compare-card-btn:disabled { background: #9ca3af !important; cursor: default !important; pointer-events: none !important; }
+      #__compare-card-btn.--ready { background: #2563eb !important; cursor: pointer !important; pointer-events: auto !important; }
+      #__compare-card-btn.--done { background: #22c55e !important; cursor: default !important; pointer-events: none !important; }
     `;
     document.head.appendChild(style);
 
@@ -342,14 +344,17 @@ async function injectConsentCard(page, label) {
     card.id = '__compare-card';
     card.innerHTML =
       '<div id="__compare-card-title">' + label + '</div>' +
-      '<div id="__compare-card-msg">Bitte Consent erteilen, dann best\u00e4tigen:</div>' +
-      '<button id="__compare-card-btn">Consent gegeben</button>';
+      '<div id="__compare-card-msg">Seite l\u00e4dt...</div>' +
+      '<button id="__compare-card-btn" disabled>Seite l\u00e4dt...</button>';
     document.body.appendChild(card);
 
     document.getElementById('__compare-card-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       const btn = document.getElementById('__compare-card-btn');
+      if (!btn.classList.contains('--ready')) return;
       btn.disabled = true;
+      btn.classList.remove('--ready');
+      btn.classList.add('--done');
       btn.textContent = 'Warte auf andere Seite...';
       window[cbName]();
     });
@@ -404,6 +409,46 @@ async function removeConsentCard(page) {
   }).catch(() => {});
 }
 
+async function updateConsentCardReady(page) {
+  await page.evaluate(() => {
+    const btn = document.getElementById('__compare-card-btn');
+    const msg = document.getElementById('__compare-card-msg');
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.add('--ready');
+      btn.textContent = 'Consent gegeben';
+    }
+    if (msg) {
+      msg.textContent = 'Bitte Consent erteilen, dann best\u00e4tigen:';
+    }
+  }).catch(() => {});
+}
+
+// ── Consent Mode Extraction (from audit.js) ──────────────────────────────────
+
+function extractConsentModeParams(requestUrls) {
+  const params = [];
+  for (const reqUrl of requestUrls) {
+    const hostname = getHostname(reqUrl);
+    if (!hostname) continue;
+
+    const isGoogle = TRACKING_DOMAINS['Google'].some(d =>
+      hostname === d || hostname.endsWith('.' + d)
+    );
+    if (!isGoogle) continue;
+
+    try {
+      const u = new URL(reqUrl);
+      const gcs = u.searchParams.get('gcs');
+      const gcd = u.searchParams.get('gcd');
+      if (gcs || gcd) {
+        params.push({ url: truncate(reqUrl, 120), gcs: gcs || '-', gcd: gcd || '-' });
+      }
+    } catch { /* ignore */ }
+  }
+  return params;
+}
+
 // ── Analysis ──────────────────────────────────────────────────────────────────
 
 function analyzeSide(collector, siteUrl) {
@@ -433,6 +478,12 @@ function analyzeSide(collector, siteUrl) {
     sst.collectEndpoints.push(...sstFromStape.collectEndpoints);
   }
 
+  // Consent Mode
+  const preUrls = preConsent.map(r => r.url);
+  const postUrls = postConsent.map(r => r.url);
+  const preConsentMode = extractConsentModeParams(preUrls);
+  const postConsentMode = extractConsentModeParams(postUrls);
+
   return {
     preConsent: preDeduped,
     postConsent: postDeduped,
@@ -444,6 +495,11 @@ function analyzeSide(collector, siteUrl) {
       collectEndpoints: sst.collectEndpoints,
     },
     stape: stape.transports,
+    consentMode: {
+      pre: preConsentMode,
+      post: postConsentMode,
+      type: preConsentMode.length > 0 ? 'Advanced' : 'Basic',
+    },
     requestCount: { pre: preConsent.length, post: postConsent.length, total: allRequests.length },
   };
 }
@@ -475,7 +531,25 @@ function buildDiff(analysisA, analysisB) {
     measurementIdsMatch: JSON.stringify(analysisA.sst.measurementIds.sort()) === JSON.stringify(analysisB.sst.measurementIds.sort()),
   };
 
-  return { onlyA, onlyB, both, details, sstDiff };
+  const cmA = analysisA.consentMode;
+  const cmB = analysisB.consentMode;
+  const consentModeDiff = {
+    typeA: cmA.type,
+    typeB: cmB.type,
+    typesMatch: cmA.type === cmB.type,
+    preGcsA: cmA.pre.length > 0 ? cmA.pre[0].gcs : '-',
+    preGcsB: cmB.pre.length > 0 ? cmB.pre[0].gcs : '-',
+    postGcsA: cmA.post.length > 0 ? cmA.post[0].gcs : '-',
+    postGcsB: cmB.post.length > 0 ? cmB.post[0].gcs : '-',
+    preGcdA: cmA.pre.length > 0 ? cmA.pre[0].gcd : '-',
+    preGcdB: cmB.pre.length > 0 ? cmB.pre[0].gcd : '-',
+    postGcdA: cmA.post.length > 0 ? cmA.post[0].gcd : '-',
+    postGcdB: cmB.post.length > 0 ? cmB.post[0].gcd : '-',
+    preGcsMatch: (cmA.pre.length > 0 ? cmA.pre[0].gcs : '-') === (cmB.pre.length > 0 ? cmB.pre[0].gcs : '-'),
+    postGcsMatch: (cmA.post.length > 0 ? cmA.post[0].gcs : '-') === (cmB.post.length > 0 ? cmB.post[0].gcs : '-'),
+  };
+
+  return { onlyA, onlyB, both, details, sstDiff, consentModeDiff };
 }
 
 // ── HAR Export ────────────────────────────────────────────────────────────────
@@ -561,6 +635,13 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
     const stapeB = analysisB.stape.map(s => s.host).join(', ') || 'nein';
     ln(`- Custom Loader: A=${stapeA} | B=${stapeB}`);
   }
+  const cmTypeA = analysisA.consentMode.type;
+  const cmTypeB = analysisB.consentMode.type;
+  if (cmTypeA === cmTypeB) {
+    ln(`- Consent Mode: identisch (${cmTypeA})`);
+  } else {
+    ln(`- Consent Mode: ABWEICHEND (A: ${cmTypeA} | B: ${cmTypeB})`);
+  }
   ln();
 
   // Vendor-Vergleich (Post-Consent)
@@ -603,6 +684,38 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
     }
     ln();
   }
+
+  // Consent Mode
+  const cmd = diff.consentModeDiff;
+  ln(`## Consent Mode`);
+  ln();
+  ln(`| | ${meta.labelA} | ${meta.labelB} |`);
+  ln(`|---|---|---|`);
+  const typeLine = !cmd.typesMatch ? `| **Typ** | **${cmd.typeA}** | **${cmd.typeB}** |` : `| Typ | ${cmd.typeA} | ${cmd.typeB} |`;
+  ln(typeLine);
+  const fmtVal = (v) => v === '-' ? 'Nicht erkannt' : `\`${v}\``;
+  if (cmd.preGcsA !== '-' || cmd.preGcsB !== '-') {
+    const preGcsLine = !cmd.preGcsMatch ? `| **Pre-Consent gcs** | **${fmtVal(cmd.preGcsA)}** | **${fmtVal(cmd.preGcsB)}** |` : `| Pre-Consent gcs | ${fmtVal(cmd.preGcsA)} | ${fmtVal(cmd.preGcsB)} |`;
+    ln(preGcsLine);
+  }
+  if (cmd.postGcsA !== '-' || cmd.postGcsB !== '-') {
+    const postGcsLine = !cmd.postGcsMatch ? `| **Post-Consent gcs** | **${fmtVal(cmd.postGcsA)}** | **${fmtVal(cmd.postGcsB)}** |` : `| Post-Consent gcs | ${fmtVal(cmd.postGcsA)} | ${fmtVal(cmd.postGcsB)} |`;
+    ln(postGcsLine);
+  }
+  if (cmd.preGcdA !== '-' || cmd.preGcdB !== '-') {
+    const preGcdMatch = cmd.preGcdA === cmd.preGcdB;
+    const preGcdLine = !preGcdMatch ? `| **Pre-Consent gcd** | **${fmtVal(cmd.preGcdA)}** | **${fmtVal(cmd.preGcdB)}** |` : `| Pre-Consent gcd | ${fmtVal(cmd.preGcdA)} | ${fmtVal(cmd.preGcdB)} |`;
+    ln(preGcdLine);
+  }
+  if (cmd.postGcdA !== '-' || cmd.postGcdB !== '-') {
+    const postGcdMatch = cmd.postGcdA === cmd.postGcdB;
+    const postGcdLine = !postGcdMatch ? `| **Post-Consent gcd** | **${fmtVal(cmd.postGcdA)}** | **${fmtVal(cmd.postGcdB)}** |` : `| Post-Consent gcd | ${fmtVal(cmd.postGcdA)} | ${fmtVal(cmd.postGcdB)} |`;
+    ln(postGcdLine);
+  }
+  if (cmd.typeA === 'Basic' && cmd.typeB === 'Basic' && cmd.preGcsA === '-' && cmd.postGcsA === '-' && cmd.preGcsB === '-' && cmd.postGcsB === '-') {
+    ln(`| | Nicht erkannt (Basic oder kein Consent Mode) | Nicht erkannt (Basic oder kein Consent Mode) |`);
+  }
+  ln();
 
   // SST Details
   ln(`## SST / Custom Loader Details`);
@@ -649,9 +762,17 @@ async function measureSide(browser, url, label, postWait) {
     console.log(`  Lade ${label}: ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
 
-    // Consent-Card injizieren
-    console.log(`  Warte auf Consent fuer ${label}...\n`);
+    // Consent-Card injizieren (Button startet deaktiviert)
     const consentPromise = injectConsentCard(page, label);
+
+    // Warten bis Seite vollstaendig geladen + 3s Offset, dann Button freischalten
+    console.log(`  Warte auf load-Event fuer ${label}...`);
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {
+      console.log(`  (load-Timeout fuer ${label}, schalte trotzdem frei)`);
+    });
+    await new Promise(r => setTimeout(r, 3000));
+    await updateConsentCardReady(page);
+    console.log(`  Warte auf Consent fuer ${label}...\n`);
     await consentPromise;
 
     collector.setPhase('post-consent');
