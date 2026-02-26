@@ -149,19 +149,19 @@
     "product": "TikTok Pixel",
     "category": "advertising",
     "scripts": [
-      { "pattern": "analytics.tiktok.com/i18n/pixel/events.js" }
+      { "pattern": "tiktok.com/i18n/pixel/" }
     ],
     "endpoints": [
-      { "pattern": "analytics.tiktok.com/api/v2/pixel", "type": "event" }
+      { "pattern": "tiktok.com/api/v2/pixel", "type": "event" }
     ],
-    "domains": ["analytics.tiktok.com"]
+    "domains": ["analytics.tiktok.com", "tiktokw.us"]
   },
   "pinterest-tag": {
     "vendor": "Pinterest",
     "product": "Pinterest Tag",
     "category": "advertising",
     "scripts": [
-      { "pattern": "s.pinimg.com/ct/core.js" }
+      { "pattern": "s.pinimg.com/ct/" }
     ],
     "endpoints": [
       { "pattern": "ct.pinterest.com/v3/", "type": "event" }
@@ -173,7 +173,7 @@
     "product": "LinkedIn Insight Tag",
     "category": "advertising",
     "scripts": [
-      { "pattern": "snap.licdn.com/li.lms-analytics/insight.min.js" }
+      { "pattern": "licdn.com/li.lms-analytics/" }
     ],
     "endpoints": [
       { "pattern": "ads.linkedin.com", "type": "event" },
@@ -213,12 +213,12 @@
     "product": "Criteo",
     "category": "retargeting",
     "scripts": [
-      { "pattern": "static.criteo.net/js/ld/ld.js" }
+      { "pattern": "static.criteo.net/js/" }
     ],
     "endpoints": [
       { "pattern": "dis.criteo.com", "type": "event" }
     ],
-    "domains": ["dis.criteo.com", "static.criteo.net"]
+    "domains": ["criteo.com", "criteo.net"]
   },
   "taboola": {
     "vendor": "Taboola",
@@ -237,7 +237,7 @@
     "product": "Outbrain Pixel",
     "category": "native-ads",
     "scripts": [
-      { "pattern": "amplify.outbrain.com/cp/obtp.js" }
+      { "pattern": "outbrain.com/cp/obtp.js" }
     ],
     "endpoints": [
       { "pattern": "tr.outbrain.com", "type": "event" }
@@ -255,5 +255,20 @@
       { "pattern": "hotjar.io", "type": "event" }
     ],
     "domains": ["hotjar.com", "hotjar.io", "static.hotjar.com"]
+  },
+  "hubspot": {
+    "vendor": "HubSpot",
+    "product": "HubSpot",
+    "category": "marketing-automation",
+    "scripts": [
+      { "pattern": "js.hs-scripts.com/" },
+      { "pattern": "js.hs-analytics.net/" }
+    ],
+    "endpoints": [
+      { "pattern": "track.hubspot.com", "type": "event" },
+      { "pattern": "forms.hsforms.com", "type": "event" },
+      { "pattern": "forms.hscollectedforms.net", "type": "event" }
+    ],
+    "domains": ["hubspot.com", "hs-scripts.com", "hs-analytics.net", "hsforms.com", "hscollectedforms.net", "hs-banner.com"]
   }
 }

@@ -1008,6 +1008,7 @@ export async function showConsentCard(page, action) {
   const msg = isAccept
     ? 'Bitte alle Cookies <b>akzeptieren</b>, dann best\u00e4tigen:'
     : 'Bitte alle Cookies <b>ablehnen</b>, dann best\u00e4tigen:';
+  const btnLabel = isAccept ? 'Cookies akzeptiert' : 'Cookies abgelehnt';
 
   let resolveConsent;
   const consentPromise = new Promise((resolve) => { resolveConsent = resolve; });
@@ -1016,7 +1017,7 @@ export async function showConsentCard(page, action) {
     resolveConsent();
   });
 
-  await page.evaluate(({ title, msg, cbName }) => {
+  await page.evaluate(({ title, msg, btnLabel, cbName }) => {
     const style = document.createElement('style');
     style.id = '__audit-consent-style';
     style.textContent = `
@@ -1066,7 +1067,7 @@ export async function showConsentCard(page, action) {
       if (btn) {
         btn.disabled = false;
         btn.classList.add('--ready');
-        btn.textContent = 'Consent gegeben';
+        btn.textContent = btnLabel;
       }
     }, 2000);
 
@@ -1106,7 +1107,7 @@ export async function showConsentCard(page, action) {
       dragging = false;
       card.classList.remove('--dragging');
     });
-  }, { title, msg, cbName: callbackName });
+  }, { title, msg, btnLabel, cbName: callbackName });
 
   return consentPromise;
 }
