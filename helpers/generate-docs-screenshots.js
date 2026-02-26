@@ -242,7 +242,6 @@ async function captureLearnExtras() {
           'background:#2563eb !important;color:#fff !important;border:none !important;' +
           'border-radius:8px !important;padding:10px 28px !important;font-size:14px !important;' +
           'font-weight:600 !important;cursor:pointer !important;font-family:inherit !important;' +
-          'width:100% !important;' +
         '">Bereit</button>';
       document.body.appendChild(card);
     });
@@ -262,7 +261,7 @@ async function captureLearnExtras() {
     }
 
     // showConfirm waits for button click -- don't await
-    const confirmPromise = showConfirm(page, 'Ist der <b>Ablehnen-Button</b> direkt sichtbar?');
+    const confirmPromise = showConfirm(page, 'Ist der Ablehnen-Button direkt sichtbar?');
     confirmPromise.catch(() => {});
 
     await page.waitForTimeout(RENDER_SETTLE_MS);
