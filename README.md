@@ -31,13 +31,11 @@ reports/          Ablageort fuer generierte Reports (lokal, nicht im Repo)
 Bevor ein Audit laeuft, muss die Consent Management Platform (CMP) der Zielseite bekannt sein. `learn.js` oeffnet einen sichtbaren Browser und erkennt die Accept/Reject-Selektoren interaktiv:
 
 ```bash
+# Nur URL ist Pflicht -- CMP-Name wird am Ende abgefragt
+node learn.js --url https://example.com
+
+# CMP-Name kann auch direkt angegeben werden
 node learn.js --url https://example.com --cmp "Usercentrics"
-```
-
-Bei CMPs mit zweistufigem Reject (Settings -> Reject):
-
-```bash
-node learn.js --url https://example.com --cmp "Borlabs Cookie" --two-step-reject
 ```
 
 **Ablauf:**
@@ -49,9 +47,12 @@ node learn.js --url https://example.com --cmp "Borlabs Cookie" --two-step-reject
 3. Das Script erkennt den Selektor automatisch und zeigt ihn zur Bestaetigung an
 
 ![learn.js: Erkannter Selektor zur Bestaetigung](images/learn-selector-result.png)
-4. Bei Shadow DOM CMPs: automatischer Fallback auf manuelle Selektor-Eingabe mit Live-Validierung
-5. Browser-Neustart, dann Reject-Button
-6. Beide Selektoren werden in `cmp-library.json` gespeichert
+4. Bei Shadow DOM CMPs: schwebende Hint-Card (kein Overlay) -- Seite bleibt fuer DevTools zugaenglich, Selektor wird manuell eingegeben und live validiert
+5. Browser-Neustart, dann Reject-Button. Bei Shadow DOM wird interaktiv gefragt, ob der Reject-Button direkt sichtbar ist oder ein Zwischenschritt noetig ist (Two-Step)
+6. **Library-Matching:** Gelernte Selektoren werden gegen bestehende Eintraege geprueft -- bei Match kann der existierende Eintrag wiederverwendet werden
+7. **Detect-Selektoren:** Automatischer Vorschlag von Container-IDs (z.B. `#usercentrics-root`) aus der DOM-Umgebung des Accept-Buttons, mit Bestaetigung/Anpassung/Skip
+8. CMP-Name abfragen (falls nicht via `--cmp` angegeben)
+9. Alle Selektoren werden in `cmp-library.json` gespeichert
 
 Die Interaktion findet komplett im Browser-Overlay statt. Mit `--terminal` kann auf den alten readline-Modus gewechselt werden.
 
