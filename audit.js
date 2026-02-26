@@ -28,10 +28,10 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
-  showMessage, showClickPrompt, showSelectorResult,
-  showTextInput, showConfirm, showCMPMatch, showCMPNameInput,
+  showMessage, showConfirm,
   showStatusBar, updateStatusBar, enableCMPSelect, removeStatusBar,
   showEcomStepPrompt, showEcomClickWait,
+  showConsentCard, removeConsentCard,
 } from './browser-ui.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -97,19 +97,6 @@ const VENDORS = JSON.parse(readFileSync(VENDORS_PATH, 'utf-8'));
 function loadLibrary() {
   if (!existsSync(LIBRARY_PATH)) return {};
   return JSON.parse(readFileSync(LIBRARY_PATH, 'utf-8'));
-}
-
-function saveLibrary(lib) {
-  writeFileSync(LIBRARY_PATH, JSON.stringify(lib, null, 2), 'utf-8');
-}
-
-const INTERACTIVE_TAGS = ['BUTTON', 'A', 'INPUT', 'SELECT'];
-
-function isPlausibleResult(result) {
-  if (['div', 'span', 'section', 'aside'].includes(result.tag)) return false;
-  if (INTERACTIVE_TAGS.includes(result.tag.toUpperCase())) return true;
-  if (result.stableDataAttr) return true;
-  return false;
 }
 
 function truncate(str, max = 80) {
@@ -1177,123 +1164,6 @@ async function detectCMP(page, library) {
   return result;
 }
 
-// ── Emergency CMP Learning (Manueller Modus) ────────────────────────────────────────
-
-/**
- * Interactive fallback when CMP auto-detection fails.
- * Uses browser overlays to let the user click accept/reject buttons,
- * matches against library, and optionally saves a new CMP entry.
- * Returns a cmp object compatible with the normal flow.
- */
-async function emergencyLearnCMP(page, library) {
-  console.log('  Manueller Modus: CMP einlernen...');
-
-  await updateStatusBar(page, 'Manuell', 'CMP manuell einlernen...', '');
-
-  await showMessage(page, 'CMP nicht automatisch erkannt. Manueller Modus aktiv – bitte Accept- und Reject-Button manuell klicken.', {
-    type: 'warning', title: 'Manuell',
-  });
-
-  // ── Learn Accept ──
-  await updateStatusBar(page, 'Manuell', 'Warte auf Accept-Klick...', '');
-  const acceptResult = await showClickPrompt(page, 'ACCEPT');
-  let acceptSelector;
-
-  if (!acceptResult || !isPlausibleResult(acceptResult)) {
-    // Shadow DOM fallback
-    if (acceptResult) {
-      await showMessage(page, `Klick landete auf <${acceptResult.tag}> – vermutlich Shadow DOM. Bitte Selektor manuell eingeben.`, { type: 'warning' });
-    }
-    acceptSelector = await showTextInput(page, 'Accept-Selektor eingeben');
-  } else {
-    const { confirmed } = await showSelectorResult(page, acceptResult, 'ACCEPT');
-    if (confirmed) {
-      acceptSelector = acceptResult.selector;
-    } else {
-      acceptSelector = await showTextInput(page, 'Accept-Selektor eingeben');
-    }
-  }
-
-  // ── Learn Reject ──
-  // Fresh context needed – the accept click may have dismissed the banner
-  await updateStatusBar(page, 'Manuell', 'Accept OK – Seite wird neu geladen...', '');
-  await showMessage(page, 'Accept-Selektor gespeichert. Seite wird neu geladen fuer den Reject-Button.', { type: 'info' });
-
-  const currentUrl = page.url();
-  const context = page.context();
-  await context.clearCookies();
-  // Use domcontentloaded instead of networkidle to avoid hanging on slow sites
-  await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-  await page.waitForTimeout(3000);
-
-  // Re-inject status bar after navigation (page.goto destroys injected DOM)
-  await showStatusBar(page, 'Manuell', 'Warte auf Reject-Klick...', '');
-
-  // Scroll-retry for banner visibility
-  try {
-    await page.locator(acceptSelector).first().waitFor({ state: 'visible', timeout: 3000 });
-  } catch {
-    await page.evaluate(() => window.scrollBy(0, 400));
-    await page.waitForTimeout(2000);
-  }
-
-  const rejectResult = await showClickPrompt(page, 'REJECT');
-  let rejectSelector;
-
-  if (!rejectResult || !isPlausibleResult(rejectResult)) {
-    if (rejectResult) {
-      await showMessage(page, `Klick landete auf <${rejectResult.tag}> – vermutlich Shadow DOM. Bitte Selektor manuell eingeben.`, { type: 'warning' });
-    }
-    rejectSelector = await showTextInput(page, 'Reject-Selektor eingeben');
-  } else {
-    const { confirmed } = await showSelectorResult(page, rejectResult, 'REJECT');
-    if (confirmed) {
-      rejectSelector = rejectResult.selector;
-    } else {
-      rejectSelector = await showTextInput(page, 'Reject-Selektor eingeben');
-    }
-  }
-
-  // ── Library matching ──
-  for (const [key, entry] of Object.entries(library)) {
-    if (entry.accept === acceptSelector || entry.reject === rejectSelector) {
-      const { useExisting } = await showCMPMatch(page, { key, ...entry });
-      if (useExisting) {
-        console.log(`  Manuell: Verwende bestehendes CMP "${entry.name}" aus Library`);
-        await context.clearCookies();
-        await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-        await page.waitForTimeout(3000);
-        return { key, ...entry };
-      }
-    }
-  }
-
-  // ── Save new CMP ──
-  const cmpName = await showCMPNameInput(page);
-  const key = cmpName.toLowerCase().replace(/\s+/g, '-');
-
-  const newEntry = {
-    name: cmpName,
-    accept: acceptSelector,
-    reject: rejectSelector,
-    shadowDom: false,
-    learnedAt: new Date().toISOString(),
-  };
-
-  library[key] = newEntry;
-  saveLibrary(library);
-  console.log(`  Manuell: Neues CMP "${cmpName}" in Library gespeichert`);
-
-  await showMessage(page, `CMP "${cmpName}" gespeichert. Audit wird fortgesetzt.`, { type: 'info', title: 'Manuell' });
-
-  // Reload page with clean cookies for the normal audit flow
-  await context.clearCookies();
-  await page.goto(currentUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-  await page.waitForTimeout(3000);
-
-  return { key, ...newEntry };
-}
-
 // ── Consent Mode Transition Analysis ─────────────────────────────────────────
 
 /**
@@ -2021,7 +1891,6 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   console.log('Phase 0: CMP-Erkennung...');
 
   let cmp;
-  let cmpFromManualMode = false;  // Track if CMP came from manual mode to prevent re-triggering
 
   if (cmpFlag) {
     // Direct lookup by key
@@ -2064,21 +1933,14 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     await updateStatusBar(page1, 'Phase 0', 'Starte CMP-Erkennung...');
     cmp = await detectCMP(page1, library);
     if (!cmp) {
-      console.log('  CMP nicht automatisch erkannt – starte manuellen Modus...');
-      cmp = await emergencyLearnCMP(page1, library);
-      cmpFromManualMode = true;
-      // Manual mode did page.goto() — flush old collectors and set up fresh ones
-      // so Phase 1 captures clean pre-consent data from the reloaded page
-      getPreRequests(); // discard
-      getPreRequests = setupRequestCollector(page1);
-      getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
+      console.log('  CMP nicht automatisch erkannt – manueller Modus aktiv');
     }
   }
 
   const reportData = {
     project,
     url,
-    cmpName: cmp.name,
+    cmpName: cmp ? cmp.name : '(manuell)',
     serviceWorkers: [],
     disabledSW: disableSW,
     preConsent: {},
@@ -2100,8 +1962,9 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     sst: null,
   };
 
-  await showStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmp.name}`, 'Sammle Daten...');
-  await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmp.name}`, 'Sammle Daten...');
+  const cmpLabel = cmp ? cmp.name : '(manuell)';
+  await showStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmpLabel}`, 'Sammle Daten...');
+  await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmpLabel}`, 'Sammle Daten...');
 
   // dataLayer
   const preDataLayer = await collectDataLayer(page1);
@@ -2112,7 +1975,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const preClassified = preRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
   const preTrackers = deduplicateMatches(preClassified);
   console.log(`  Requests: ${preRequestUrls.length} total, ${preClassified.length} third-party`);
-  await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmp.name}`, `DL: ${preDataLayer.length} | 3P: ${preClassified.length}`);
+  await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmpLabel}`, `DL: ${preDataLayer.length} | 3P: ${preClassified.length}`);
 
   // Cookies & localStorage
   const preCookies = await collectCookies(context1);
@@ -2166,44 +2029,35 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const getPostAcceptRequests = setupRequestCollector(page1);
   const getPostAcceptResponseBodies = setupResponseBodyCollector(page1, siteHost);
 
-  // Click accept – wait for banner to appear, then click
+  // Click accept – auto-click if CMP known, otherwise manual consent card
   let acceptClicked = false;
-  try {
-    await page1.locator(cmp.accept).first().waitFor({ state: 'visible', timeout: 5000 });
-    await page1.locator(cmp.accept).first().click({ timeout: 10000 });
-    acceptClicked = true;
-    console.log('  Accept-Button geklickt');
-    await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Accept geklickt, sammle Daten...', '');
-  } catch {
-    // Scroll-retry
-    console.log('  Accept-Button nicht sichtbar, versuche Scroll...');
-    await page1.evaluate(() => window.scrollBy(0, 400));
-    await page1.waitForTimeout(2000);
-    try {
-      await page1.locator(cmp.accept).first().click({ timeout: 5000 });
-      acceptClicked = true;
-      console.log('  Accept-Button nach Scroll geklickt');
-    } catch { /* still failed */ }
-  }
-
-  if (!acceptClicked && !cmpFromManualMode) {
-    // Only trigger manual mode if we haven't already been through it
-    console.log('  Accept-Button nicht klickbar – starte manuellen Modus...');
-    const freshCmp = await emergencyLearnCMP(page1, library);
-    cmp = freshCmp;
-    cmpFromManualMode = true;
-    reportData.cmpName = cmp.name;
-    await showStatusBar(page1, 'Phase 2', 'Post-Accept – klicke Accept (manuell)...', '');
+  if (cmp) {
     try {
       await page1.locator(cmp.accept).first().waitFor({ state: 'visible', timeout: 5000 });
       await page1.locator(cmp.accept).first().click({ timeout: 10000 });
       acceptClicked = true;
-      console.log('  Accept-Button geklickt (manueller Selektor)');
-    } catch (err2) {
-      console.error(`  FEHLER: Accept auch mit manueller Selektor nicht klickbar: ${err2.message}`);
+      console.log('  Accept-Button geklickt');
+      await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Accept geklickt, sammle Daten...', '');
+    } catch {
+      // Scroll-retry
+      console.log('  Accept-Button nicht sichtbar, versuche Scroll...');
+      await page1.evaluate(() => window.scrollBy(0, 400));
+      await page1.waitForTimeout(2000);
+      try {
+        await page1.locator(cmp.accept).first().click({ timeout: 5000 });
+        acceptClicked = true;
+        console.log('  Accept-Button nach Scroll geklickt');
+      } catch { /* still failed */ }
     }
-  } else if (!acceptClicked) {
-    console.error('  FEHLER: Accept-Button nicht klickbar (Manueller Modus war bereits aktiv, kein erneuter Versuch)');
+  }
+
+  if (!acceptClicked) {
+    console.log('  Accept manuell – zeige Consent-Card...');
+    await updateStatusBar(page1, 'Phase 2', 'Warte auf manuellen Accept...', '');
+    await showConsentCard(page1, 'ACCEPT');
+    await removeConsentCard(page1);
+    acceptClicked = true;
+    console.log('  Accept manuell bestaetigt');
   }
 
   await waitForSettle(page1, 3000);
@@ -2513,70 +2367,55 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // Set up fresh collector for post-reject
   const getRejectPostRequests = setupRequestCollector(page2);
 
-  // Scroll-Retry: CMP-Banner muss sichtbar sein vor Reject-Klick
-  const rejectFirstSelector = (cmp.rejectSteps && cmp.rejectSteps.length >= 1) ? cmp.rejectSteps[0] : cmp.reject;
-  try {
-    await page2.locator(rejectFirstSelector).first().waitFor({ state: 'visible', timeout: 3000 });
-  } catch {
-    console.log('  CMP-Banner nicht sichtbar, versuche Scroll...');
-    await page2.evaluate(() => window.scrollBy(0, 400));
-    await page2.waitForTimeout(2000);
-  }
-
-  // Click reject (direct or two-step)
+  // Click reject – auto-click if CMP known, otherwise manual consent card
   let rejectClicked = false;
 
-  // Versuch 1: Direkter Reject-Button
-  await updateStatusBar(page2, 'Phase 4', 'Post-Reject – klicke Reject...', '');
-  try {
-    const rejectLocator = page2.locator(cmp.reject).first();
-    await rejectLocator.click({ timeout: 5000 });
-    rejectClicked = true;
-    console.log('  Reject-Button geklickt');
-    await updateStatusBar(page2, 'Phase 4', 'Post-Reject – Reject geklickt, sammle Daten...', '');
-  } catch {
-    // Reject-Button nicht direkt gefunden
-  }
-
-  // Versuch 2: Two-Step Fallback (rejectSteps)
-  if (!rejectClicked && cmp.rejectSteps && cmp.rejectSteps.length === 2) {
+  if (cmp) {
+    // Scroll-Retry: CMP-Banner muss sichtbar sein vor Reject-Klick
+    const rejectFirstSelector = (cmp.rejectSteps && cmp.rejectSteps.length >= 1) ? cmp.rejectSteps[0] : cmp.reject;
     try {
-      console.log('  Reject nicht direkt gefunden, versuche Two-Step...');
-      await page2.locator(cmp.rejectSteps[0]).first().click({ timeout: 5000 });
-      console.log(`  Step 1 geklickt (${cmp.rejectSteps[0]})`);
+      await page2.locator(rejectFirstSelector).first().waitFor({ state: 'visible', timeout: 3000 });
+    } catch {
+      console.log('  CMP-Banner nicht sichtbar, versuche Scroll...');
+      await page2.evaluate(() => window.scrollBy(0, 400));
       await page2.waitForTimeout(2000);
-      await page2.locator(cmp.rejectSteps[1]).first().click({ timeout: 5000 });
+    }
+
+    // Versuch 1: Direkter Reject-Button
+    await updateStatusBar(page2, 'Phase 4', 'Post-Reject – klicke Reject...', '');
+    try {
+      const rejectLocator = page2.locator(cmp.reject).first();
+      await rejectLocator.click({ timeout: 5000 });
       rejectClicked = true;
-      console.log(`  Step 2 geklickt (${cmp.rejectSteps[1]})`);
-    } catch (err) {
-      console.error(`  FEHLER: Two-Step Reject fehlgeschlagen: ${err.message}`);
+      console.log('  Reject-Button geklickt');
+      await updateStatusBar(page2, 'Phase 4', 'Post-Reject – Reject geklickt, sammle Daten...', '');
+    } catch {
+      // Reject-Button nicht direkt gefunden
+    }
+
+    // Versuch 2: Two-Step Fallback (rejectSteps)
+    if (!rejectClicked && cmp.rejectSteps && cmp.rejectSteps.length === 2) {
+      try {
+        console.log('  Reject nicht direkt gefunden, versuche Two-Step...');
+        await page2.locator(cmp.rejectSteps[0]).first().click({ timeout: 5000 });
+        console.log(`  Step 1 geklickt (${cmp.rejectSteps[0]})`);
+        await page2.waitForTimeout(2000);
+        await page2.locator(cmp.rejectSteps[1]).first().click({ timeout: 5000 });
+        rejectClicked = true;
+        console.log(`  Step 2 geklickt (${cmp.rejectSteps[1]})`);
+      } catch (err) {
+        console.error(`  FEHLER: Two-Step Reject fehlgeschlagen: ${err.message}`);
+      }
     }
   }
 
   if (!rejectClicked) {
-    console.log('  Reject konnte nicht geklickt werden – Manueller Modus fuer Reject...');
-    await showMessage(page2, 'Reject-Button konnte nicht automatisch geklickt werden. Bitte manuell klicken.', { type: 'warning', title: 'Manuell' });
-    const rejectResult = await showClickPrompt(page2, 'REJECT');
-    if (rejectResult && isPlausibleResult(rejectResult)) {
-      const { confirmed } = await showSelectorResult(page2, rejectResult, 'REJECT');
-      if (confirmed) {
-        try {
-          await page2.locator(rejectResult.selector).first().click({ timeout: 5000 });
-          rejectClicked = true;
-          console.log(`  Reject-Button geklickt (Manuell: ${rejectResult.selector})`);
-        } catch { /* still failed */ }
-      }
-    }
-    if (!rejectClicked) {
-      const manualSel = await showTextInput(page2, 'Reject-Selektor eingeben');
-      try {
-        await page2.locator(manualSel).first().click({ timeout: 5000 });
-        rejectClicked = true;
-        console.log(`  Reject-Button geklickt (manuell: ${manualSel})`);
-      } catch (err) {
-        console.error(`  FEHLER: Reject auch mit manuellem Selektor nicht klickbar: ${err.message}`);
-      }
-    }
+    console.log('  Reject manuell – zeige Consent-Card...');
+    await updateStatusBar(page2, 'Phase 4', 'Warte auf manuellen Reject...', '');
+    await showConsentCard(page2, 'REJECT');
+    await removeConsentCard(page2);
+    rejectClicked = true;
+    console.log('  Reject manuell bestaetigt');
   }
 
   await waitForSettle(page2, 3000);

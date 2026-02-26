@@ -994,6 +994,135 @@ export async function showEcomClickWait(page) {
   return result;
 }
 
+// ── Consent Card (manual consent fallback for audit.js) ─────────────────────
+
+/**
+ * Shows a small draggable card asking the user to manually accept/reject cookies.
+ * Button is disabled for 2s settle time, then enabled. Returns a Promise that
+ * resolves when the user clicks the confirm button.
+ */
+export async function showConsentCard(page, action) {
+  const callbackName = nextCallbackName('consent');
+  const isAccept = action === 'ACCEPT';
+  const title = isAccept ? 'Consent: Akzeptieren' : 'Consent: Ablehnen';
+  const msg = isAccept
+    ? 'Bitte alle Cookies <b>akzeptieren</b>, dann best\u00e4tigen:'
+    : 'Bitte alle Cookies <b>ablehnen</b>, dann best\u00e4tigen:';
+
+  let resolveConsent;
+  const consentPromise = new Promise((resolve) => { resolveConsent = resolve; });
+
+  await page.exposeFunction(callbackName, () => {
+    resolveConsent();
+  });
+
+  await page.evaluate(({ title, msg, cbName }) => {
+    const style = document.createElement('style');
+    style.id = '__audit-consent-style';
+    style.textContent = `
+      #__audit-consent-card {
+        position: fixed !important; bottom: 24px !important; right: 24px !important;
+        z-index: 2147483647 !important;
+        background: #fff !important; border-radius: 12px !important;
+        padding: 20px 24px !important; max-width: 360px !important; width: auto !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08) !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-size: 14px !important; color: #333 !important;
+        box-sizing: border-box !important; margin: 0 !important;
+        line-height: 1.5 !important; cursor: grab !important; user-select: none !important;
+      }
+      #__audit-consent-card.--dragging { cursor: grabbing !important; }
+      #__audit-consent-title {
+        font-size: 15px !important; font-weight: 700 !important; color: #111 !important;
+        margin: 0 0 8px 0 !important; display: block !important;
+      }
+      #__audit-consent-msg {
+        font-size: 13px !important; color: #555 !important;
+        margin: 0 0 14px 0 !important; display: block !important;
+      }
+      #__audit-consent-btn {
+        background: #2563eb !important; color: #fff !important; border: none !important;
+        border-radius: 8px !important; padding: 10px 20px !important;
+        font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important;
+        display: block !important; width: 100% !important; text-align: center !important;
+      }
+      #__audit-consent-btn:hover:not(:disabled) { background: #1d4ed8 !important; }
+      #__audit-consent-btn:disabled { background: #9ca3af !important; cursor: default !important; pointer-events: none !important; }
+      #__audit-consent-btn.--ready { background: #2563eb !important; cursor: pointer !important; pointer-events: auto !important; }
+    `;
+    document.head.appendChild(style);
+
+    const card = document.createElement('div');
+    card.id = '__audit-consent-card';
+    card.innerHTML =
+      '<div id="__audit-consent-title">' + title + '</div>' +
+      '<div id="__audit-consent-msg">' + msg + '</div>' +
+      '<button id="__audit-consent-btn" disabled>Bitte warten...</button>';
+    document.body.appendChild(card);
+
+    // Enable button after 2s settle time
+    setTimeout(() => {
+      const btn = document.getElementById('__audit-consent-btn');
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.add('--ready');
+        btn.textContent = 'Consent gegeben';
+      }
+    }, 2000);
+
+    document.getElementById('__audit-consent-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const btn = document.getElementById('__audit-consent-btn');
+      if (!btn.classList.contains('--ready')) return;
+      btn.disabled = true;
+      btn.classList.remove('--ready');
+      btn.textContent = 'OK – weiter...';
+      btn.style.setProperty('background', '#22c55e', 'important');
+      window[cbName]();
+    });
+
+    // Drag handling
+    let dragging = false, startX, startY, origX, origY;
+    card.addEventListener('mousedown', (e) => {
+      if (e.target.id === '__audit-consent-btn') return;
+      dragging = true;
+      card.classList.add('--dragging');
+      const rect = card.getBoundingClientRect();
+      startX = e.clientX; startY = e.clientY;
+      origX = rect.left; origY = rect.top;
+      card.style.setProperty('bottom', 'auto', 'important');
+      card.style.setProperty('right', 'auto', 'important');
+      card.style.setProperty('left', origX + 'px', 'important');
+      card.style.setProperty('top', origY + 'px', 'important');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      card.style.setProperty('left', (origX + e.clientX - startX) + 'px', 'important');
+      card.style.setProperty('top', (origY + e.clientY - startY) + 'px', 'important');
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      card.classList.remove('--dragging');
+    });
+  }, { title, msg, cbName: callbackName });
+
+  return consentPromise;
+}
+
+/**
+ * Removes the consent card from the page.
+ */
+export async function removeConsentCard(page) {
+  await page.evaluate(() => {
+    const card = document.getElementById('__audit-consent-card');
+    const style = document.getElementById('__audit-consent-style');
+    if (card) card.remove();
+    if (style) style.remove();
+  }).catch(() => {});
+}
+
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 function escapeHTML(str) {
