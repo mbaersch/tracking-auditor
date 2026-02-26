@@ -14,7 +14,8 @@ import {
   enableCMPSelect,
   showClickPrompt,
   showSelectorResult,
-  showTextInput,
+  showConsentCard,
+  showConfirm,
   showEcomStepPrompt,
   showEcomClickWait,
 } from '../browser-ui.js';
@@ -67,7 +68,7 @@ async function screenshot(page, filename) {
 
 async function removeAllUI(page) {
   await page.evaluate(() => {
-    // Overlay (showSelectorResult, showTextInput, etc.)
+    // Overlay (showSelectorResult, showConfirm, etc.)
     for (const id of ['__audit-overlay', '__audit-overlay-style']) {
       const el = document.getElementById(id);
       if (el) el.remove();
@@ -87,6 +88,21 @@ async function removeAllUI(page) {
       const el = document.getElementById(id);
       if (el) el.remove();
     }
+    // Consent card (audit)
+    for (const id of ['__audit-consent-card', '__audit-consent-style']) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+    // Shadow DOM hint (learn.js)
+    for (const id of ['__audit-shadowhint', '__audit-shadowhint-style']) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+    // Compare card (compare.js)
+    for (const id of ['__compare-card', '__compare-card-style']) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
   });
 }
 
@@ -99,17 +115,8 @@ const CMP_DROPDOWN_ENTRIES = [
   { key: 'consentmanager', name: 'consentmanager.net' },
 ];
 
-const MOCK_SELECTOR_RESULT = {
-  selector: '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
-  id: 'CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
-  tag: 'button',
-  text: 'Alle akzeptieren',
-  classes: 'CybotCookiebotDialogBodyButton',
-  allDataAttrs: [],
-};
-
 let screenshotIndex = 0;
-const TOTAL_SCREENSHOTS = 10;
+const TOTAL_SCREENSHOTS = 11;
 
 function logStep(label, site) {
   screenshotIndex++;
@@ -148,133 +155,17 @@ async function captureCMPStatusBar() {
   });
 }
 
-// ── 3 + 4 + 5: Manual mode screenshots (markus-baersch.de) ──────────────────
-
-async function captureManualMode() {
-  // Screenshot 3: Click prompt
-  await withBrowser(async (page) => {
-    logStep('Click-Prompt', 'markus-baersch.de');
-    try {
-      await navigateTo(page, 'https://www.markus-baersch.de');
-    } catch (err) {
-      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
-      screenshotIndex += 2; // skip #4 and #5 as well
-      return;
-    }
-
-    // showClickPrompt waits for a real click -- don't await, just screenshot
-    const clickPromise = showClickPrompt(page, 'Accept');
-    clickPromise.catch(() => {});
-
-    await page.waitForTimeout(RENDER_SETTLE_MS);
-    await screenshot(page, 'manual-mode-click.png');
-  });
-
-  // Screenshot 4: Selector result dialog (needs fresh browser to avoid exposeFunction conflicts)
-  await withBrowser(async (page) => {
-    logStep('Selektor-Ergebnis', 'markus-baersch.de');
-    try {
-      await navigateTo(page, 'https://www.markus-baersch.de');
-    } catch (err) {
-      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
-      screenshotIndex++; // skip #5 as well
-      return;
-    }
-
-    // showSelectorResult waits for button click -- don't await
-    const resultPromise = showSelectorResult(page, MOCK_SELECTOR_RESULT, 'Accept');
-    resultPromise.catch(() => {});
-
-    await page.waitForTimeout(RENDER_SETTLE_MS);
-    await screenshot(page, 'manual-mode-selector.png');
-
-    // Screenshot 5: Text input dialog (same page -- removeOverlay first, fresh exposeFunction names)
-    logStep('Selektor-Eingabe', 'markus-baersch.de');
-    await removeAllUI(page);
-
-    // showTextInput waits for user input -- don't await
-    const inputPromise = showTextInput(page, 'Accept-Selektor eingeben');
-    inputPromise.catch(() => {});
-
-    await page.waitForTimeout(RENDER_SETTLE_MS);
-    await screenshot(page, 'manual-mode-input.png');
-  });
-}
-
-// ── 6 + 7 + 8: E-Commerce screenshots (atomkraftwerke24.de) ─────────────────
-
-async function captureEcomPrompts() {
-  // Screenshot 6: Ecom step navigate prompt
-  await withBrowser(async (page) => {
-    logStep('Ecom Schritt Navigate', 'atomkraftwerke24.de');
-    try {
-      await navigateTo(page, 'https://atomkraftwerke24.de/shop/');
-    } catch (err) {
-      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
-      screenshotIndex += 2; // skip #7 and #8 as well
-      return;
-    }
-
-    // showEcomStepPrompt waits for button click -- don't await
-    const stepPromise = showEcomStepPrompt(page, 'Kategorie-Seite', 1, 5);
-    stepPromise.catch(() => {});
-
-    await page.waitForTimeout(RENDER_SETTLE_MS);
-    await screenshot(page, 'ecom-step-navigate.png');
-  });
-
-  // Screenshot 7: Ecom ATC "Bereit" prompt (fresh browser for clean exposeFunction)
-  await withBrowser(async (page) => {
-    logStep('Ecom Schritt ATC Bereit', 'atomkraftwerke24.de');
-    try {
-      await navigateTo(page, 'https://atomkraftwerke24.de/produkt/atomkraftwerk-klein/');
-    } catch (err) {
-      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
-      screenshotIndex++; // skip #8 as well
-      return;
-    }
-
-    // showEcomStepPrompt with custom "Bereit" button
-    const atcPromise = showEcomStepPrompt(page, 'Add-to-Cart', 3, 5, {
-      nextLabel: 'Bereit',
-      instruction: 'Mache ggf. Mengenangaben o.ae. und klicke dann "Bereit". Dein naechster Klick auf der Seite wird als Add-to-Cart erfasst.',
-    });
-    atcPromise.catch(() => {});
-
-    await page.waitForTimeout(RENDER_SETTLE_MS);
-    await screenshot(page, 'ecom-step-atc-ready.png');
-  });
-
-  // Screenshot 8: Ecom click-wait prompt (fresh browser)
-  await withBrowser(async (page) => {
-    logStep('Ecom ATC Click-Wait', 'atomkraftwerke24.de');
-    try {
-      await navigateTo(page, 'https://atomkraftwerke24.de/produkt/atomkraftwerk-klein/');
-    } catch (err) {
-      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
-      return;
-    }
-
-    // showEcomClickWait waits for a page click -- don't await
-    const clickWaitPromise = showEcomClickWait(page);
-    clickWaitPromise.catch(() => {});
-
-    await page.waitForTimeout(RENDER_SETTLE_MS);
-    await screenshot(page, 'ecom-step-atc-waiting.png');
-  });
-}
-
-// ── 9 + 10: Learn mode screenshots (gandke.de) ─────────────────────────────
+// ── 3 + 4: Learn mode screenshots (gandke.de) ───────────────────────────────
 
 async function captureLearnMode() {
-  // Screenshot 9: Learn click prompt (Accept)
+  // Screenshot 3: Learn click prompt (Accept)
   await withBrowser(async (page) => {
     logStep('Learn Click-Prompt', 'gandke.de');
     try {
       await navigateTo(page, 'https://www.gandke.de');
     } catch (err) {
       console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
-      screenshotIndex++; // skip #10 as well
+      screenshotIndex++; // skip #4 as well
       return;
     }
 
@@ -285,7 +176,7 @@ async function captureLearnMode() {
     await screenshot(page, 'learn-click-prompt.png');
   });
 
-  // Screenshot 10: Learn selector result
+  // Screenshot 4: Learn selector result
   await withBrowser(async (page) => {
     logStep('Learn Selektor-Ergebnis', 'gandke.de');
     try {
@@ -311,16 +202,233 @@ async function captureLearnMode() {
   });
 }
 
+// ── 5 + 6: Learn extras -- Shadow DOM Hint + Two-Step Reject (markus-baersch.de) ──
+
+async function captureLearnExtras() {
+  // Screenshot 5: Shadow DOM Hint Card (injected inline -- function is local to learn.js)
+  await withBrowser(async (page) => {
+    logStep('Shadow DOM Hint', 'markus-baersch.de');
+    try {
+      await navigateTo(page, 'https://www.markus-baersch.de');
+    } catch (err) {
+      console.warn(`    WARN: ${err.message} -- ueberspringe`);
+      screenshotIndex++; // skip #6 as well
+      return;
+    }
+
+    // Inject the Shadow DOM hint card HTML directly (matches learn.js showShadowDomHint)
+    await page.evaluate(() => {
+      const card = document.createElement('div');
+      card.id = '__audit-shadowhint';
+      card.style.cssText = [
+        'position:fixed !important', 'bottom:24px !important', 'left:50% !important',
+        'transform:translateX(-50%) !important', 'z-index:2147483647 !important',
+        'background:#fff !important', 'border-radius:12px !important',
+        'padding:20px 28px !important', 'max-width:500px !important', 'width:90% !important',
+        'box-shadow:0 8px 32px rgba(0,0,0,0.25),0 0 0 1px rgba(0,0,0,0.08) !important',
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif !important',
+        'font-size:14px !important', 'color:#333 !important',
+        'text-align:center !important', 'box-sizing:border-box !important',
+        'cursor:grab !important', 'user-select:none !important',
+      ].join(';');
+      card.innerHTML =
+        '<div style="font-size:15px !important;font-weight:700 !important;color:#b45309 !important;margin:0 0 8px 0 !important;">' +
+          '\u26A0\uFE0F Shadow DOM erkannt</div>' +
+        '<div style="font-size:14px !important;color:#444 !important;margin:0 0 14px 0 !important;">' +
+          'Klick auf <strong>ACCEPT</strong> konnte nicht erfasst werden.<br>' +
+          'Bitte oeffne DevTools (F12), inspiziere den Button und kopiere den Selektor.<br>' +
+          'Klicke <strong>Bereit</strong> wenn du den Selektor hast.</div>' +
+        '<button id="__audit-shadowhint-btn" style="' +
+          'background:#2563eb !important;color:#fff !important;border:none !important;' +
+          'border-radius:8px !important;padding:10px 28px !important;font-size:14px !important;' +
+          'font-weight:600 !important;cursor:pointer !important;font-family:inherit !important;' +
+          'width:100% !important;' +
+        '">Bereit</button>';
+      document.body.appendChild(card);
+    });
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'learn-shadow-dom-hint.png');
+  });
+
+  // Screenshot 6: Two-Step Reject confirmation dialog
+  await withBrowser(async (page) => {
+    logStep('Two-Step Reject Dialog', 'markus-baersch.de');
+    try {
+      await navigateTo(page, 'https://www.markus-baersch.de');
+    } catch (err) {
+      console.warn(`    WARN: ${err.message} -- ueberspringe`);
+      return;
+    }
+
+    // showConfirm waits for button click -- don't await
+    const confirmPromise = showConfirm(page, 'Ist der <b>Ablehnen-Button</b> direkt sichtbar?');
+    confirmPromise.catch(() => {});
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'learn-two-step-reject.png');
+  });
+}
+
+// ── 7: Consent Card (gandke.de) ──────────────────────────────────────────────
+
+async function captureConsentCard() {
+  await withBrowser(async (page) => {
+    logStep('Consent Card', 'gandke.de');
+    try {
+      await navigateTo(page, 'https://www.gandke.de');
+    } catch (err) {
+      console.warn(`    WARN: ${err.message} -- ueberspringe`);
+      return;
+    }
+
+    // showConsentCard waits for click -- don't await, just screenshot
+    const consentPromise = showConsentCard(page, 'ACCEPT');
+    consentPromise.catch(() => {});
+
+    // Wait for the 2s disabled→ready transition, then screenshot
+    await page.waitForTimeout(2500);
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'consent-card.png');
+  });
+}
+
+// ── 8: Compare Card (gandke.de) ──────────────────────────────────────────────
+
+async function captureCompareCard() {
+  await withBrowser(async (page) => {
+    logStep('Compare Consent Card', 'gandke.de');
+    try {
+      await navigateTo(page, 'https://www.gandke.de');
+    } catch (err) {
+      console.warn(`    WARN: ${err.message} -- ueberspringe`);
+      return;
+    }
+
+    // Inject compare card HTML directly (compare.js has its own implementation)
+    // Show in "ready" state with button enabled
+    await page.evaluate(() => {
+      const style = document.createElement('style');
+      style.id = '__compare-card-style';
+      style.textContent = `
+        #__compare-card {
+          position: fixed !important; bottom: 24px !important; right: 24px !important;
+          z-index: 2147483647 !important;
+          background: #fff !important; border-radius: 12px !important;
+          padding: 20px 24px !important; max-width: 360px !important; width: auto !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08) !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+          font-size: 14px !important; color: #333 !important;
+          box-sizing: border-box !important; margin: 0 !important;
+          line-height: 1.5 !important; cursor: grab !important; user-select: none !important;
+        }
+        #__compare-card-title {
+          font-size: 15px !important; font-weight: 700 !important; color: #111 !important;
+          margin: 0 0 8px 0 !important; display: block !important;
+        }
+        #__compare-card-msg {
+          font-size: 13px !important; color: #555 !important;
+          margin: 0 0 14px 0 !important; display: block !important;
+        }
+        #__compare-card-btn {
+          background: #2563eb !important; color: #fff !important; border: none !important;
+          border-radius: 8px !important; padding: 10px 20px !important;
+          font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important;
+          display: block !important; width: 100% !important; text-align: center !important;
+        }
+        #__compare-card-btn:hover:not(:disabled) { background: #1d4ed8 !important; }
+      `;
+      document.head.appendChild(style);
+
+      const card = document.createElement('div');
+      card.id = '__compare-card';
+      card.innerHTML =
+        '<div id="__compare-card-title">Seite A: Live</div>' +
+        '<div id="__compare-card-msg">Bitte Consent erteilen, dann best\u00e4tigen:</div>' +
+        '<button id="__compare-card-btn">Consent gegeben</button>';
+      document.body.appendChild(card);
+    });
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'compare-consent-card.png');
+  });
+}
+
+// ── 9 + 10 + 11: E-Commerce screenshots (atomkraftwerke24.de) ───────────────
+
+async function captureEcomPrompts() {
+  // Screenshot 9: Ecom step navigate prompt
+  await withBrowser(async (page) => {
+    logStep('Ecom Schritt Navigate', 'atomkraftwerke24.de');
+    try {
+      await navigateTo(page, 'https://atomkraftwerke24.de/shop/');
+    } catch (err) {
+      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
+      screenshotIndex += 2; // skip #10 and #11 as well
+      return;
+    }
+
+    // showEcomStepPrompt waits for button click -- don't await
+    const stepPromise = showEcomStepPrompt(page, 'Kategorie-Seite', 1, 5);
+    stepPromise.catch(() => {});
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'ecom-step-navigate.png');
+  });
+
+  // Screenshot 10: Ecom ATC "Bereit" prompt (fresh browser for clean exposeFunction)
+  await withBrowser(async (page) => {
+    logStep('Ecom Schritt ATC Bereit', 'atomkraftwerke24.de');
+    try {
+      await navigateTo(page, 'https://atomkraftwerke24.de/produkt/atomkraftwerk-klein/');
+    } catch (err) {
+      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
+      screenshotIndex++; // skip #11 as well
+      return;
+    }
+
+    // showEcomStepPrompt with custom "Bereit" button
+    const atcPromise = showEcomStepPrompt(page, 'Add-to-Cart', 3, 5, {
+      nextLabel: 'Bereit',
+      instruction: 'Mache ggf. Mengenangaben o.ae. und klicke dann "Bereit". Dein naechster Klick auf der Seite wird als Add-to-Cart erfasst.',
+    });
+    atcPromise.catch(() => {});
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'ecom-step-atc-ready.png');
+  });
+
+  // Screenshot 11: Ecom click-wait prompt (fresh browser)
+  await withBrowser(async (page) => {
+    logStep('Ecom ATC Click-Wait', 'atomkraftwerke24.de');
+    try {
+      await navigateTo(page, 'https://atomkraftwerke24.de/produkt/atomkraftwerk-klein/');
+    } catch (err) {
+      console.warn(`    WARN: Seite konnte nicht geladen werden: ${err.message} -- ueberspringe`);
+      return;
+    }
+
+    // showEcomClickWait waits for a page click -- don't await
+    const clickWaitPromise = showEcomClickWait(page);
+    clickWaitPromise.catch(() => {});
+
+    await page.waitForTimeout(RENDER_SETTLE_MS);
+    await screenshot(page, 'ecom-step-atc-waiting.png');
+  });
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log('Generating documentation screenshots...\n');
   await ensureImagesDir();
 
-  await captureCMPStatusBar();
-  await captureLearnMode();
-  await captureManualMode();
-  await captureEcomPrompts();
+  await captureCMPStatusBar();       // #1 + #2
+  await captureLearnMode();          // #3 + #4
+  await captureLearnExtras();        // #5 + #6
+  await captureConsentCard();        // #7
+  await captureCompareCard();        // #8
+  await captureEcomPrompts();        // #9 + #10 + #11
 
   console.log(`\nFertig. ${TOTAL_SCREENSHOTS} Screenshots in ${IMAGES_DIR}`);
 }
