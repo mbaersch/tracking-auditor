@@ -245,7 +245,7 @@ Neuen JSON-Eintrag mit folgendem Schema anlegen:
 
 ### Report-Format
 
-Die Tracker-Tabellen in Reports zeigen jetzt produktgenaue Details:
+Die Tracker-Tabellen in Reports zeigen produktgenaue Details:
 
 | Spalte | Beschreibung |
 |--------|-------------|
@@ -254,7 +254,7 @@ Die Tracker-Tabellen in Reports zeigen jetzt produktgenaue Details:
 | **Richtung** | inbound (Script geladen) oder outbound (Request gesendet) |
 | **Typen** | Request-Klassifizierung (pageview, event, conversion, remarketing) |
 
-Nicht erkannte Third-Party-Requests werden weiterhin als "Sonstige Third-Party" gefuehrt.
+Nicht erkannte Third-Party-Requests werden als "Sonstige Third-Party" gefuehrt.
 
 ## Claude Code Skills
 
@@ -265,7 +265,7 @@ Dieses Projekt bringt drei [Claude Code Skills](https://docs.anthropic.com/en/do
 Startet einen Tracking-Audit. Normalfall: nur die URL angeben, alles andere laeuft automatisch.
 
 ```
-"Mach einen Tagging-Audit von gandke.de"
+"Mach einen Tagging-Audit von somedomain.com"
 "Audit example.com mit E-Commerce"
 ```
 
@@ -274,8 +274,8 @@ Startet einen Tracking-Audit. Normalfall: nur die URL angeben, alles andere laeu
 Vergleicht Tracking-Setups auf zwei URLs (z.B. Live vs. Staging, Standard-GTM vs. sGTM).
 
 ```
-"Vergleiche das Tracking auf example.com mit example.com/staging"
-"Live vs. sGTM Vergleich fuer elterngeldexperten.de"
+"Vergleiche das Tracking auf www.example.com mit stagingexample.com"
+"Live vs. sGTM Vergleich fuer example.com mit example.com/testpage"
 ```
 
 ### cmp-learn
