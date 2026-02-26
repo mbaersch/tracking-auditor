@@ -35,6 +35,11 @@
 helpers/*
 !helpers/generate-docs-screenshots.js
 
+# Beispiel-Reports
+!examples/
+examples/*
+!examples/*.md
+
 # Dokumentations-Bilder
 !images/
 images/*
