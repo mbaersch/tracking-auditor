@@ -8,6 +8,9 @@ Drei Hauptfunktionen:
 2. **[Audit durchfuehren](#2-audit-durchfuehren)** -- Tracking-Setup einer Website analysieren (Pre-Consent, Post-Accept, Post-Reject, E-Commerce)
 3. **[Tracking-Vergleich](#3-tracking-vergleich-comparejs)** -- Zwei Setups gegeneinander vergleichen (z.B. Live vs. sGTM)
 
+Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-Vergleich](examples/compare-example-report.md)
+
+
 ## Voraussetzungen
 
 - **Node.js** (ES Modules)
@@ -149,7 +152,7 @@ Der generierte Report enthaelt:
 - **CSP-Blockaden** (nur wenn CSP Tracking-Requests blockiert hat) -- Liste der blockierten Tracker-Domains
 - **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions, Dynamic Remarketing, Meta CAPI, Stape Custom Loader IDs
 
-Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-Vergleich](examples/compare-example-report.md)
+Beispiel-Report: [Audit-Report](examples/audit-example-report.md)
 
 ## Browser-UI
 
@@ -207,6 +210,8 @@ node compare.js --url-a https://example.com/ --url-b https://example.com/staging
 ![Tracking-Vergleich: Consent-Bestaetigung per Card](images/compare-consent-card.png)
 
 Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Der Consent-Button ist anfangs deaktiviert und wird erst nach dem load-Event + 3 Sekunden freigeschaltet, um saubere Pre-/Post-Consent-Trennung sicherzustellen. Consent wird manuell per Floating Card bestaetigt. Der Report enthaelt einen **Consent Mode Vergleich** (Advanced vs. Basic, gcs/gcd-Flags pre- und post-consent). Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
+
+Beispiel-Report: [Tracking-Vergleich](examples/compare-example-report.md)
 
 ## Tracking-Vendor-Library (`tracking-vendors.json`)
 

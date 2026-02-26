@@ -26,7 +26,7 @@
 
 **Sonstige Third-Party Domains:** Pre-Consent 2, Post-Accept +3, Post-Reject +0
 
-**Server-Side Tagging:** 2 Custom Loader, 1 Collect Endpoint | Stape-Transport auf mot.locutus.borg
+**Server-Side Tagging:** 2 Custom Loader, 1 Collect Endpoint | Stape-Transport auf picard.locutus.borg
 
 **E-Commerce – Tracker pro Schritt:**
 
@@ -59,18 +59,18 @@
 
 **Custom Loader Transport (Stape):**
 
-- mot.locutus.borg – Base64-encodierter Transport erkannt
+- picard.locutus.borg – Base64-encodierter Transport erkannt
 
 **Custom Loader (Response-Analyse):**
 
 - `https://www.locutus.borg/scripts/borg-loader.js?v=2.4.1` enthaelt GTM Container Code (GTM-B0RG42)
-- `https://mot.locutus.borg/qzxw7kcvbn.js?st=UkVTSVNUQU5DRSBJUyBGVVRJTEU%3D` enthaelt GTM Container Code (GTM-B0RG42)
+- `https://picard.locutus.borg/qzxw7kcvbn.js?st=UkVTSVNUQU5DRSBJUyBGVVRJTEU%3D` enthaelt GTM Container Code (GTM-B0RG42)
 
 **Collect Endpoints:**
 
 | Endpoint | Host | Pfad | Measurement ID |
 |----------|------|------|----------------|
-| GA4 Collect | mot.locutus.borg | /g/collect | G-1701DNCC |
+| GA4 Collect | picard.locutus.borg | /g/collect | G-1701DNCC |
 
 ## Tracking Features
 
@@ -78,8 +78,8 @@
 
 | Typ | ID | Host |
 |-----|----|------|
-| GA4 | G-1701DNCC | mot.locutus.borg |
-| Google Tag | GT-WARP7FLD | mot.locutus.borg |
+| GA4 | G-1701DNCC | picard.locutus.borg |
+| Google Tag | GT-WARP7FLD | picard.locutus.borg |
 | Google Ads | AW-PHASER01 | googleads.g.doubleclick.net |
 | Floodlight | DC-DEFLECT9 | ad.doubleclick.net |
 
@@ -242,10 +242,10 @@ _Kein localStorage._
 
 | gcs | gcd | Request URL |
 |-----|-----|-------------|
-| G111 | 13r3r3r2r5l1 | `https://mot.locutus.borg/g/collect?v=2&tid=G-1701DNCC&gtm=45je62o1h1v882563677z8541661za20gzb541661zd54166...` |
+| G111 | 13r3r3r2r5l1 | `https://picard.locutus.borg/g/collect?v=2&tid=G-1701DNCC&gtm=45je62o1h1v882563677z8541661za20gzb541661zd54166...` |
 | G111 | 13r3r3r2r5l1 | `https://stats.g.doubleclick.net/g/collect?v=2&tid=G-1701DNCC&cid=1471047239.1772110980&gtm=45je62o1h1v88256...` |
 | - | 13r3r3r2r5l1 | `https://googleads.g.doubleclick.net/pagead/viewthroughconversion/PHASER01/?random=1772110983170&cv=11&fst=17...` |
-| G111 | 13r3r3r2r5l1 | `https://mot.locutus.borg/g/collect?v=2&tid=G-1701DNCC&gtm=45je62o1h1v882563677za20gzb541661zd541661&_p=1772...` |
+| G111 | 13r3r3r2r5l1 | `https://picard.locutus.borg/g/collect?v=2&tid=G-1701DNCC&gtm=45je62o1h1v882563677za20gzb541661zd541661&_p=1772...` |
 
 ### Cookies (Diff)
 
@@ -347,10 +347,10 @@ _Kein localStorage._
 
 | Schritt | dataLayer Events | Tracking Requests | Neue Cookies |
 |---------|-----------------|-------------------|---------------|
-| Kategorie-Seite | gtm.js, gtm.dom, BorgConsentLoaded, BorgGroupsUpdated, view_item_list, gtm.load | GA4 (mot.locutus.borg) | - |
-| Produkt-Seite | gtm.js, gtm.dom, BorgConsentLoaded, BorgGroupsUpdated, view_item, gtm.load | GA4 (mot.locutus.borg), Google Ads (googleads.g.doubleclick.net) | - |
-| Add-to-Cart | add_to_cart | GA4 (mot.locutus.borg), Google Ads (googleads.g.doubleclick.net), Meta (connect.facebook.net) | - |
-| Checkout | begin_checkout | GA4 (mot.locutus.borg), Floodlight (ad.doubleclick.net), Meta (www.facebook.com) | - |
+| Kategorie-Seite | gtm.js, gtm.dom, BorgConsentLoaded, BorgGroupsUpdated, view_item_list, gtm.load | GA4 (picard.locutus.borg) | - |
+| Produkt-Seite | gtm.js, gtm.dom, BorgConsentLoaded, BorgGroupsUpdated, view_item, gtm.load | GA4 (picard.locutus.borg), Google Ads (googleads.g.doubleclick.net) | - |
+| Add-to-Cart | add_to_cart | GA4 (picard.locutus.borg), Google Ads (googleads.g.doubleclick.net), Meta (connect.facebook.net) | - |
+| Checkout | begin_checkout | GA4 (picard.locutus.borg), Floodlight (ad.doubleclick.net), Meta (www.facebook.com) | - |
 
 ### Kategorie-Seite
 

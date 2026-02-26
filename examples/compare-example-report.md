@@ -3,8 +3,8 @@
 | | Details |
 |---|---|
 | Datum | 2026-02-26 15:30:42 |
-| URL A (Standard GTM) | https://www.locutus.borg/ |
-| URL B (sGTM Custom Loader) | https://www.locutus.borg/ |
+| URL A (Standard GTM) | https://wolf359.locutus.borg/ |
+| URL B (sGTM Custom Loader) | https://unimatrix-zero.locutus.borg/ |
 | Requests A | 38 (32 pre / 6 post) |
 | Requests B | 42 (32 pre / 10 post) |
 
@@ -15,7 +15,7 @@
 - Container-IDs: identisch (A: GTM-B0RG42 | B: GTM-B0RG42)
 - Measurement-IDs: identisch (A: G-1701DNCC | B: G-1701DNCC)
 - Consent Mode: identisch (Advanced)
-- **Setup B nutzt Stape Custom Loader** auf mot.locutus.borg
+- **Setup B nutzt Stape Custom Loader** auf picard.locutus.borg
 
 ## Tracking-Vergleich (Post-Consent)
 
@@ -54,10 +54,10 @@
 - **gtag** GT-WARP7FLD: `www.googletagmanager.com` (Standard)
 
 ### sGTM Custom Loader
-- **GTM** GTM-B0RG42: `mot.locutus.borg` (Custom Loader, Stape)
-- **gtag** G-1701DNCC: `mot.locutus.borg` (Custom Loader, Stape)
-- **gtag** GT-WARP7FLD: `mot.locutus.borg` (Custom Loader, Stape)
-- **Collect** G-1701DNCC: `mot.locutus.borg` (First-Party Endpoint)
+- **GTM** GTM-B0RG42: `picard.locutus.borg` (Custom Loader, Stape)
+- **gtag** G-1701DNCC: `picard.locutus.borg` (Custom Loader, Stape)
+- **gtag** GT-WARP7FLD: `picard.locutus.borg` (Custom Loader, Stape)
+- **Collect** G-1701DNCC: `picard.locutus.borg` (First-Party Endpoint)
 
 ## HAR-Dateien
 
