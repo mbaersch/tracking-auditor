@@ -5,7 +5,7 @@ description: Use when user wants to learn, add, or teach a new CMP (Consent Mana
 
 # CMP einlernen
 
-Interaktives Einlernen von Accept- und Reject-Selektoren fuer eine Consent Management Platform (CMP). Die gelernten Selektoren werden in `cmp-library.json` gespeichert und stehen dann fuer alle zukuenftigen Audits zur Verfuegung.
+Interaktives Einlernen von Accept-, Reject- und Detect-Selektoren fuer eine Consent Management Platform (CMP). Die gelernten Selektoren werden in `cmp-library.json` gespeichert und stehen dann fuer alle zukuenftigen Audits zur Verfuegung.
 
 ## Toolkit Location
 
@@ -18,7 +18,7 @@ All commands run from this directory.
 - User will gezielt eine CMP einlernen (ohne Audit)
 - User sagt "lerne diese CMP", "fuege CMP hinzu", "CMP-Selektoren einsammeln"
 - NICHT wenn ein Audit gewuenscht ist -- dafuer den **tagging-audit** Skill nutzen
-- Hinweis: Waehrend eines Audits kann die CMP auch ueber den manuellen Modus gelernt werden. Dieser Skill ist fuer den Fall, dass man NUR die CMP lernen will.
+- Audits lernen keine CMPs mehr -- der manuelle Modus zeigt nur eine Consent Card. Diesen Skill nutzen um CMPs VOR dem Audit einzulernen.
 
 ## Workflow
 
@@ -26,49 +26,43 @@ All commands run from this directory.
 
 **Pflicht:**
 - **URL** -- eine Seite, auf der das CMP-Banner erscheint
-- **CMP-Name** -- wie die CMP in der Library heissen soll (z.B. "Cookiebot", "Usercentrics v2")
 
-**Optional -- aktiv vorschlagen wenn passend:**
-- **Two-Step Reject?** -- Manche CMPs zeigen keinen direkten Reject-Button. Stattdessen: Settings/More -> dann Reject. Wenn der User das beschreibt oder die CMP dafuer bekannt ist, `--two-step-reject` verwenden.
+**Optional:**
+- **CMP-Name** -- kann via `--cmp` angegeben werden; wird sonst am Ende im Browser oder Terminal abgefragt
+- **Two-Step Reject** -- wird bei Shadow DOM CMPs interaktiv erfragt ("Ist der Ablehnen-Button direkt sichtbar?"). `--two-step-reject` nur als CLI-Override noetig.
 
-### 2. Library pruefen
-
-Lies `cmp-library.json` und pruefe ob die CMP bereits existiert. Wenn ja: User informieren und fragen ob sie aktualisiert werden soll. Wenn nein: weiter.
-
-### 3. Learn starten
+### 2. Learn starten
 
 ```bash
-# Standard (einstufiger Reject)
+# Standard: nur URL, alles andere wird interaktiv erfragt
+node learn.js --url https://example.com
+
+# Mit vorgegebenem CMP-Namen
 node learn.js --url https://example.com --cmp "MyCMP"
 
-# Zweistufiger Reject (Settings -> Reject)
-node learn.js --url https://example.com --cmp "MyCMP" --two-step-reject
+# CLI-Override fuer Two-Step (selten noetig, wird normalerweise interaktiv erkannt)
+node learn.js --url https://example.com --two-step-reject
 ```
 
-**Was passiert:** Ein sichtbarer Browser oeffnet sich. Ein Overlay am unteren Rand fuehrt durch den Prozess:
+**Was passiert:** Ein sichtbarer Browser oeffnet sich und fuehrt interaktiv durch den Prozess:
 
-1. "Klicke den Accept-Button" -> User klickt, Selektor wird erkannt
-2. Erkannter Selektor wird zur Bestaetigung angezeigt
-3. Bei Shadow DOM: automatischer Fallback auf manuelle Eingabe mit Live-Validierung
-4. Browser-Neustart fuer Reject-Button
-5. Gleicher Ablauf fuer Reject (bzw. bei `--two-step-reject`: Settings + Reject in einer Session)
-6. Selektoren werden in `cmp-library.json` gespeichert
+1. **Accept lernen:** Schwebende Card am unteren Rand -> User klickt Accept-Button -> Selektor wird erkannt und zur Bestaetigung angezeigt
+2. **Shadow DOM:** Falls der Klick auf ein nicht-interaktives Element trifft, erscheint eine schwebende Hint-Card (kein Overlay). Die Seite bleibt fuer DevTools zugaenglich. User sucht den Selektor, klickt "Bereit", gibt ihn ein und er wird live validiert.
+3. **Reject lernen:** Frischer Browser-Kontext. Bei Shadow DOM wird gefragt ob der Reject-Button direkt sichtbar ist oder ein Zwischenschritt noetig ist (Two-Step). Beim normalen Flow wird der Klick erfasst wie bei Accept.
+4. **Library-Matching:** Gelernte Selektoren werden gegen bestehende Library-Eintraege geprueft (Substring-Matching). Bei Match: User kann den existierenden Eintrag wiederverwenden (fertig) oder ein neues CMP anlegen.
+5. **Detect-Selektoren:** Automatischer Vorschlag von Container-IDs (z.B. `#usercentrics-root`, `#CybotCookiebotDialog`) aus der DOM-Umgebung. User kann bestaetigen, anpassen oder ueberspringen. Detect-Selektoren ermoeglichen Auto-Erkennung im Audit ohne `--cmp`.
+6. **CMP-Name:** Falls nicht via `--cmp` angegeben, wird der Name im Browser-Overlay oder Terminal abgefragt.
+7. **Speichern:** Alle Selektoren (accept, reject, rejectSteps, detect) werden in `cmp-library.json` gespeichert.
 
-### 4. Ergebnis bestaetigen
+### 3. Ergebnis bestaetigen
 
 Nach Abschluss: `cmp-library.json` lesen und die neuen Selektoren anzeigen. Bestaetigen, dass die CMP jetzt fuer Audits verfuegbar ist.
-
-## Bekannte CMPs mit Two-Step Reject
-
-Diese CMPs brauchen typischerweise `--two-step-reject`:
-- Usercentrics v2
-- Borlabs Cookie
 
 ## Alle Parameter (Referenz)
 
 | Parameter | Beschreibung |
 |-----------|-------------|
 | `--url` | Seite mit CMP-Banner (Pflicht) |
-| `--cmp` | Name fuer die Library (Pflicht) |
-| `--two-step-reject` | Zweistufigen Reject einlernen (Settings -> Reject) |
+| `--cmp` | Name fuer die Library (optional, wird sonst interaktiv abgefragt) |
+| `--two-step-reject` | CLI-Override: Zweistufigen Reject erzwingen (wird bei Shadow DOM automatisch erfragt) |
 | `--terminal` | Terminal-Modus statt Browser-UI (Legacy, nicht empfohlen) |

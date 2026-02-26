@@ -63,7 +63,7 @@ Folgende Parameter helfen bei Sonderfaellen. Sie sind NICHT fuer den Normalfall 
 
 ### CMP wird nicht erkannt
 
-Die Auto-Erkennung deckt ~40 CMPs ab und bietet im Browser ein Dropdown zur manuellen Auswahl sowie einen Skip-Button fuer den manuellen Modus (Klick-basierte Selektor-Erkennung). Falls das alles nicht reicht:
+Die Auto-Erkennung deckt ~40 CMPs ab und bietet im Browser ein Dropdown zur manuellen Auswahl sowie einen Skip-Button. Im manuellen Modus erscheint eine Consent Card -- der User klickt Accept/Reject selbst und bestaetigt per Button. Falls die CMP unbekannt ist:
 
 1. CMP zuerst einlernen mit dem **cmp-learn** Skill
 2. Dann Audit erneut starten (ohne `--cmp` -- die Auto-Erkennung findet die neu gelernte CMP)
@@ -103,3 +103,4 @@ node audit.js --url https://example.com --project example_com \
 | `--view-cart` | Warenkorb-URL |
 | `--checkout` | Checkout-URL |
 | `--cmp` | CMP-Name, ueberspringt Auto-Erkennung (nur Notfall) |
+| `--no-payload-analysis` | Deep Analysis deaktivieren (CSP, Payloads, Stape-Decode) |

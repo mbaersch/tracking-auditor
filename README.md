@@ -2,6 +2,12 @@
 
 Node.js-Toolkit zur automatisierten Analyse von Tracking-Setups auf Websites. Erfasst dataLayer-Events, Netzwerk-Requests, Cookies und localStorage in verschiedenen Consent-Zustaenden und generiert strukturierte Markdown-Reports.
 
+Drei Hauptfunktionen:
+
+1. **[CMP einlernen](#1-cmp-einlernen)** -- Consent-Banner-Selektoren interaktiv erfassen und speichern
+2. **[Audit durchfuehren](#2-audit-durchfuehren)** -- Tracking-Setup einer Website analysieren (Pre-Consent, Post-Accept, Post-Reject, E-Commerce)
+3. **[Tracking-Vergleich](#3-tracking-vergleich-comparejs)** -- Zwei Setups gegeneinander vergleichen (z.B. Live vs. sGTM)
+
 ## Voraussetzungen
 
 - **Node.js** (ES Modules)
@@ -180,7 +186,7 @@ Mit `--ecom` laeuft der E-Commerce-Pfad ohne Vorbereitung. Du navigierst selbst,
 
 Jeder Schritt ist per "Audit abschliessen" ueberspringbar. Der Report enthaelt nur die Schritte, die tatsaechlich durchlaufen wurden.
 
-## Tracking-Vergleich (compare.js)
+### 3. Tracking-Vergleich (compare.js)
 
 Vergleicht Tracking-Setups zwischen zwei URLs (z.B. Live vs. Staging, Standard-GTM vs. sGTM Custom Loader):
 
