@@ -48,7 +48,11 @@ node learn.js --url https://example.com --cmp "Usercentrics"
 
 ![learn.js: Erkannter Selektor zur Bestaetigung](images/learn-selector-result.png)
 4. Bei Shadow DOM CMPs: schwebende Hint-Card (kein Overlay) -- Seite bleibt fuer DevTools zugaenglich, Selektor wird manuell eingegeben und live validiert
+
+![learn.js: Shadow DOM Hint Card](images/learn-shadow-dom-hint.png)
 5. Browser-Neustart, dann Reject-Button. Bei Shadow DOM wird interaktiv gefragt, ob der Reject-Button direkt sichtbar ist oder ein Zwischenschritt noetig ist (Two-Step)
+
+![learn.js: Two-Step Reject Abfrage](images/learn-two-step-reject.png)
 6. **Library-Matching:** Gelernte Selektoren werden gegen bestehende Eintraege geprueft -- bei Match kann der existierende Eintrag wiederverwendet werden
 7. **Detect-Selektoren:** Automatischer Vorschlag von Container-IDs (z.B. `#usercentrics-root`) aus der DOM-Umgebung des Accept-Buttons, mit Bestaetigung/Anpassung/Skip
 8. CMP-Name abfragen (falls nicht via `--cmp` angegeben)
@@ -107,6 +111,8 @@ Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
 ![CMP-Erkennung mit StatusBar und Dropdown](images/cmp-detection-statusbar.png)
 
+![CMP erkannt: Statusbar-Bestaetigung](images/cmp-detected.png)
+
 1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` nach Prioritaet (haeufigste CMPs zuerst). Waehrend der Auto-Erkennung kann per Dropdown eine CMP aus der Liste gewaehlt oder in den manuellen Modus gewechselt werden.
 2. **Pre-Consent** -- dataLayer, Third-Party-Requests, Consent Mode (gcs/gcd), Cookies, localStorage, SST-Erkennung
 2b. **Deep Analysis** (nach jeder Phase, sofern nicht `--no-payload-analysis`) -- CSP-Violations sammeln (blockierte Tracking-Requests), Stape Custom Loader Transport dekodieren (Base64-codierte Google-URLs), Enhanced Conversions / Dynamic Remarketing / Meta CAPI aus Request-Payloads erkennen
@@ -117,22 +123,11 @@ Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
 ### Manueller Modus
 
-Wenn die CMP-Auto-Erkennung fehlschlaegt oder per Skip-Button uebersprungen wird, aktiviert sich der manuelle Modus:
+Wenn die CMP-Auto-Erkennung fehlschlaegt oder per Skip-Button uebersprungen wird, erscheint eine Consent Card:
 
-![Click-Prompt fuer Accept-Button](images/manual-mode-click.png)
+![Consent Card fuer manuelle Consent-Bestaetigung](images/consent-card.png)
 
-1. Browser-Overlay fordert zum Klick auf Accept-Button auf
-2. Erkannter Selektor wird zur Bestaetigung angezeigt (oder manuelle Eingabe)
-
-![Erkannter Selektor zur Bestaetigung](images/manual-mode-selector.png)
-
-![Manuelle Selektor-Eingabe](images/manual-mode-input.png)
-3. Seite wird neu geladen fuer den Reject-Button
-4. Selektoren werden gegen die Library abgeglichen -- bei Match kann das bestehende CMP verwendet werden
-5. Ansonsten: neues CMP benennen und in `cmp-library.json` speichern
-6. Audit laeuft mit den neuen Selektoren weiter
-
-Der manuelle Modus wird maximal einmal pro Audit ausgeloest.
+Die Card fordert zum manuellen Akzeptieren/Ablehnen auf der Seite auf. Nach dem Klick auf den CMP-Button wird per "Cookies akzeptiert" bestaetigt und der Audit laeuft weiter. Es findet kein CMP-Lernprozess statt -- dafuer gibt es `learn.js`.
 
 ## Report-Inhalte
 
@@ -147,6 +142,8 @@ Der generierte Report enthaelt:
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
 - **CSP-Blockaden** (nur wenn CSP Tracking-Requests blockiert hat) -- Liste der blockierten Tracker-Domains
 - **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions, Dynamic Remarketing, Meta CAPI, Stape Custom Loader IDs
+
+Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-Vergleich](examples/compare-example-report.md)
 
 ## Browser-UI
 
@@ -200,6 +197,8 @@ node compare.js --url-a https://example.com/ --url-b https://example.com/staging
 | `--label-a` | nein | Host A | Anzeigename Seite A |
 | `--label-b` | nein | Host B | Anzeigename Seite B |
 | `--post-consent-wait` | nein | 5000 | Wartezeit nach Consent (ms) |
+
+![Tracking-Vergleich: Consent-Bestaetigung per Card](images/compare-consent-card.png)
 
 Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Der Consent-Button ist anfangs deaktiviert und wird erst nach dem load-Event + 3 Sekunden freigeschaltet, um saubere Pre-/Post-Consent-Trennung sicherzustellen. Consent wird manuell per Floating Card bestaetigt. Der Report enthaelt einen **Consent Mode Vergleich** (Advanced vs. Basic, gcs/gcd-Flags pre- und post-consent). Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
 
