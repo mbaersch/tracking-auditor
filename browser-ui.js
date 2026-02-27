@@ -475,14 +475,25 @@ export async function showCMPNameInput(page) {
 
   await injectOverlay(page, `
     <div class="__audit-card">
-      <div class="__audit-title">\uD83D\uDCDD CMP-Name</div>
-      <div class="__audit-msg">Bitte einen Namen fuer dieses CMP eingeben:</div>
+      <div class="__audit-title">\uD83D\uDCDD CMP speichern</div>
+      <div class="__audit-msg">Name:</div>
       <input class="__audit-input" id="__audit-cmpname-input" type="text"
              placeholder="z.B. Complianz, Cookiebot, ..." autofocus />
-      <button class="__audit-btn __audit-btn-primary"
+      <div class="__audit-msg" style="margin-top:10px !important;">Priority (wie haeufig kommt dieses CMP vor?):</div>
+      <select id="__audit-prio-select" class="__audit-input" style="padding:6px 10px !important;">
+        <option value="1">1 – Sehr haeufig</option>
+        <option value="2">2</option>
+        <option value="3" selected>3 – Normal</option>
+        <option value="4">4</option>
+        <option value="5">5 – Selten</option>
+        <option value="7">7</option>
+        <option value="9">9 – Sehr selten</option>
+      </select>
+      <button class="__audit-btn __audit-btn-primary" style="margin-top:10px !important;"
               onclick="(()=>{
-                const v=document.getElementById('__audit-cmpname-input').value.trim();
-                if(v) window['${callbackName}'](v);
+                const n=document.getElementById('__audit-cmpname-input').value.trim();
+                const p=document.getElementById('__audit-prio-select').value;
+                if(n) window['${callbackName}'](JSON.stringify({name:n,priority:parseInt(p,10)}));
               })()">Speichern</button>
     </div>
   `);
@@ -497,9 +508,10 @@ export async function showCMPNameInput(page) {
     });
   });
 
-  const result = await resultPromise;
+  const raw = await resultPromise;
   await removeOverlay(page);
-  return result;
+  try { return JSON.parse(raw); }
+  catch { return { name: raw, priority: 3 }; }
 }
 
 // ── Status Bar (non-blocking, red accent, with optional skip button) ─────────

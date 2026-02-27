@@ -49,6 +49,7 @@ const cmpFlag   = get('--cmp');
 const disableSW = has('--disable-sw');
 const ecomInteractive = has('--ecom');
 const noPayloadAnalysis = has('--no-payload-analysis');
+const exportHAR = has('--har');
 
 // E-Commerce (fix Git Bash path mangling for relative URLs)
 const categoryUrl  = fixMangledPath(get('--category'), '--category');
@@ -62,6 +63,7 @@ if (!url || !project) {
   console.error('  E-Commerce: [--category <url>] [--product <url>] [--add-to-cart <sel>] [--view-cart <url>] [--checkout <url>]');
   console.error('  Interaktiv: [--ecom] (E-Commerce-Pfad manuell im Browser durchlaufen)');
   console.error('  Analyse: [--no-payload-analysis] (Deep Analysis deaktivieren)');
+  console.error('  Export:  [--har] (HAR-Datei mit allen Requests exportieren)');
   process.exit(1);
 }
 
@@ -966,15 +968,27 @@ async function deregisterServiceWorkers(page) {
 
 /**
  * Set up request collection on a page. Returns a getter function for collected URLs.
+ * When phase is provided, each request is tagged for HAR export.
  */
-function setupRequestCollector(page) {
+function setupRequestCollector(page, phase = 'unknown') {
   const requests = [];
   page.on('request', (req) => {
     requests.push({
       url: req.url(),
       method: req.method(),
+      headers: req.headers(),
       postData: req.method() === 'POST' ? (req.postData() || null) : null,
+      phase,
+      startTime: Date.now(),
     });
+  });
+  page.on('response', (resp) => {
+    const entry = requests.findLast(r => r.url === resp.url() && !r.status);
+    if (entry) {
+      entry.status = resp.status();
+      entry.responseHeaders = resp.headers();
+      entry.endTime = Date.now();
+    }
   });
   // Backward-compatible: calling the function returns URL array
   const getUrls = () => requests.map(r => r.url);
@@ -1055,9 +1069,30 @@ async function waitForSettle(page, ms = 3000) {
 // ── CMP Detection ─────────────────────────────────────────────────────────────
 
 async function tryCMPSelectors(page, library, { onProgress, signal } = {}) {
-  const matches = [];
   const entries = Object.entries(library);
   const total = entries.length;
+
+  // Stage 1: Fast parallel visibility check (all CMPs at once, no waiting)
+  if (onProgress) onProgress(0, total, 'Schnell-Check...');
+  const visResults = await Promise.all(
+    entries.map(async ([, entry]) => {
+      try { return await page.locator(entry.accept).first().isVisible(); }
+      catch { return false; }
+    })
+  );
+  if (signal?.skipped) return [];
+
+  const fastMatches = [];
+  for (let i = 0; i < total; i++) {
+    if (visResults[i]) {
+      const [key, entry] = entries[i];
+      fastMatches.push({ key, ...entry });
+    }
+  }
+  if (fastMatches.length > 0) return fastMatches;
+
+  // Stage 2: Slow sequential check for late-loading CMPs (3s timeout each)
+  const matches = [];
   for (let i = 0; i < total; i++) {
     if (signal?.skipped) return matches;
     const [key, entry] = entries[i];
@@ -1205,6 +1240,58 @@ function analyzeConsentModeTransition(reportData) {
   }
 
   return { preGcs, postGcs, ecomGcs, status: 'update_ok' };
+}
+
+// ── HAR Export ────────────────────────────────────────────────────────────────
+
+function buildHAR(collectors, pageUrl) {
+  const allRequests = collectors.flatMap(c => c.full());
+  const entries = allRequests.map(r => ({
+    startedDateTime: new Date(r.startTime).toISOString(),
+    time: r.endTime ? r.endTime - r.startTime : 0,
+    request: {
+      method: r.method,
+      url: r.url,
+      httpVersion: 'HTTP/1.1',
+      headers: Object.entries(r.headers || {}).map(([name, value]) => ({ name, value })),
+      queryString: (() => {
+        try { return [...new URL(r.url).searchParams].map(([name, value]) => ({ name, value })); }
+        catch { return []; }
+      })(),
+      cookies: [],
+      headersSize: -1,
+      bodySize: r.postData ? r.postData.length : 0,
+      ...(r.postData ? { postData: { mimeType: 'application/x-www-form-urlencoded', text: r.postData } } : {}),
+    },
+    response: {
+      status: r.status || 0,
+      statusText: '',
+      httpVersion: 'HTTP/1.1',
+      headers: Object.entries(r.responseHeaders || {}).map(([name, value]) => ({ name, value })),
+      cookies: [],
+      content: { size: 0, mimeType: '' },
+      redirectURL: '',
+      headersSize: -1,
+      bodySize: -1,
+    },
+    cache: {},
+    timings: { send: 0, wait: r.endTime ? r.endTime - r.startTime : 0, receive: 0 },
+    _phase: r.phase,
+  }));
+
+  return {
+    log: {
+      version: '1.2',
+      creator: { name: 'audit.js', version: '1.0' },
+      pages: [{
+        startedDateTime: entries.length > 0 ? entries[0].startedDateTime : new Date().toISOString(),
+        id: 'page_1',
+        title: `Audit: ${pageUrl}`,
+        pageTimings: {},
+      }],
+      entries,
+    },
+  };
 }
 
 // ── Report Generation ─────────────────────────────────────────────────────────
@@ -1827,8 +1914,9 @@ function generateReport(data) {
  * Collect tracking data for a single E-Commerce step.
  * Used by both automatic and interactive E-Commerce modes.
  */
-async function collectEcomStepData(page, context, step, prevCookies, prevLocalStorage, prevDataLayer, siteHost) {
-  const getStepRequests = setupRequestCollector(page);
+async function collectEcomStepData(page, context, step, prevCookies, prevLocalStorage, prevDataLayer, siteHost, harCollectors = []) {
+  const getStepRequests = setupRequestCollector(page, `ecom-${step.name}`);
+  harCollectors.push(getStepRequests);
   await waitForSettle(page, 3000);
 
   const stepDataLayer = await collectDataLayer(page);
@@ -1881,10 +1969,12 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   if (ecomInteractive) console.log(` E-Commerce Pfad interaktiv`);
   if (disableSW) console.log(` Service Worker werden deregistriert`);
   if (noPayloadAnalysis) console.log(` Payload-Analyse: deaktiviert`);
+  if (exportHAR) console.log(` HAR-Export: aktiviert`);
   console.log(`=======================================\n`);
 
   const library = loadLibrary();
   const siteHost = url;
+  const harCollectors = []; // all request collectors for HAR export
 
   // ── Phase 0: CMP Detection ─────────────────────────────────────────────────
 
@@ -1912,7 +2002,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const context1 = await browser1.newContext();
   const page1 = await context1.newPage();
 
-  let getPreRequests = setupRequestCollector(page1);
+  let getPreRequests = setupRequestCollector(page1, 'pre-consent');
+  harCollectors.push(getPreRequests);
   let getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
   let getCSPViolations1 = () => [];
   if (!noPayloadAnalysis) {
@@ -2026,7 +2117,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   await updateStatusBar(page1, 'Phase 2', 'Post-Accept – klicke Accept...', '');
 
   // Clear request collector and set up fresh one for this phase
-  const getPostAcceptRequests = setupRequestCollector(page1);
+  const getPostAcceptRequests = setupRequestCollector(page1, 'post-accept');
+  harCollectors.push(getPostAcceptRequests);
   const getPostAcceptResponseBodies = setupResponseBodyCollector(page1, siteHost);
 
   // Click accept – auto-click if CMP known, otherwise manual consent card
@@ -2166,7 +2258,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
           }
 
           // Collectors starten VOR dem Klick
-          const getStepRequests = setupRequestCollector(page1);
+          const getStepRequests = setupRequestCollector(page1, `ecom-${step.name}`);
+          harCollectors.push(getStepRequests);
           const urlBeforeClick = page1.url();
 
           // dataLayer-Capture: Monkey-Patch fängt DL-Pushes ab und schickt sie
@@ -2255,7 +2348,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
           console.log(`  Schritt: ${step.name} (interaktiv)...`);
 
-          const result = await collectEcomStepData(page1, context1, step, prevCookies, prevLocalStorage, prevDataLayer, siteHost);
+          const result = await collectEcomStepData(page1, context1, step, prevCookies, prevLocalStorage, prevDataLayer, siteHost, harCollectors);
 
           console.log(`    dataLayer Diff: ${result.data.dataLayerDiff.length}, Requests: ${result.stepClassified.length} 3P, Cookies: +${result.data.cookiesDiff.length}`);
 
@@ -2343,7 +2436,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const page2 = await context2.newPage();
 
   // Pre-consent baseline in fresh browser
-  const getRejectPreRequests = setupRequestCollector(page2);
+  const getRejectPreRequests = setupRequestCollector(page2, 'reject-pre');
+  harCollectors.push(getRejectPreRequests);
   let getCSPViolations2 = () => [];
   if (!noPayloadAnalysis) {
     getCSPViolations2 = await setupCSPViolationCollector(page2);
@@ -2365,7 +2459,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   getRejectPreRequests();
 
   // Set up fresh collector for post-reject
-  const getRejectPostRequests = setupRequestCollector(page2);
+  const getRejectPostRequests = setupRequestCollector(page2, 'post-reject');
+  harCollectors.push(getRejectPostRequests);
 
   // Click reject – auto-click if CMP known, otherwise manual consent card
   let rejectClicked = false;
@@ -2536,8 +2631,17 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const markdown = generateReport(reportData);
   writeFileSync(reportFile, markdown, 'utf-8');
 
+  // HAR-Export (optional)
+  let harFile = null;
+  if (exportHAR) {
+    const har = buildHAR(harCollectors, url);
+    harFile = resolve(reportDir, `audit-${hostSlug}-${timestamp}.har`);
+    writeFileSync(harFile, JSON.stringify(har, null, 2), 'utf-8');
+  }
+
   console.log(`\n=======================================`);
   console.log(` Audit abgeschlossen!`);
   console.log(` Report: ${reportFile}`);
+  if (harFile) console.log(` HAR:    ${harFile}`);
   console.log(`=======================================\n`);
 })();

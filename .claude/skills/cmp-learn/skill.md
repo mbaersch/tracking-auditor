@@ -51,7 +51,7 @@ node learn.js --url https://example.com --two-step-reject
 3. **Reject lernen:** Frischer Browser-Kontext. Bei Shadow DOM wird gefragt ob der Reject-Button direkt sichtbar ist oder ein Zwischenschritt noetig ist (Two-Step). Beim normalen Flow wird der Klick erfasst wie bei Accept.
 4. **Library-Matching:** Gelernte Selektoren werden gegen bestehende Library-Eintraege geprueft (Substring-Matching). Bei Match: User kann den existierenden Eintrag wiederverwenden (fertig) oder ein neues CMP anlegen.
 5. **Detect-Selektoren:** Automatischer Vorschlag von Container-IDs (z.B. `#usercentrics-root`, `#CybotCookiebotDialog`) aus der DOM-Umgebung. User kann bestaetigen, anpassen oder ueberspringen. Detect-Selektoren ermoeglichen Auto-Erkennung im Audit ohne `--cmp`.
-6. **CMP-Name:** Falls nicht via `--cmp` angegeben, wird der Name im Browser-Overlay oder Terminal abgefragt.
+6. **CMP-Name + Priority:** Falls nicht via `--cmp` angegeben, wird Name und Priority in einem kombinierten Dialog abgefragt (Browser-Overlay oder Terminal). Priority reicht von 1 (sehr haeufig) bis 9 (sehr selten), Default ist 3 (normal). Sie bestimmt die Reihenfolge bei der Auto-Erkennung im Audit.
 7. **Speichern:** Alle Selektoren (accept, reject, rejectSteps, detect) werden in `cmp-library.json` gespeichert.
 
 ### 3. Ergebnis bestaetigen

@@ -64,7 +64,7 @@ node learn.js --url https://example.com --cmp "Usercentrics"
 ![learn.js: Two-Step Reject Abfrage](images/learn-two-step-reject.png)
 6. **Library-Matching:** Gelernte Selektoren werden gegen bestehende Eintraege geprueft -- bei Match kann der existierende Eintrag wiederverwendet werden
 7. **Detect-Selektoren:** Automatischer Vorschlag von Container-IDs (z.B. `#usercentrics-root`) aus der DOM-Umgebung des Accept-Buttons, mit Bestaetigung/Anpassung/Skip
-8. CMP-Name abfragen (falls nicht via `--cmp` angegeben)
+8. CMP-Name und Priority abfragen (kombinierter Dialog; Priority 1-9, Default 3 = normal)
 9. Alle Selektoren werden in `cmp-library.json` gespeichert
 
 Die Interaktion findet komplett im Browser-Overlay statt. Mit `--terminal` kann auf den alten readline-Modus gewechselt werden.
@@ -108,6 +108,7 @@ Im interaktiven Modus navigierst du selbst durch den Shop. Eine schwebende Card 
 | `--disable-sw` | nein | Service Worker deregistrieren |
 | `--ecom` | nein | Interaktiver E-Commerce-Modus (manuell navigieren) |
 | `--no-payload-analysis` | nein | Deep Analysis deaktivieren (CSP-Violations, Payload-Analyse, Stape-Decode) |
+| `--har` | nein | HAR-Datei mit allen Requests exportieren (neben dem Report) |
 | `--category` | nein | Kategorie-URL (aktiviert automatischen E-Commerce-Pfad) |
 | `--product` | nein | Produkt-URL |
 | `--add-to-cart` | nein | CSS-Selektor fuer Add-to-Cart-Button |
@@ -122,7 +123,7 @@ Eine rote Status Bar im Browser zeigt den aktuellen Fortschritt in Echtzeit.
 
 ![CMP erkannt: Statusbar-Bestaetigung](images/cmp-detected.png)
 
-1. **CMP-Erkennung** -- Prueft alle Selektoren aus `cmp-library.json` nach Prioritaet (haeufigste CMPs zuerst). Waehrend der Auto-Erkennung kann per Dropdown eine CMP aus der Liste gewaehlt oder in den manuellen Modus gewechselt werden.
+1. **CMP-Erkennung** -- Zweistufig: Erst ein schneller Parallel-Check aller Selektoren (alle CMPs gleichzeitig, ohne Wartezeit), dann nur bei Bedarf ein langsamerer sequenzieller Durchlauf mit Timeout pro CMP. Waehrend der Auto-Erkennung kann per Dropdown eine CMP aus der Liste gewaehlt oder in den manuellen Modus gewechselt werden.
 2. **Pre-Consent** -- dataLayer, Third-Party-Requests, Consent Mode (gcs/gcd), Cookies, localStorage, SST-Erkennung
 2b. **Deep Analysis** (nach jeder Phase, sofern nicht `--no-payload-analysis`) -- CSP-Violations sammeln (blockierte Tracking-Requests), Stape Custom Loader Transport dekodieren (Base64-codierte Google-URLs), Enhanced Conversions / Dynamic Remarketing / Meta CAPI aus Request-Payloads erkennen
 3. **Post-Accept** -- CMP Accept klicken, Diffs gegenueber Pre-Consent erfassen

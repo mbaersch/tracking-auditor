@@ -104,3 +104,4 @@ node audit.js --url https://example.com --project example_com \
 | `--checkout` | Checkout-URL |
 | `--cmp` | CMP-Name, ueberspringt Auto-Erkennung (nur Notfall) |
 | `--no-payload-analysis` | Deep Analysis deaktivieren (CSP, Payloads, Stape-Decode) |
+| `--har` | HAR-Datei mit allen Requests exportieren (neben dem Report) |

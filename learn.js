@@ -782,16 +782,21 @@ function findLibraryMatches(lib, acceptSelector, rejectSelector) {
     console.log('  → Kein Detect-Selektor gesetzt (CMP braucht --cmp).');
   }
 
-  // ── Phase 5: CMP-Name abfragen ──
+  // ── Phase 5: CMP-Name und Priority abfragen ──
+  let priority = 3;
   if (!cmpName) {
     if (useTerminal) {
       cmpName = await prompt('\nCMP-Name eingeben: ');
+      const prioInput = await prompt('Priority (1=sehr haeufig, 3=normal, 9=sehr selten) [3]: ');
+      priority = parseInt(prioInput, 10) || 3;
     } else {
       const { browser: bName, page: pName } = await launchFresh();
       try {
         await pName.goto(url, { waitUntil: 'domcontentloaded' });
         await pName.waitForTimeout(1000);
-        cmpName = await showCMPNameInput(pName);
+        const result = await showCMPNameInput(pName);
+        cmpName = result.name;
+        priority = result.priority;
       } finally {
         await bName.close();
       }
@@ -802,6 +807,7 @@ function findLibraryMatches(lib, acceptSelector, rejectSelector) {
     console.error('Kein CMP-Name angegeben. Abbruch.');
     process.exit(1);
   }
+  priority = Math.max(1, Math.min(9, priority));
 
   // ── Phase 6: Speichern ──
   const key = cmpName.toLowerCase().replace(/\s+/g, '-');
@@ -835,6 +841,7 @@ function findLibraryMatches(lib, acceptSelector, rejectSelector) {
     ...(rejectSteps ? { rejectSteps } : {}),
     ...(detectSelectors.length > 0 ? { detect: detectSelectors } : {}),
     shadowDom: acceptSelector.startsWith('[data-') || !acceptSelector.startsWith('#'),
+    priority,
     learnedAt: new Date().toISOString(),
   };
 

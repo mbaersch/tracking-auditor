@@ -434,5 +434,16 @@
     ],
     "shadowDom": true,
     "learnedAt": "2026-02-23T18:17:31.705Z"
+  },
+  "keksly": {
+    "name": "Keksly",
+    "accept": "[data-action=\"accept\"]",
+    "reject": "[data-action=\"reject\"]",
+    "detect": [
+      "#keksly-banner"
+    ],
+    "shadowDom": true,
+    "priority": 9,
+    "learnedAt": "2026-02-27T01:35:05.400Z"
   }
 }
