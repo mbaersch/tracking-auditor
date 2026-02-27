@@ -9,9 +9,7 @@ Automatisierte Analyse von Tracking-Setups auf Websites. Erfasst dataLayer, Netz
 
 ## Toolkit Location
 
-`c:\Users\mbaer\Documents\Dev\tracking-auditor\`
-
-All commands run from this directory.
+All commands run from the **repository root** (where `audit.js` lives).
 
 ## Default-Workflow (bevorzugt)
 

@@ -9,9 +9,7 @@ Deterministischer Vergleich von Tracking-Setups auf zwei URLs. Erfasst Netzwerk-
 
 ## Toolkit Location
 
-`c:\Users\mbaer\Documents\Dev\tracking-auditor\`
-
-All commands run from this directory.
+All commands run from the **repository root** (where `compare.js` lives).
 
 ## Workflow
 

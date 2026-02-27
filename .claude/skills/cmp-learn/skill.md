@@ -9,9 +9,7 @@ Interaktives Einlernen von Accept-, Reject- und Detect-Selektoren fuer eine Cons
 
 ## Toolkit Location
 
-`c:\Users\mbaer\Documents\Dev\tracking-auditor\`
-
-All commands run from this directory.
+All commands run from the **repository root** (where `learn.js` lives).
 
 ## Wann diesen Skill nutzen
 
