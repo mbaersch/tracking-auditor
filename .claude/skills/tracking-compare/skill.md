@@ -7,9 +7,9 @@ description: Use when user wants to compare tracking setups between two URLs (e.
 
 Deterministischer Vergleich von Tracking-Setups auf zwei URLs. Erfasst Netzwerk-Requests pre- und post-consent, erkennt Vendoren, SST/Custom Loader, Container-IDs und erstellt einen Diff-Report mit HAR-Export.
 
-## Toolkit Location
+## Arbeitsverzeichnis
 
-All commands run from the **repository root** (where `compare.js` lives).
+Alle Befehle laufen im **Repository-Root** (dort wo `compare.js` liegt).
 
 ## Workflow
 

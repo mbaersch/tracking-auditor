@@ -7,9 +7,9 @@ description: Use when user wants to audit tagging, tracking, consent, or dataLay
 
 Automatisierte Analyse von Tracking-Setups auf Websites. Erfasst dataLayer, Netzwerk-Requests, Cookies und localStorage in verschiedenen Consent-Zustaenden.
 
-## Toolkit Location
+## Arbeitsverzeichnis
 
-All commands run from the **repository root** (where `audit.js` lives).
+Alle Befehle laufen im **Repository-Root** (dort wo `audit.js` liegt).
 
 ## Default-Workflow (bevorzugt)
 

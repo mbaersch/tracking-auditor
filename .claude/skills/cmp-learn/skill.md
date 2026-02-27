@@ -7,9 +7,9 @@ description: Use when user wants to learn, add, or teach a new CMP (Consent Mana
 
 Interaktives Einlernen von Accept-, Reject- und Detect-Selektoren fuer eine Consent Management Platform (CMP). Die gelernten Selektoren werden in `cmp-library.json` gespeichert und stehen dann fuer alle zukuenftigen Audits zur Verfuegung.
 
-## Toolkit Location
+## Arbeitsverzeichnis
 
-All commands run from the **repository root** (where `learn.js` lives).
+Alle Befehle laufen im **Repository-Root** (dort wo `learn.js` liegt).
 
 ## Wann diesen Skill nutzen
 
