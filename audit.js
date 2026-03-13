@@ -29,7 +29,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   showMessage, showConfirm,
-  showStatusBar, updateStatusBar, enableCMPSelect, removeStatusBar,
+  showStatusBar, updateStatusBar, enableCMPSelect, showCMPOverride, removeStatusBar,
   showEcomStepPrompt, showEcomClickWait,
   showConsentCard, removeConsentCard,
 } from './browser-ui.js';
@@ -2020,12 +2020,22 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   await waitForSettle(page1, 3000);
 
   // Auto-detect CMP if not provided via flag
+  let manualOverride = false;
   if (!cmp) {
     await updateStatusBar(page1, 'Phase 0', 'Starte CMP-Erkennung...');
     cmp = await detectCMP(page1, library);
     if (!cmp) {
       console.log('  CMP nicht automatisch erkannt – manueller Modus aktiv');
     }
+  }
+
+  // After CMP detection (auto or --cmp flag): show override button
+  if (cmp) {
+    const { overridePromise } = await showCMPOverride(page1, cmp.name);
+    overridePromise.then(() => {
+      manualOverride = true;
+      console.log('  Manueller Modus aktiviert (Override)');
+    });
   }
 
   const reportData = {
@@ -2121,9 +2131,9 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   harCollectors.push(getPostAcceptRequests);
   const getPostAcceptResponseBodies = setupResponseBodyCollector(page1, siteHost);
 
-  // Click accept – auto-click if CMP known, otherwise manual consent card
+  // Click accept – auto-click if CMP known (and not overridden), otherwise manual consent card
   let acceptClicked = false;
-  if (cmp) {
+  if (cmp && !manualOverride) {
     try {
       await page1.locator(cmp.accept).first().waitFor({ state: 'visible', timeout: 5000 });
       await page1.locator(cmp.accept).first().click({ timeout: 10000 });
@@ -2462,10 +2472,10 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const getRejectPostRequests = setupRequestCollector(page2, 'post-reject');
   harCollectors.push(getRejectPostRequests);
 
-  // Click reject – auto-click if CMP known, otherwise manual consent card
+  // Click reject – auto-click if CMP known (and not overridden), otherwise manual consent card
   let rejectClicked = false;
 
-  if (cmp) {
+  if (cmp && !manualOverride) {
     // Scroll-Retry: CMP-Banner muss sichtbar sein vor Reject-Klick
     const rejectFirstSelector = (cmp.rejectSteps && cmp.rejectSteps.length >= 1) ? cmp.rejectSteps[0] : cmp.reject;
     try {

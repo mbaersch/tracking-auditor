@@ -688,6 +688,50 @@ export async function enableCMPSelect(page, cmpEntries) {
   return resultPromise;
 }
 
+/**
+ * Replace the CMP select UI with a "Manuell übernehmen" button after auto-detection.
+ * Returns { overridePromise } – resolves to true when the user clicks the button.
+ */
+export async function showCMPOverride(page, cmpName) {
+  const callbackName = nextCallbackName('cmpovr');
+
+  let resolveOverride;
+  const overridePromise = new Promise((resolve) => { resolveOverride = resolve; });
+
+  try {
+    await page.exposeFunction(callbackName, () => resolveOverride(true));
+  } catch { /* already exposed in this context */ }
+
+  await page.evaluate(({ name, cbName }) => {
+    const actions = document.getElementById('__audit-statusbar-actions');
+    if (!actions) return;
+    actions.innerHTML = '';
+
+    const label = document.createElement('span');
+    label.textContent = `CMP: ${name}`;
+    label.style.cssText = 'color: #fca5a5 !important; font-size: 11px !important; font-weight: 600 !important; white-space: nowrap !important;';
+
+    const btn = document.createElement('button');
+    btn.id = '__audit-cmp-override-btn';
+    btn.textContent = 'Manuell \u00fcbernehmen';
+    btn.style.cssText = 'background: rgba(255,255,255,0.15) !important; color: #fecaca !important; border: 1px solid rgba(255,255,255,0.3) !important; border-radius: 4px !important; padding: 3px 10px !important; font-size: 11px !important; cursor: pointer !important; white-space: nowrap !important; font-family: inherit !important;';
+    btn.addEventListener('mouseover', () => { btn.style.background = 'rgba(255,255,255,0.25) !important'; });
+    btn.addEventListener('mouseout', () => { btn.style.background = 'rgba(255,255,255,0.15) !important'; });
+    btn.addEventListener('click', () => {
+      window[cbName]();
+      btn.textContent = '\u2713 Manueller Modus';
+      btn.disabled = true;
+      btn.style.opacity = '0.6 !important';
+    });
+
+    actions.appendChild(label);
+    actions.appendChild(btn);
+    actions.classList.add('--visible');
+  }, { name: cmpName, cbName: callbackName });
+
+  return { overridePromise };
+}
+
 export async function removeStatusBar(page) {
   await page.evaluate(() => {
     const el = document.getElementById('__audit-statusbar');

@@ -445,5 +445,20 @@
     "shadowDom": true,
     "priority": 9,
     "learnedAt": "2026-02-27T01:35:05.400Z"
+  },
+  "pandectes": {
+    "name": "Pandectes",
+    "accept": ".cc-btn.cc-btn-decision.cc-allow",
+    "reject": ".pd-cp-btn.pd-cp-ui-save",
+    "rejectSteps": [
+      ".cc-btn.cc-settings",
+      ".pd-cp-btn.pd-cp-ui-save"
+    ],
+    "detect": [
+      "#pandectes-banner"
+    ],
+    "shadowDom": true,
+    "priority": 5,
+    "learnedAt": "2026-03-13T13:47:11.338Z"
   }
 }
