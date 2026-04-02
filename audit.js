@@ -1068,12 +1068,10 @@ async function waitForSettle(page, ms = 3000) {
 
 // ── CMP Detection ─────────────────────────────────────────────────────────────
 
-async function tryCMPSelectors(page, library, { onProgress, signal } = {}) {
+async function tryCMPSelectors(page, library, { signal } = {}) {
   const entries = Object.entries(library);
-  const total = entries.length;
 
-  // Stage 1: Fast parallel visibility check (all CMPs at once, no waiting)
-  if (onProgress) onProgress(0, total, 'Schnell-Check...');
+  // Paralleler Visibility-Check: alle CMPs gleichzeitig, kein Timeout
   const visResults = await Promise.all(
     entries.map(async ([, entry]) => {
       try { return await page.locator(entry.accept).first().isVisible(); }
@@ -1082,25 +1080,12 @@ async function tryCMPSelectors(page, library, { onProgress, signal } = {}) {
   );
   if (signal?.skipped) return [];
 
-  const fastMatches = [];
-  for (let i = 0; i < total; i++) {
+  const matches = [];
+  for (let i = 0; i < entries.length; i++) {
     if (visResults[i]) {
       const [key, entry] = entries[i];
-      fastMatches.push({ key, ...entry });
-    }
-  }
-  if (fastMatches.length > 0) return fastMatches;
-
-  // Stage 2: Slow sequential check for late-loading CMPs (3s timeout each)
-  const matches = [];
-  for (let i = 0; i < total; i++) {
-    if (signal?.skipped) return matches;
-    const [key, entry] = entries[i];
-    if (onProgress) onProgress(i + 1, total, entry.name || key);
-    try {
-      await page.locator(entry.accept).first().waitFor({ state: 'visible', timeout: 3000 });
       matches.push({ key, ...entry });
-    } catch { /* not found, try next */ }
+    }
   }
   return matches;
 }
@@ -1135,41 +1120,9 @@ async function disambiguateCMP(page, matches) {
 }
 
 async function detectCMP(page, library) {
-  // Signal object for CMP select – shared across all passes
-  const signal = { skipped: false };
-
-  // Sort library by priority (lower = first, no priority = Infinity)
-  const sortedLibrary = Object.fromEntries(
-    Object.entries(library).sort(([, a], [, b]) =>
-      (a.priority ?? Infinity) - (b.priority ?? Infinity)
-    )
-  );
-
-  // Build alphabetically sorted CMP list for the dropdown
-  const cmpEntries = Object.entries(library)
-    .map(([key, entry]) => ({ key, name: entry.name || key }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  // Enable CMP select UI and set up race
-  let userChoice = null;
-  const selectPromise = enableCMPSelect(page, cmpEntries).then((result) => {
-    signal.skipped = true;
-    userChoice = result;
-  });
-
-  const onProgress = (current, total, name) => {
-    updateStatusBar(page, 'Phase 0', `CMP ${current}/${total}: ${name}`, 'Auto-Erkennung...').catch(() => {});
-  };
-
-  // Erster Durchlauf (nach Prioritaet sortiert)
-  let matches = await tryCMPSelectors(page, sortedLibrary, { onProgress, signal });
-  if (signal.skipped) {
-    if (userChoice.type === 'select') {
-      console.log(`  CMP manuell gewählt: ${library[userChoice.key].name}`);
-      return { key: userChoice.key, ...library[userChoice.key] };
-    }
-    return null; // manual mode
-  }
+  // Erster Durchlauf: paralleler Schnell-Scan
+  await updateStatusBar(page, 'Phase 0', 'Schnell-Scan...', 'Prüfe bekannte CMPs');
+  let matches = await tryCMPSelectors(page, library);
   let result = await disambiguateCMP(page, matches);
   if (result) return result;
 
@@ -1178,25 +1131,28 @@ async function detectCMP(page, library) {
   await updateStatusBar(page, 'Phase 0', 'Scroll-Retry...', 'Kein Banner beim 1. Durchlauf');
   await page.evaluate(() => window.scrollBy(0, 400));
   await page.waitForTimeout(2000);
-  if (signal.skipped) {
-    if (userChoice.type === 'select') {
-      console.log(`  CMP manuell gewählt: ${library[userChoice.key].name}`);
-      return { key: userChoice.key, ...library[userChoice.key] };
-    }
-    return null; // manual mode
+
+  matches = await tryCMPSelectors(page, library);
+  result = await disambiguateCMP(page, matches);
+  if (result) {
+    console.log('  CMP nach Scroll erkannt!');
+    return result;
   }
 
-  matches = await tryCMPSelectors(page, sortedLibrary, { onProgress, signal });
-  if (signal.skipped) {
-    if (userChoice.type === 'select') {
-      console.log(`  CMP manuell gewählt: ${library[userChoice.key].name}`);
-      return { key: userChoice.key, ...library[userChoice.key] };
-    }
-    return null; // manual mode
+  // Keine bekannte CMP gefunden – Dropdown zur Auswahl anzeigen, sonst manueller Modus
+  console.log('  Keine bekannte CMP gefunden – zeige CMP-Auswahl...');
+  await updateStatusBar(page, 'Phase 0', 'CMP nicht erkannt', 'Bitte CMP wählen oder manueller Modus startet');
+
+  const cmpEntries = Object.entries(library)
+    .map(([key, entry]) => ({ key, name: entry.name || key }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const userChoice = await enableCMPSelect(page, cmpEntries);
+  if (userChoice.type === 'select') {
+    console.log(`  CMP manuell gewählt: ${library[userChoice.key].name}`);
+    return { key: userChoice.key, ...library[userChoice.key] };
   }
-  result = await disambiguateCMP(page, matches);
-  if (result) console.log('  CMP nach Scroll erkannt!');
-  return result;
+  return null;
 }
 
 // ── Consent Mode Transition Analysis ─────────────────────────────────────────
