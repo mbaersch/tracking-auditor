@@ -454,6 +454,8 @@ function deduplicateMatches(matches) {
 
 /**
  * Extract Consent Mode parameters (gcs, gcd) from Google request URLs.
+ * Covers both vendor-library Google domains and generic www.google.<tld>
+ * endpoints used by Advanced Consent Mode (en=consent_update pings).
  */
 function extractConsentModeParams(requests) {
   const googleDomains = Object.values(VENDORS)
@@ -465,17 +467,25 @@ function extractConsentModeParams(requests) {
     const hostname = getHostname(reqUrl);
     if (!hostname) continue;
 
-    const isGoogle = googleDomains.some(d =>
+    const isVendorGoogle = googleDomains.some(d =>
       hostname === d || hostname.endsWith('.' + d)
     );
-    if (!isGoogle) continue;
+    // Advanced Consent Mode consent_update pings go to www.google.<tld>/ccm/collect
+    const isGoogleConsentEndpoint = /^www\.google\.[a-z.]{2,}$/.test(hostname);
+    if (!isVendorGoogle && !isGoogleConsentEndpoint) continue;
 
     try {
       const u = new URL(reqUrl);
       const gcs = u.searchParams.get('gcs');
       const gcd = u.searchParams.get('gcd');
       if (gcs || gcd) {
-        params.push({ url: truncate(reqUrl, 120), gcs: gcs || '-', gcd: gcd || '-' });
+        const en = u.searchParams.get('en');
+        params.push({
+          url: truncate(reqUrl, 120),
+          gcs: gcs || '-',
+          gcd: gcd || '-',
+          event: en || null,
+        });
       }
     } catch { /* ignore */ }
   }
@@ -1167,7 +1177,15 @@ function analyzeConsentModeTransition(reportData) {
   const postParams = reportData.postAccept.consentMode || [];
 
   const preGcs = preParams.length > 0 ? preParams[0].gcs : null;
-  const postGcs = postParams.length > 0 ? postParams[0].gcs : null;
+
+  // Look for an actual update signal: either en=consent_update, or any gcs value
+  // that indicates granted consent (G1x1 / G11x pattern) and differs from preGcs.
+  const postUpdate = postParams.find(p =>
+    p.event === 'consent_update' || (p.gcs && p.gcs !== '-' && p.gcs !== preGcs && /^G1[01][01]$/.test(p.gcs))
+  );
+  const postEntry = postUpdate || (postParams.length > 0 ? postParams[0] : null);
+  const postGcs = postEntry ? postEntry.gcs : null;
+  const postGcd = postEntry ? postEntry.gcd : null;
 
   // Collect E-Commerce gcs values
   const ecomGcs = [];
@@ -1181,21 +1199,21 @@ function analyzeConsentModeTransition(reportData) {
 
   // No consent mode at all
   if (!preGcs || preGcs === '-') {
-    return { preGcs, postGcs, ecomGcs, status: 'no_consent_mode' };
+    return { preGcs, postGcs, postGcd, ecomGcs, status: 'no_consent_mode' };
   }
 
   // Check if post-accept shows an update (G100 → G1xx where at least one digit changed)
-  if (!postGcs || postGcs === '-' || postGcs === preGcs) {
-    return { preGcs, postGcs, ecomGcs, status: 'no_update' };
+  if (!postUpdate) {
+    return { preGcs, postGcs, postGcd, ecomGcs, status: 'no_update' };
   }
 
   // Post-accept updated – check E-Commerce steps for stale values
   const hasStaleEcom = ecomGcs.some(e => e.gcs === preGcs);
   if (hasStaleEcom) {
-    return { preGcs, postGcs, ecomGcs, status: 'ecom_stale' };
+    return { preGcs, postGcs, postGcd, ecomGcs, status: 'ecom_stale' };
   }
 
-  return { preGcs, postGcs, ecomGcs, status: 'update_ok' };
+  return { preGcs, postGcs, postGcd, ecomGcs, status: 'update_ok' };
 }
 
 // ── HAR Export ────────────────────────────────────────────────────────────────
@@ -1322,10 +1340,10 @@ function formatTrackerSection(deduped) {
 
 function formatConsentMode(params) {
   if (!params.length) return '_Keine Consent Mode Parameter gefunden._\n';
-  let md = '| gcs | gcd | Request URL |\n';
-  md += '|-----|-----|-------------|\n';
+  let md = '| gcs | gcd | Event | Request URL |\n';
+  md += '|-----|-----|-------|-------------|\n';
   for (const p of params) {
-    md += `| ${p.gcs} | ${p.gcd} | \`${p.url}\` |\n`;
+    md += `| ${p.gcs} | ${p.gcd} | ${p.event || '–'} | \`${p.url}\` |\n`;
   }
   return md;
 }
@@ -1542,7 +1560,12 @@ function generateTLDR(data) {
 
   // Consent Mode parameters
   const preGcs = data.preConsent.consentMode?.[0];
-  const postAcceptGcs = data.postAccept.consentMode?.[0];
+  const cmtForSummary = data.consentModeTransition;
+  // Prefer the transition-detected post-accept entry (finds the real G1xx update
+  // even if an earlier request with gcs=- appeared first in the array).
+  const postAcceptGcs = cmtForSummary && cmtForSummary.postGcs
+    ? { gcs: cmtForSummary.postGcs, gcd: cmtForSummary.postGcd || '-' }
+    : data.postAccept.consentMode?.[0];
   if (preGcs || postAcceptGcs) {
     md += '**Consent Mode:**\n\n';
     md += '| Phase | gcs | gcd |\n';
@@ -1884,12 +1907,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const stepClassified = stepRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
   const stepTrackers = deduplicateMatches(stepClassified);
 
-  const stepConsentMode = extractConsentModeParams(
-    stepRequestUrls.filter(r => {
-      const c = matchRequest(r, siteHost);
-      return c && c.vendor === 'Google';
-    })
-  );
+  const stepConsentMode = extractConsentModeParams(stepRequestUrls);
 
   const stepCookies = await collectCookies(context);
   const stepLocalStorage = await collectLocalStorage(page);
@@ -2051,12 +2069,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   }
 
   // Consent Mode params
-  const preConsentMode = extractConsentModeParams(
-    preRequestUrls.filter(r => {
-      const c = matchRequest(r, siteHost);
-      return c && c.vendor === 'Google';
-    })
-  );
+  const preConsentMode = extractConsentModeParams(preRequestUrls);
 
   reportData.preConsent = {
     dataLayer: preDataLayer,
@@ -2140,12 +2153,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   console.log(`  Neue Cookies: ${postAcceptCookiesDiff.length}, Neue localStorage Keys: ${Object.keys(postAcceptLocalStorageDiff).length}`);
 
   // Consent Mode params after accept
-  const postAcceptConsentMode = extractConsentModeParams(
-    postAcceptRequestUrls.filter(r => {
-      const c = matchRequest(r, siteHost);
-      return c && c.vendor === 'Google';
-    })
-  );
+  const postAcceptConsentMode = extractConsentModeParams(postAcceptRequestUrls);
 
   reportData.postAccept = {
     dataLayerDiff: postAcceptDataLayerDiff,
@@ -2274,9 +2282,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
           const stepRequestUrls = getStepRequests();
           const stepClassified = stepRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
           const stepTrackers = deduplicateMatches(stepClassified);
-          const stepConsentMode = extractConsentModeParams(
-            stepRequestUrls.filter(r => { const c = matchRequest(r, siteHost); return c && c.vendor === 'Google'; })
-          );
+          const stepConsentMode = extractConsentModeParams(stepRequestUrls);
 
           const stepCookies = await collectCookies(context1);
           const stepLocalStorage = await collectLocalStorage(page1);
