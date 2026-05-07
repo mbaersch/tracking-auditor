@@ -460,5 +460,28 @@
     "shadowDom": true,
     "priority": 5,
     "learnedAt": "2026-03-13T13:47:11.338Z"
+  },
+  "cookieman": {
+    "name": "Cookieman (TYPO3)",
+    "accept": "[data-cookieman-accept-all]",
+    "reject": "[data-cookieman-accept-none]",
+    "detect": [
+      "#cookieman-modal",
+      "[data-cookieman-form]"
+    ],
+    "shadowDom": false,
+    "priority": 5,
+    "learnedAt": "2026-05-07T09:15:00.000Z"
+  },
+  "adsimple-acm": {
+    "name": "AdSimple Consent Manager (ACM)",
+    "accept": ".cc-window__modal .cc-allow",
+    "reject": ".cc-window__modal .cc-deny-custom",
+    "detect": [
+      ".cc-window__modal"
+    ],
+    "shadowDom": false,
+    "priority": 5,
+    "learnedAt": "2026-05-07T09:15:00.000Z"
   }
 }
