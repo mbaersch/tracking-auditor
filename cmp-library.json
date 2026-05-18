@@ -39,7 +39,7 @@
   },
   "cookiebot": {
     "name": "Cookiebot",
-    "accept": "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll",
+    "accept": "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll, #CybotCookiebotDialogBodyButtonAccept",
     "reject": "#CybotCookiebotDialogBodyButtonDecline",
     "detect": [
       "#CybotCookiebotDialog",
