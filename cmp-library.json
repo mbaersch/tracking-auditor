@@ -483,5 +483,21 @@
     "shadowDom": false,
     "priority": 5,
     "learnedAt": "2026-05-07T09:15:00.000Z"
+  },
+  "shopware": {
+    "name": "Shopware Cookie Consent (native)",
+    "accept": ".js-cookie-accept-all-button",
+    "reject": ".cookie-permission-button:not(.js-cookie-configuration-button)",
+    "rejectSteps": [
+      ".js-cookie-configuration-button",
+      ".js-offcanvas-cookie-submit"
+    ],
+    "detect": [
+      ".cookie-permission-container",
+      ".js-cookie-accept-all-button"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-06-23T14:35:00.000Z"
   }
 }
