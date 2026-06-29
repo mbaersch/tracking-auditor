@@ -24,6 +24,11 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// True, wenn die Datei direkt per `node compare.js` gestartet wurde (nicht importiert).
+// ESM-Pendant zu `require.main === module` -- haelt die Datei fuer Offline-Tests
+// (HAR-Replay) importierbar, ohne den Browser zu starten.
+const isMainModule = !!process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -36,7 +41,7 @@ const labelA = get('--label-a');
 const labelB = get('--label-b');
 const postConsentWait = parseInt(get('--post-consent-wait') || '5000', 10);
 
-if (!urlA || !urlB || !project) {
+if (isMainModule && (!urlA || !urlB || !project)) {
   console.error('Usage: node compare.js --url-a <url> --url-b <url> --project <name>');
   process.exit(1);
 }
@@ -733,9 +738,16 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
   ln();
   ln(`| Produkt | Kategorie | ${meta.labelA} | ${meta.labelB} | Status |`);
   ln(`|---------|-----------|--------|--------|--------|`);
+  // Info-Zelle: Typen falls vorhanden, sonst Richtung. sst-tunnel ist fuer den
+  // GTM-vs-sGTM-Vergleich das Kernsignal und wird daher immer explizit ausgewiesen,
+  // sonst wuerden die Typen (event/pageview) die Tunnel-Richtung verdecken.
+  const cellInfo = (types, directions) => {
+    const base = types.length > 0 ? types.join(', ') : directions.join(', ');
+    return directions.includes('sst-tunnel') && types.length > 0 ? `${base} (sst-tunnel)` : base;
+  };
   for (const d of diff.details) {
-    const aInfo = d.typesA.length > 0 ? d.typesA.join(', ') : d.directionsA.join(', ');
-    const bInfo = d.typesB.length > 0 ? d.typesB.join(', ') : d.directionsB.join(', ');
+    const aInfo = cellInfo(d.typesA, d.directionsA);
+    const bInfo = cellInfo(d.typesB, d.directionsB);
     let status = 'identisch';
     if (!d.directionsMatch && !d.typesMatch) status = 'ABWEICHEND';
     else if (!d.directionsMatch) status = 'Richtung abweichend';
@@ -768,8 +780,10 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
     for (const key of allPreProducts) {
       const aEntry = analysisA.preConsent.find(d => (d.key || d.vendor) === key);
       const bEntry = analysisB.preConsent.find(d => (d.key || d.vendor) === key);
-      const aLabel = aEntry ? (aEntry.types.length > 0 ? aEntry.types.join(', ') : 'vorhanden') : '-';
-      const bLabel = bEntry ? (bEntry.types.length > 0 ? bEntry.types.join(', ') : 'vorhanden') : '-';
+      let aLabel = aEntry ? (aEntry.types.length > 0 ? aEntry.types.join(', ') : 'vorhanden') : '-';
+      let bLabel = bEntry ? (bEntry.types.length > 0 ? bEntry.types.join(', ') : 'vorhanden') : '-';
+      if (aEntry && aEntry.directions.includes('sst-tunnel')) aLabel += ' (sst-tunnel)';
+      if (bEntry && bEntry.directions.includes('sst-tunnel')) bLabel += ' (sst-tunnel)';
       const name = aEntry ? (aEntry.product || aEntry.vendor) : (bEntry ? (bEntry.product || bEntry.vendor) : key);
       ln(`| ${name} | ${aLabel} | ${bLabel} |`);
     }
@@ -939,7 +953,16 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error('\n  FEHLER:', err.message);
-  process.exit(1);
-});
+// Nur ausfuehren, wenn direkt gestartet -- so bleibt die Datei fuer Offline-Tests
+// (z.B. Klassifikation gegen einen HAR-Replay) importierbar, ohne den Browser zu starten.
+if (isMainModule) {
+  main().catch(err => {
+    console.error('\n  FEHLER:', err.message);
+    process.exit(1);
+  });
+}
+
+export {
+  matchRequest, deduplicateMatches, extractStapeFindings, extractStapeMatches,
+  detectSSTFromUrls, extractConsentModeParams, analyzeSide, buildDiff, generateCompareReport,
+};

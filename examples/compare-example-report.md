@@ -23,7 +23,7 @@
 |---------|-----------|-------------|-------------------|--------|
 | Sonstige Third-Party | - | unknown | unknown | identisch |
 | Google Tag Manager | tag-management | script | script | identisch |
-| Google Analytics 4 | analytics | pageview | pageview, event | Typen-Unterschied |
+| Google Analytics 4 | analytics | pageview | pageview, event (sst-tunnel) | ABWEICHEND |
 | Google Tag | tag-management | script | script | identisch |
 | Google Ads | advertising | conversion | conversion | identisch |
 | Meta Pixel | advertising | pageview | pageview | identisch |
@@ -37,7 +37,7 @@
 |---------|-------------|-------------------|
 | Sonstige Third-Party | vorhanden | vorhanden |
 | Google Tag Manager | vorhanden | vorhanden |
-| Google Analytics 4 | pageview | pageview |
+| Google Analytics 4 | pageview | pageview (sst-tunnel) |
 
 ## Consent Mode
 
