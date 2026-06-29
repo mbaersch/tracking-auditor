@@ -183,6 +183,26 @@ function deduplicateMatches(matches) {
 
 // ── Stape Custom Loader Detection (from audit.js) ────────────────────────────
 
+// Maps a decoded Google transport path to its canonical first-party Google host.
+// The vendor-library endpoint patterns are host-bound (e.g. "google-analytics.com/g/collect"),
+// so a Stape-tunneled hit (which carries the first-party loader host) can only be
+// classified after the synthetic URL is rebuilt on the original Google host.
+const STAPE_PATH_HOSTS = [
+  { prefix: '/g/collect', host: 'www.google-analytics.com' },
+  { prefix: '/j/collect', host: 'www.google-analytics.com' },
+  { prefix: '/collect', host: 'www.google-analytics.com' },
+  { prefix: '/gtag/js', host: 'www.googletagmanager.com' },
+  { prefix: '/pagead/', host: 'googleadservices.com' },
+  { prefix: '/activity', host: 'fls.doubleclick.net' },
+];
+
+function canonicalGoogleHost(decodedPath) {
+  for (const { prefix, host } of STAPE_PATH_HOSTS) {
+    if (decodedPath.startsWith(prefix)) return host;
+  }
+  return null;
+}
+
 function tryDecodeStapeTransport(requestUrl) {
   try {
     const u = new URL(requestUrl);
@@ -190,10 +210,9 @@ function tryDecodeStapeTransport(requestUrl) {
       if (!value || value.length < 10) continue;
       try {
         const decoded = Buffer.from(decodeURIComponent(value), 'base64').toString('utf-8');
-        if (decoded.startsWith('/gtag/js') ||
-            decoded.startsWith('/g/collect') ||
-            decoded.startsWith('/collect')) {
-          return { host: u.hostname, encodedParam: key, decodedPath: decoded, originalUrl: requestUrl };
+        const googleHost = canonicalGoogleHost(decoded);
+        if (googleHost) {
+          return { host: u.hostname, googleHost, encodedParam: key, decodedPath: decoded, originalUrl: requestUrl };
         }
       } catch { continue; }
     }
@@ -201,9 +220,13 @@ function tryDecodeStapeTransport(requestUrl) {
   return null;
 }
 
+// Returns { transports, decodedRequests } where each decodedRequest carries both the
+// real first-party transport host (stapeHost) and a synthetic URL rebuilt on the
+// canonical Google host, so existing detection/classification functions match the
+// host-bound vendor patterns.
 function extractStapeFindings(fullRequests) {
   const transports = [];
-  const decodedUrls = [];
+  const decodedRequests = [];
   const seenHosts = new Set();
   for (const req of fullRequests) {
     const stape = tryDecodeStapeTransport(req.url);
@@ -213,10 +236,32 @@ function extractStapeFindings(fullRequests) {
       transports.push({ host: stape.host, type: 'Stape Custom Loader' });
     }
     try {
-      decodedUrls.push('https://' + stape.host + stape.decodedPath);
+      decodedRequests.push({
+        stapeHost: stape.host,
+        googleHost: stape.googleHost,
+        decodedPath: stape.decodedPath,
+        syntheticUrl: 'https://' + stape.googleHost + stape.decodedPath,
+      });
     } catch { /* malformed decoded path */ }
   }
-  return { transports, decodedUrls };
+  return { transports, decodedRequests };
+}
+
+// Classifies Stape-tunneled requests against the vendor library. Returns
+// matchRequest-style objects (known vendors only), tagged with the real transport
+// host and an 'sst-tunnel' direction so the report makes clear these hits run
+// first-party-tunneled through the server-side container rather than as direct
+// third-party requests.
+function extractStapeMatches(fullRequests, siteHost) {
+  const { decodedRequests } = extractStapeFindings(fullRequests);
+  const matches = [];
+  for (const d of decodedRequests) {
+    const m = matchRequest(d.syntheticUrl, siteHost);
+    if (m && m.key) {
+      matches.push({ ...m, direction: 'sst-tunnel', hostname: d.stapeHost });
+    }
+  }
+  return matches;
 }
 
 // ── SST Detection (from audit.js) ────────────────────────────────────────────
@@ -481,9 +526,15 @@ function analyzeSide(collector, siteUrl) {
   const postConsent = collector.getByPhase('post-consent');
   const allRequests = collector.getAll();
 
-  const preMatched = preConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean);
-  const postMatched = postConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean);
-  const allMatched = allRequests.map(r => matchRequest(r.url, siteUrl)).filter(Boolean);
+  // Stape Custom Loader: classify tunneled hits and merge them into the matched
+  // trackers per phase so Stape-tunneled vendors surface alongside direct requests.
+  const preStapeMatches = extractStapeMatches(preConsent, siteUrl);
+  const postStapeMatches = extractStapeMatches(postConsent, siteUrl);
+  const allStapeMatches = extractStapeMatches(allRequests, siteUrl);
+
+  const preMatched = [...preConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...preStapeMatches];
+  const postMatched = [...postConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...postStapeMatches];
+  const allMatched = [...allRequests.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...allStapeMatches];
 
   const preDeduped = deduplicateMatches(preMatched);
   const postDeduped = deduplicateMatches(postMatched);
@@ -493,10 +544,10 @@ function analyzeSide(collector, siteUrl) {
   const allUrls = allRequests.map(r => r.url);
   const sst = detectSSTFromUrls(allUrls, siteUrl);
 
-  // Stape Custom Loader
+  // Stape Custom Loader: feed synthetic (Google-host) URLs into SST detection
   const stape = extractStapeFindings(allRequests);
-  if (stape.decodedUrls.length > 0) {
-    const sstFromStape = detectSSTFromUrls(stape.decodedUrls, siteUrl);
+  if (stape.decodedRequests.length > 0) {
+    const sstFromStape = detectSSTFromUrls(stape.decodedRequests.map(d => d.syntheticUrl), siteUrl);
     for (const id of sstFromStape.containers) sst.containers.add(id);
     for (const id of sstFromStape.measurementIds) sst.measurementIds.add(id);
     sst.loaders.push(...sstFromStape.loaders);

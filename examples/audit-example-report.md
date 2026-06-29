@@ -78,7 +78,7 @@
 
 | Typ | ID | Host |
 |-----|----|------|
-| GA4 | G-1701DNCC | picard.locutus.borg |
+| Google Analytics 4 | G-1701DNCC | picard.locutus.borg |
 | Google Tag | GT-WARP7FLD | picard.locutus.borg |
 | Google Ads | AW-PHASER01 | googleads.g.doubleclick.net |
 | Floodlight | DC-DEFLECT9 | ad.doubleclick.net |
@@ -221,7 +221,7 @@ _Kein localStorage._
 
 | Produkt | Kategorie | Richtung | Typen |
 |---------|-----------|----------|-------|
-| Google Analytics 4 | analytics | script, request | pageview, event |
+| Google Analytics 4 | analytics | script, request, sst-tunnel | pageview, event |
 | Google Tag | tag-management | script | - |
 | Google Ads | advertising | request | conversion |
 | Floodlight | advertising | request | conversion |
@@ -434,7 +434,7 @@ _Kein localStorage._
 
 | Produkt | Kategorie | Richtung | Typen |
 |---------|-----------|----------|-------|
-| Google Analytics 4 | analytics | request | view_item_list |
+| Google Analytics 4 | analytics | sst-tunnel | view_item_list |
 
 #### Sonstige Third-Party
 
@@ -526,7 +526,7 @@ _Kein localStorage._
 
 | Produkt | Kategorie | Richtung | Typen |
 |---------|-----------|----------|-------|
-| Google Analytics 4 | analytics | request | view_item |
+| Google Analytics 4 | analytics | sst-tunnel | view_item |
 | Google Ads | advertising | request | remarketing |
 
 #### Sonstige Third-Party
@@ -581,7 +581,7 @@ _Kein localStorage._
 
 | Produkt | Kategorie | Richtung | Typen |
 |---------|-----------|----------|-------|
-| Google Analytics 4 | analytics | request | add_to_cart |
+| Google Analytics 4 | analytics | sst-tunnel | add_to_cart |
 | Google Ads | advertising | request | conversion |
 | Meta Pixel | advertising | request | AddToCart |
 
@@ -638,7 +638,7 @@ _Kein localStorage._
 
 | Produkt | Kategorie | Richtung | Typen |
 |---------|-----------|----------|-------|
-| Google Analytics 4 | analytics | request | begin_checkout |
+| Google Analytics 4 | analytics | sst-tunnel | begin_checkout |
 | Floodlight | advertising | request | conversion |
 | Meta Pixel | advertising | request | InitiateCheckout |
 

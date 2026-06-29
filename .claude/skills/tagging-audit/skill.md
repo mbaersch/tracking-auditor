@@ -53,7 +53,7 @@ Report liegt unter `reports/<project>/audit-<YYYY-MM-DD-HHMM>.md`. Lies ihn und 
 - **Cookie-Inventar** -- Anzahl Cookies pre vs. post Consent
 - **E-Commerce Events** -- dataLayer-Events vorhanden? Produktdaten konsistent?
 
-**Report-Format:** Die Tracker-Tabellen zeigen Produkt-Level Detail (z.B. "Google Analytics 4", "Google Ads" statt nur "Google"). Spalten: Produkt, Kategorie, Richtung (script/request), Typen (pageview/conversion/event). Datenquelle ist `tracking-vendors.json`.
+**Report-Format:** Die Tracker-Tabellen zeigen Produkt-Level Detail (z.B. "Google Analytics 4", "Google Ads" statt nur "Google"). Spalten: Produkt, Kategorie, Richtung (script/request/domain/sst-tunnel), Typen (pageview/conversion/event). Datenquelle ist `tracking-vendors.json`. Richtung `sst-tunnel` = First-Party-getunnelter Hit, der aus einem Base64-codierten Stape-Custom-Loader-Request dekodiert und dem echten Produkt (GA4/Ads/Floodlight) zugeordnet wurde -- diese Tracker laufen auf der First-Party-Domain und tauchen daher nicht in den "Sonstige Third-Party"-Listen auf.
 
 ## Wenn es Probleme gibt
 

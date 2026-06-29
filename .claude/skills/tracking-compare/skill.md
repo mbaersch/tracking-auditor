@@ -50,7 +50,8 @@ Report liegt unter `reports/<project>/compare-<host>-<timestamp>.md`. Daneben zw
 
 **Tracking-Produkte (Datenquelle: `tracking-vendors.json`):**
 - Reports zeigen jetzt Produkt-Level Detail: z.B. "Google Analytics 4 [analytics]", "Google Ads [advertising]" statt nur "Google"
-- Spalten: Produkt, Kategorie, Request-Typen (pageview/conversion/event) und Richtung (script/request)
+- Spalten: Produkt, Kategorie, Request-Typen (pageview/conversion/event) und Richtung (script/request/domain/sst-tunnel)
+- Richtung `sst-tunnel` = First-Party-getunnelter Hit, der aus einem Base64-codierten Stape-Custom-Loader-Request dekodiert und dem echten Produkt (GA4/Ads/Floodlight) zugeordnet wurde. Solche Tracker laufen auf der First-Party-Domain und tauchen daher nicht in den "Sonstige Third-Party"-Listen auf -- im Setup-Vergleich relevant, weil ein Produkt auf der sGTM-Seite als `sst-tunnel` statt `request` erscheint
 - Identische Produkte auf beiden Seiten -> OK, kurz erwaehnen
 - Exklusive Produkte (nur auf einer Seite) -> **Hervorheben.** Fehlendes Produkt auf Staging = potentiell nicht migriert. Neues Produkt auf Staging = neue Integration, bewusst pruefen
 - Unterschiedliche Request-Typen (z.B. A hat Conversions, B nicht) -> **Hervorheben**

@@ -150,9 +150,33 @@ function getSiteDomain(urlStr) {
 
 
 /**
+ * Maps a decoded Google transport path to its canonical first-party Google host.
+ * The vendor-library endpoint patterns are host-bound (e.g. "google-analytics.com/g/collect"),
+ * so a Stape-tunneled hit (which carries the first-party loader host) can only be
+ * classified after the synthetic URL is rebuilt on the original Google host.
+ */
+const STAPE_PATH_HOSTS = [
+  { prefix: '/g/collect', host: 'www.google-analytics.com' },
+  { prefix: '/j/collect', host: 'www.google-analytics.com' },
+  { prefix: '/collect', host: 'www.google-analytics.com' },
+  { prefix: '/gtag/js', host: 'www.googletagmanager.com' },
+  { prefix: '/pagead/', host: 'googleadservices.com' },
+  { prefix: '/activity', host: 'fls.doubleclick.net' },
+];
+
+function canonicalGoogleHost(decodedPath) {
+  for (const { prefix, host } of STAPE_PATH_HOSTS) {
+    if (decodedPath.startsWith(prefix)) return host;
+  }
+  return null;
+}
+
+/**
  * Detects Stape custom loader transport: Query params with Base64-encoded
  * Google URLs (e.g. /gtag/js?id=G-XXX or /g/collect?v=2&tid=G-XXX).
- * Returns decoded path + original host, or null.
+ * Returns { host, googleHost, encodedParam, decodedPath, originalUrl } or null,
+ * where host is the first-party transport host and googleHost the canonical
+ * Google host the decoded path belongs to.
  */
 function tryDecodeStapeTransport(requestUrl) {
   try {
@@ -161,11 +185,11 @@ function tryDecodeStapeTransport(requestUrl) {
       if (!value || value.length < 10) continue;
       try {
         const decoded = Buffer.from(decodeURIComponent(value), 'base64').toString('utf-8');
-        if (decoded.startsWith('/gtag/js') ||
-            decoded.startsWith('/g/collect') ||
-            decoded.startsWith('/collect')) {
+        const googleHost = canonicalGoogleHost(decoded);
+        if (googleHost) {
           return {
             host: u.hostname,
+            googleHost,
             encodedParam: key,
             decodedPath: decoded,
             originalUrl: requestUrl,
@@ -179,12 +203,14 @@ function tryDecodeStapeTransport(requestUrl) {
 
 /**
  * Processes all requests, decodes Stape transports, extracts IDs.
- * Returns { transports: [], decodedUrls: [] } where decodedUrls are
- * synthetic URLs that can be fed into existing detection functions.
+ * Returns { transports, decodedRequests } where each decodedRequest carries both
+ * the real first-party transport host (stapeHost) and a synthetic URL rebuilt on
+ * the canonical Google host, so existing detection/classification functions
+ * (matchRequest, extractConsentModeParams) match the host-bound vendor patterns.
  */
 function extractStapeFindings(fullRequests) {
   const transports = [];
-  const decodedUrls = [];
+  const decodedRequests = [];
   const seenHosts = new Set();
 
   for (const req of fullRequests) {
@@ -196,15 +222,37 @@ function extractStapeFindings(fullRequests) {
       transports.push({ host: stape.host, type: 'Stape Custom Loader' });
     }
 
-    // Build synthetic URL so existing functions (detectSSTFromUrls, matchRequest,
-    // extractConsentModeParams) can process the decoded content
     try {
-      const syntheticUrl = 'https://' + stape.host + stape.decodedPath;
-      decodedUrls.push(syntheticUrl);
+      const syntheticUrl = 'https://' + stape.googleHost + stape.decodedPath;
+      decodedRequests.push({
+        stapeHost: stape.host,
+        googleHost: stape.googleHost,
+        decodedPath: stape.decodedPath,
+        syntheticUrl,
+      });
     } catch { /* malformed decoded path */ }
   }
 
-  return { transports, decodedUrls };
+  return { transports, decodedRequests };
+}
+
+/**
+ * Classifies Stape-tunneled requests against the vendor library.
+ * Returns matchRequest-style objects (known vendors only), tagged with the real
+ * transport host and an 'sst-tunnel' direction so the report makes clear these
+ * hits run first-party-tunneled through the server-side container rather than
+ * as direct third-party requests.
+ */
+function extractStapeMatches(fullRequests, siteHost) {
+  const { decodedRequests } = extractStapeFindings(fullRequests);
+  const matches = [];
+  for (const d of decodedRequests) {
+    const m = matchRequest(d.syntheticUrl, siteHost);
+    if (m && m.key) {
+      matches.push({ ...m, direction: 'sst-tunnel', hostname: d.stapeHost });
+    }
+  }
+  return matches;
 }
 
 /**
@@ -288,17 +336,18 @@ function detectMetaSetup(fullRequests, cookies, siteHost) {
  */
 function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
   // 1. Stape transport decode
-  const { transports, decodedUrls } = extractStapeFindings(fullRequests);
+  const { transports, decodedRequests } = extractStapeFindings(fullRequests);
   for (const t of transports) {
     if (!deepAnalysis.stapeTransports.some(s => s.host === t.host)) {
       deepAnalysis.stapeTransports.push(t);
     }
   }
 
-  // 2. Combine original + decoded URLs for analysis
+  // 2. Combine original + decoded URLs for analysis. Decoded URLs are rebuilt on
+  // the canonical Google host so matchRequest() classifies the tunneled hits.
   const allRequests = [
     ...fullRequests,
-    ...decodedUrls.map(url => ({ url, method: 'GET', postData: null })),
+    ...decodedRequests.map(d => ({ url: d.syntheticUrl, method: 'GET', postData: null })),
   ];
 
   // 3. Google sub-types collection
@@ -309,16 +358,18 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
     }
   }
 
-  // 4. Measurement IDs from decoded Stape URLs
-  for (const url of decodedUrls) {
+  // 4. Measurement IDs from decoded Stape URLs. Type is resolved via the synthetic
+  // (Google-host) URL, but the reported host is the real first-party transport host.
+  for (const d of decodedRequests) {
     try {
-      const u = new URL(url);
+      const u = new URL(d.syntheticUrl);
       const id = u.searchParams.get('id') || u.searchParams.get('tid');
       if (id && /^(G|AW|GT|DC)-/i.test(id)) {
+        const m = matchRequest(d.syntheticUrl, siteHost);
         deepAnalysis.measurementIds.push({
           id: id.toUpperCase(),
-          type: (() => { const m = matchRequest(url, siteHost); return m && m.product ? m.product : 'unknown'; })(),
-          host: u.hostname,
+          type: m && m.product ? m.product : 'unknown',
+          host: d.stapeHost,
         });
       }
     } catch { /* */ }
@@ -1905,7 +1956,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const stepRequestUrls = getStepRequests();
   const stepFullRequests = getStepRequests.full();
   const stepClassified = stepRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
-  const stepTrackers = deduplicateMatches(stepClassified);
+  const stepStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(stepFullRequests, siteHost);
+  const stepTrackers = deduplicateMatches([...stepClassified, ...stepStapeMatches]);
 
   const stepConsentMode = extractConsentModeParams(stepRequestUrls);
 
@@ -2048,7 +2100,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // Network requests
   const preRequestUrls = getPreRequests();
   const preClassified = preRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
-  const preTrackers = deduplicateMatches(preClassified);
+  const preStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getPreRequests.full(), siteHost);
+  const preTrackers = deduplicateMatches([...preClassified, ...preStapeMatches]);
   console.log(`  Requests: ${preRequestUrls.length} total, ${preClassified.length} third-party`);
   await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmpLabel}`, `DL: ${preDataLayer.length} | 3P: ${preClassified.length}`);
 
@@ -2141,7 +2194,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // New requests
   const postAcceptRequestUrls = getPostAcceptRequests();
   const postAcceptClassified = postAcceptRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
-  const postAcceptTrackers = deduplicateMatches(postAcceptClassified);
+  const postAcceptStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getPostAcceptRequests.full(), siteHost);
+  const postAcceptTrackers = deduplicateMatches([...postAcceptClassified, ...postAcceptStapeMatches]);
   console.log(`  Neue Requests: ${postAcceptRequestUrls.length} total, ${postAcceptClassified.length} third-party`);
   await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Daten gesammelt', `DL: +${postAcceptDataLayerDiff.length} | 3P: +${postAcceptClassified.length}`);
 
@@ -2494,7 +2548,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   const rejectPostRequestUrls = getRejectPostRequests();
   const rejectPostClassified = rejectPostRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
-  const rejectPostTrackers = deduplicateMatches(rejectPostClassified);
+  const rejectPostStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getRejectPostRequests.full(), siteHost);
+  const rejectPostTrackers = deduplicateMatches([...rejectPostClassified, ...rejectPostStapeMatches]);
   console.log(`  Neue Requests: ${rejectPostRequestUrls.length} total, ${rejectPostClassified.length} third-party`);
 
   const rejectPostCookies = await collectCookies(context2);
