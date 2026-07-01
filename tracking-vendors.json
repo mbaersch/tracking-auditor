@@ -168,6 +168,20 @@
     ],
     "domains": ["ct.pinterest.com", "s.pinimg.com"]
   },
+  "awin": {
+    "vendor": "Awin",
+    "product": "Awin Affiliate",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "dwin1.com" }
+    ],
+    "endpoints": [
+      { "pattern": "awin1.com/sread", "type": "conversion" },
+      { "pattern": "awin1.com/pread", "type": "conversion" },
+      { "pattern": "awin1.com/read", "type": "event" }
+    ],
+    "domains": ["awin1.com", "dwin1.com", "zenaps.com"]
+  },
   "linkedin-insight": {
     "vendor": "LinkedIn",
     "product": "LinkedIn Insight Tag",

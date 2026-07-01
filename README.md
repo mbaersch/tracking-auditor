@@ -2,11 +2,12 @@
 
 Node.js-Toolkit zur automatisierten Analyse von Tracking-Setups auf Websites. Erfasst dataLayer-Events, Netzwerk-Requests, Cookies und localStorage in verschiedenen Consent-Zustaenden und generiert strukturierte Markdown-Reports.
 
-Drei Hauptfunktionen:
+Vier Hauptfunktionen:
 
 1. **[CMP einlernen](#1-cmp-einlernen)** -- Consent-Banner-Selektoren interaktiv erfassen und speichern
 2. **[Audit durchfuehren](#2-audit-durchfuehren)** -- Tracking-Setup einer Website analysieren (Pre-Consent, Post-Accept, Post-Reject, E-Commerce)
 3. **[Tracking-Vergleich](#3-tracking-vergleich-comparejs)** -- Zwei Setups gegeneinander vergleichen (z.B. Live vs. sGTM)
+4. **[Asynchroner Flow-Vergleich](#4-asynchroner-flow-vergleich-har-basiert)** -- Einen Checkout-Flow ueber die Zeit vergleichen (Baseline vorher, Delta nachher), inkl. PII-Nachweis pro Vendor
 
 Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-Vergleich](examples/compare-example-report.md)
 
@@ -26,6 +27,11 @@ npx playwright install chromium
 ```
 audit.js          Automatisierter Audit-Runner (Consent + E-Commerce)
 compare.js        Tracking-Vergleich zwischen zwei URLs (Live vs. Staging)
+flow-analyze.js   HAR eines Checkout-Flows auswerten -> Snapshot + Report
+flow-delta.js     Zwei Flow-Snapshots ueber die Zeit vergleichen (Baseline vs. nachher)
+flow-recorder.js  Flow live aufzeichnen (Playwright, Phasen-Overlay) -- Alternative zum HAR-Weg
+flow-lib.js       Gemeinsame Analyse-/Report-Logik fuer flow-analyze und flow-recorder
+pii-lib/          Vendored PII/Event-Parser (Snapshot aus der Tracking-Auditor-Extension)
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
 cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~40 CMPs)
@@ -214,9 +220,50 @@ Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten
 
 Beispiel-Report: [Tracking-Vergleich](examples/compare-example-report.md)
 
+### 4. Asynchroner Flow-Vergleich (HAR-basiert)
+
+Waehrend `compare.js` zwei URLs **synchron in einem Lauf** vergleicht, dient der Flow-Vergleich dem **Vorher/Nachher ueber die Zeit** (z.B. GTM-/Consent-/Server-Side-Umstellung): Baseline jetzt aufzeichnen, nach der Umstellung erneut, dann das Delta bestimmen. Der Schwerpunkt liegt auf einem **mehrstufigen Checkout-Flow** (Startseite -> Produkt -> Warenkorb -> Checkout -> Adresse) und dem **Nachweis, welche personenbezogenen Felder (E-Mail, Telefon, Name, Adresse) an welchen Vendor** gehen -- inklusive gehashter Formen (Meta/TikTok Advanced Matching, GA4/Ads Enhanced Conversions).
+
+Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension; GA4, Meta, TikTok, Pinterest, Google Ads, Microsoft UET). Vendoren ohne dedizierten Parser (z.B. Awin) werden ueber `tracking-vendors.json` als Praesenz erkannt.
+
+**Empfohlener Weg -- HAR selbst aufnehmen und auswerten:**
+
+```bash
+# 1) HAR im eigenen Browser aufnehmen: DevTools -> Network -> "Preserve log" AN
+#    -> Funnel durchklicken (bis Adresseingabe, kein Kaufabschluss)
+#    -> "Save all as HAR with content"
+# 2) Auswerten -> Snapshot + Report
+node flow-analyze.js --har pfad/zur/baseline.har --project example_com --label baseline --url https://example.com/
+
+# 3) Nach der Umstellung dasselbe erneut
+node flow-analyze.js --har pfad/zur/nachher.har --project example_com --label post-change --url https://example.com/
+
+# 4) Delta zwischen beiden Snapshots
+node flow-delta.js \
+  --baseline reports/example_com/flow-example_com-baseline-<ts>-snapshot.json \
+  --current  reports/example_com/flow-example_com-post-change-<ts>-snapshot.json \
+  --project example_com
+```
+
+| Tool | Parameter | Pflicht | Beschreibung |
+|------|-----------|---------|--------------|
+| `flow-analyze.js` | `--har` | ja | Pfad zur HAR-Datei (DevTools-Export) |
+| | `--project` | ja | Projektname (Report-Pfad) |
+| | `--label` | ja | Lauf-Label, z.B. `baseline` / `post-change` |
+| | `--url` | nein | Shop-Start-URL (bestimmt First-Party-Domain; sonst aus HAR ermittelt) |
+| `flow-delta.js` | `--baseline` | ja | Snapshot-JSON des Vorher-Laufs |
+| | `--current` | ja | Snapshot-JSON des Nachher-Laufs |
+| | `--project` | ja | Projektname (Report-Pfad) |
+| `flow-recorder.js` | `--url` / `--project` / `--label` | ja | Live-Aufnahme statt HAR (Phasen-Overlay im Browser) |
+| | `--headless` | nein | Ohne sichtbaren Browser (Default: sichtbar) |
+
+**Ausgabe je Lauf:** `flow-<host>-<label>-<ts>-snapshot.json` (delta-freundliche Analyse, dauerhafte Grundlage fuer `flow-delta.js`), ein `-report.md` (Einzelreport) und das HAR. Der Delta-Report hebt neue/entfallene Tracker, **PII-Aenderungen pro Vendor**, Consent-Signale (`gcs`-Verteilung, G100-Pings) sowie Container-/Server-Side-Wechsel hervor.
+
+**Zur Consent-Einordnung:** Ein Request-Snapshot kann Basic vs. Advanced Consent Mode **nicht** sicher bestimmen -- das ist eine zeitliche Frage (feuern Pings vor der Consent-Interaktion?). Die Reports melden daher nur Fakten (`gcs`-Werte, Zahl der G100-Pings), kein Verdict. Fuer eine echte Basic/Advanced-Beurteilung den Flow ab Erstaufruf inkl. Consent-Interaktion aufnehmen (z.B. mit `flow-recorder.js`).
+
 ## Tracking-Vendor-Library (`tracking-vendors.json`)
 
-Zentrale Datenbank bekannter Tracking-Produkte -- analog zur `cmp-library.json` fuer CMPs. Wird von `audit.js` und `compare.js` automatisch geladen.
+Zentrale Datenbank bekannter Tracking-Produkte -- analog zur `cmp-library.json` fuer CMPs. Wird von `audit.js`, `compare.js` und den `flow-*`-Tools automatisch geladen.
 
 ### Inhalt
 
@@ -227,7 +274,7 @@ Jeder Eintrag beschreibt ein Tracking-Produkt mit:
 - **endpoints** -- URL-Patterns fuer ausgehende Tracking-Requests (z.B. `google-analytics.com/g/collect`) mit optionaler Request-Typ-Klassifizierung (pageview, event, conversion)
 - **domains** -- Fallback-Domains fuer Zuordnung wenn kein Script/Endpoint-Pattern matcht
 
-Aktuell ~16 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar.
+Aktuell ~17 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, Awin.
 
 ### Neuen Vendor hinzufuegen
 
@@ -259,7 +306,7 @@ Nicht erkannte Third-Party-Requests werden als "Sonstige Third-Party" gefuehrt.
 
 ## Claude Code Skills
 
-Dieses Projekt bringt drei [Claude Code Skills](https://docs.anthropic.com/en/docs/claude-code/skills) mit, die das Toolkit per natuerlicher Sprache nutzbar machen:
+Dieses Projekt bringt vier [Claude Code Skills](https://docs.anthropic.com/en/docs/claude-code/skills) mit, die das Toolkit per natuerlicher Sprache nutzbar machen:
 
 ### tagging-audit
 
@@ -277,6 +324,15 @@ Vergleicht Tracking-Setups auf zwei URLs (z.B. Live vs. Staging, Standard-GTM vs
 ```
 "Vergleiche das Tracking auf www.example.com mit stagingexample.com"
 "Live vs. sGTM Vergleich fuer example.com mit example.com/testpage"
+```
+
+### flow-compare
+
+Asynchroner Vorher/Nachher-Vergleich eines Checkout-Flows aus HAR-Dateien, mit PII-Nachweis pro Vendor.
+
+```
+"Werte das HAR baseline.har als Flow-Baseline fuer example.com aus"
+"Bestimme das Delta zwischen der Baseline und dem Nachher-Lauf fuer example.com"
 ```
 
 ### cmp-learn

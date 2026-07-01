@@ -15,6 +15,16 @@
 !package-lock.json
 !README.md
 
+# Asynchroner Flow-Compare (HAR-basiert)
+!flow-recorder.js
+!flow-analyze.js
+!flow-delta.js
+!flow-lib.js
+
+# Vendored PII/Event-Parser (Snapshot aus der Tracking-Auditor-Extension)
+!pii-lib/
+!pii-lib/*.js
+
 # Skill: Verzeichnisse stufenweise freigeben
 !.claude/
 .claude/*
@@ -29,6 +39,9 @@
 !.claude/skills/tracking-compare/
 .claude/skills/tracking-compare/*
 !.claude/skills/tracking-compare/skill.md
+!.claude/skills/flow-compare/
+.claude/skills/flow-compare/*
+!.claude/skills/flow-compare/skill.md
 
 # Helper-Scripts
 !helpers/
