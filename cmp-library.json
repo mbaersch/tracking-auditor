@@ -499,5 +499,17 @@
     "shadowDom": false,
     "priority": 3,
     "learnedAt": "2026-06-23T14:35:00.000Z"
+  },
+  "shopware-5": {
+    "name": "Shopware 5 Cookie Permission (native)",
+    "accept": ".cookie-permission--accept-button",
+    "reject": ".cookie-permission--decline-button",
+    "detect": [
+      ".cookie-permission--container",
+      ".page-wrap--cookie-permission"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-01T11:22:00.000Z"
   }
 }
