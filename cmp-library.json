@@ -1464,5 +1464,18 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "user-provided"
+  },
+  "wp-gdpr-compliance": {
+    "name": "WP GDPR Compliance",
+    "accept": ".cc-allow",
+    "reject": ".cc-deny",
+    "detect": [
+      "div.cc-banner"
+    ],
+    "shadowDom": false,
+    "priority": 5,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided",
+    "note": "generischer cookieconsent-Auffang; niedrige Prioritaet, damit spezifische Varianten (datareporter/dp/pandectes) vorgehen"
   }
 }
