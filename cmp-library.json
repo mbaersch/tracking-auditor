@@ -1326,5 +1326,58 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "dom-harvest"
+  },
+  "consentissimo": {
+    "name": "Consentissimo",
+    "accept": ".b__control--store-all",
+    "reject": ".b__control--store",
+    "detect": [
+      "consentissimo-banner"
+    ],
+    "shadowDom": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
+  },
+  "be-gdpr": {
+    "name": "BE GDPR",
+    "accept": ".be-gdpr-cookie-notice-button",
+    "reject": ".be-gdpr-cookie-notice-button",
+    "detect": [
+      "[class*=\"be-gdpr-cookie-notice\"]"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
+  },
+  "cookies-and-csp": {
+    "name": "Cookies and Content Security Policy",
+    "accept": "a.modal-cacsp-btn-accept",
+    "reject": "a.modal-cacsp-btn-save",
+    "rejectSteps": [
+      "a.modal-cacsp-btn-settings",
+      "a.modal-cacsp-btn-save"
+    ],
+    "detect": [
+      "[class*=\"modal-cacsp\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
+  },
+  "must-have-cookie": {
+    "name": "Must Have Cookie",
+    "accept": ".mhcookie-accept-all",
+    "reject": ".mhcookie-accept-required",
+    "detect": [
+      "[class*=\"mhcookie\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
   }
 }
