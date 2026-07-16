@@ -385,12 +385,13 @@
   },
   "truendo": {
     "name": "Truendo",
-    "accept": "#cc-accept, [onclick*=\"Truendo.acceptAllCookies\"]",
-    "reject": "#cc-necessary, [onclick*=\"Truendo.acceptNecessaryCookiesOnly\"]",
+    "accept": "#cc-accept, [onclick*=\"Truendo.acceptAllCookies\"], #tru_accept_btn",
+    "reject": "#cc-necessary, [onclick*=\"Truendo.acceptNecessaryCookiesOnly\"], #tru_save_btn",
     "detect": [
       "#cc-banner",
       "[src*=\"cdn.truendo.com\"]",
-      ".truendo-container"
+      ".truendo-container",
+      "#truendo_container"
     ],
     "shadowDom": false,
     "learnedAt": "2026-02-23T20:00:00.000Z",
@@ -1382,5 +1383,17 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "dom-harvest"
+  },
+  "cms-accept-tags": {
+    "name": "CMS Accept Tags",
+    "accept": "[data-all=\"true\"]",
+    "reject": "[name=\"choice\"]",
+    "detect": [
+      "cms-accept-tags"
+    ],
+    "shadowDom": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
   }
 }
