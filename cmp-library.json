@@ -1078,16 +1078,15 @@
   },
   "ct-ultimate-gdpr": {
     "name": "CT Ultimate GDPR",
-    "accept": "button.cm-btn.cm-btn-outline.cm-btn-accept",
-    "reject": "button.cm-btn.cm-btn-outline.cm-btn-accept",
+    "accept": ".cm-btn-accept-all",
+    "reject": ".cm-btn-accept",
     "detect": [
       "div#cookieScreen"
     ],
     "shadowDom": false,
-    "acceptOnly": true,
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
-    "source": "dom-harvest"
+    "source": "dom-harvest+corrected-user"
   },
   "dnn-cookie-consent": {
     "name": "DNN Cookie Consent",
@@ -1297,19 +1296,6 @@
     "reject": "a#cookieChoiceDismiss",
     "detect": [
       "div#cookieChoiceInfo"
-    ],
-    "shadowDom": false,
-    "acceptOnly": true,
-    "priority": 4,
-    "learnedAt": "2026-07-16T00:00:00.000Z",
-    "source": "dom-harvest"
-  },
-  "wum-consent-manager": {
-    "name": "WUM Consent Manager",
-    "accept": "a.button.button--icon.button--icon--confirm",
-    "reject": "a.button.button--icon.button--icon--confirm",
-    "detect": [
-      "a.button--icon--confirm"
     ],
     "shadowDom": false,
     "acceptOnly": true,
