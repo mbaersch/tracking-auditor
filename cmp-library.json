@@ -1034,5 +1034,146 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "user-provided"
+  },
+  "contao-privacy-optin": {
+    "name": "Contao Privacy Optin",
+    "accept": "input.submit.all",
+    "reject": "input.submit.tech",
+    "detect": [
+      "div.privacy_buttons"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "ct-consentmanager-legacy": {
+    "name": "CT Consentmanager (Legacy)",
+    "accept": "button#consent-banner-btn-all",
+    "reject": "button#consent-banner-btn-close",
+    "detect": [
+      "div.consent-accept"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "cookie-cracker": {
+    "name": "Cookie Cracker",
+    "accept": "[data-accept=\"all\"]",
+    "reject": "[data-accept=\"all\"]",
+    "detect": [
+      "p.cc-cookie-buttons"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "ct-ultimate-gdpr": {
+    "name": "CT Ultimate GDPR",
+    "accept": "button.cm-btn.cm-btn-outline.cm-btn-accept",
+    "reject": "button.cm-btn.cm-btn-outline.cm-btn-accept",
+    "detect": [
+      "div#cookieScreen"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "dnn-cookie-consent": {
+    "name": "DNN Cookie Consent",
+    "accept": "a.cc_btn.cc_btn_accept_all",
+    "reject": "a.cc_btn.cc_btn_accept_all",
+    "detect": [
+      "div.cc_banner.cc_container"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "enzuzo": {
+    "name": "Enzuzo",
+    "accept": "a#agree",
+    "reject": "a#agree",
+    "detect": [
+      "p#cookiePolicy"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "eu-cookie-compliance": {
+    "name": "EU Cookie Compliance",
+    "accept": "button.eu-cookie-compliance-default-button",
+    "reject": "button.eu-cookie-compliance-default-button",
+    "detect": [
+      "div.eu-cookie-compliance-buttons"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "eu-cookie-directive-lite": {
+    "name": "EU Cookie Directive Lite",
+    "accept": "div#continue_button",
+    "reject": "div#continue_button",
+    "detect": [
+      "div#cookieMessageContainer"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "eu-cookie-law": {
+    "name": "EU Cookie Law",
+    "accept": "button#pea_cook_btn",
+    "reject": "button#pea_cook_btn",
+    "detect": [
+      "#pea_cook_btn"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "gdpr-cookie-consent": {
+    "name": "GDPR Cookie Consent",
+    "accept": "div.wpgdpr_button.gdprAcptBtn",
+    "reject": "div.wpgdpr_button.gdprAcptBtn",
+    "detect": [
+      "div.wpgdpr_actions"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "gdpr-tools": {
+    "name": "GDPR Tools",
+    "accept": "a.GDPR-tools-consent__btn.accept_btn",
+    "reject": "a.GDPR-tools-consent__btn.accept_btn",
+    "detect": [
+      "div.GDPR-tools-consent"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
   }
 }
