@@ -183,7 +183,11 @@ function detectMetaSetup(fullRequests, cookies, siteHost) {
     r.url.includes('connect.facebook.net')
   );
 
+  // CAPI-Events sind POST-Beacons. Nur "/events" im Pfad matcht sonst auch einen
+  // redaktionellen /events/-Bereich (Veranstaltungskalender = GET-Navigation) und
+  // meldet faelschlich "Meta CAPI".
   const hasFirstPartyEvents = fullRequests.some(r => {
+    if (r.method !== 'POST') return false;
     try {
       const u = new URL(r.url);
       return getSiteDomain(r.url) === siteDomain &&
@@ -250,7 +254,9 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
 
   // 5. Enhanced Conversions (check GA4 collect requests)
   for (const req of allRequests) {
-    const isCollect = req.url.includes('/g/collect') || req.url.includes('/collect');
+    // Enhanced Conversions ist GA4-spezifisch (/g/collect). Das generische "/collect"
+    // wuerde fremde Endpunkte mit em-Param faelschlich als aktiv melden.
+    const isCollect = req.url.includes('/g/collect');
     if (!isCollect) continue;
     const ec = checkEnhancedConversions(req.url, req.postData);
     if (ec && !deepAnalysis.features.enhancedConversions) {
@@ -260,7 +266,11 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
 
   // 6. Dynamic Remarketing (check Google Ads requests)
   for (const req of allRequests) {
-    const isAds = req.url.includes('/pagead/') || req.url.includes('googleads');
+    // Dynamic Remarketing laeuft ueber Google-Ads-Hosts. Reine URL-Substrings
+    // ("/pagead/", "googleads") matchen sonst auch fremde Endpunkte.
+    const adsHost = getHostname(req.url) || '';
+    const isGoogleAdsHost = adsHost.endsWith('doubleclick.net') || adsHost.endsWith('googleadservices.com') || adsHost.startsWith('googleads.');
+    const isAds = isGoogleAdsHost && req.url.includes('/pagead/');
     if (!isAds) continue;
     const rm = checkRemarketingPayload(req.url, req.postData);
     if (rm) {
@@ -644,7 +654,12 @@ async function collectDataLayer(page) {
  * Diff dataLayer: entries in `after` that were not in `before` (by index, since dataLayer is append-only).
  */
 function diffDataLayer(before, after) {
-  return after.slice(before.length);
+  // Normalfall append-only -> nur die neuen Eintraege ab before.length. Bei SPA-Reset
+  // (dataLayer neu initialisiert) ist after KEIN Praefix-Anhang von before; dann waere
+  // slice(before.length) falsch (verloere Eintraege) -> ganzes after zurueckgeben.
+  const isAppendOnly = after.length >= before.length &&
+    before.every((e, i) => JSON.stringify(e) === JSON.stringify(after[i]));
+  return isAppendOnly ? after.slice(before.length) : after;
 }
 
 /**
