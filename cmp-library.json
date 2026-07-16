@@ -1419,5 +1419,17 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "user-provided"
+  },
+  "prointernet-consent": {
+    "name": "ProInternet Consent",
+    "accept": "[data-type=\"acceptAll\"]",
+    "reject": "[data-type=\"decline\"]",
+    "detect": [
+      "[data-type=\"acceptAll\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
   }
 }
