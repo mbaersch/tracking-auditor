@@ -38,6 +38,7 @@ import {
   matchRequest, deduplicateMatches, detectSSTFromUrls, extractConsentModeParams,
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
   extractStapeFindings, extractStapeMatches,
+  extractTaggrsTransports,
 } from './lib/tracking-classify.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -220,6 +221,13 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
     }
   }
 
+  // 1b. TAGGRS transport fingerprint (AES-verschluesselt -> nur Existenz, kein Decrypt)
+  for (const t of extractTaggrsTransports(fullRequests)) {
+    if (!deepAnalysis.taggrsTransports.some(s => s.host === t.host)) {
+      deepAnalysis.taggrsTransports.push(t);
+    }
+  }
+
   // 2. Combine original + decoded URLs for analysis. Decoded URLs are rebuilt on
   // the canonical Google host so matchRequest() classifies the tunneled hits.
   const allRequests = [
@@ -372,7 +380,8 @@ function hasSSTDetected(sstData) {
   const hasCustomLoader = sstData.loaders.some(l => !l.isStandard);
   const hasCollect = sstData.collectEndpoints.length > 0;
   const hasCustomFromBody = sstData.customLoaders && sstData.customLoaders.length > 0;
-  return hasCustomLoader || hasCollect || hasCustomFromBody;
+  const hasTaggrs = sstData.taggrsTransports && sstData.taggrsTransports.length > 0;
+  return hasCustomLoader || hasCollect || hasCustomFromBody || hasTaggrs;
 }
 
 // ── E-Commerce Product Analysis ──────────────────────────────────────────────
@@ -1108,6 +1117,15 @@ function formatSSTSection(sstData) {
     md += '\n';
   }
 
+  // TAGGRS Custom Loader transport (AES-verschluesselt -- nur Existenz nachweisbar)
+  if (sstData.taggrsTransports && sstData.taggrsTransports.length > 0) {
+    md += '**Custom Loader Transport (TAGGRS):**\n\n';
+    for (const t of sstData.taggrsTransports) {
+      md += `- ${t.host} – AES-verschluesselter Envelope erkannt\n`;
+    }
+    md += '\n> Der TAGGRS-Loader tunnelt die Hits verschluesselt. Die **Existenz** des serverseitigen Trackings ist damit belegt; die **Detail-Parameter** (Events, IDs, Consent-Mode-Status) sind aus dem Netzwerk-Mitschnitt nicht auslesbar.\n\n';
+  }
+
   // Container IDs
   if (sstData.containers.size > 0) {
     const customLoaders = sstData.loaders.filter(l => !l.isStandard && l.type === 'GTM');
@@ -1482,6 +1500,7 @@ function generateReport(data) {
   if (data.deepAnalysis?.stapeTransports?.length > 0) {
     if (!data.sst) data.sst = { containers: new Set(), measurementIds: new Set(), loaders: [], collectEndpoints: [] };
     data.sst.stapeTransports = data.deepAnalysis.stapeTransports;
+    data.sst.taggrsTransports = data.deepAnalysis.taggrsTransports;
   }
 
   // ── SST ──
@@ -1778,6 +1797,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
         metaSetup: null,
       },
       stapeTransports: [],
+      taggrsTransports: [],
       googleSubTypes: new Set(),
       measurementIds: [],
     },
@@ -2306,6 +2326,9 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     const da = reportData.deepAnalysis;
     if (da.stapeTransports.length > 0) {
       console.log(`  Stape-Transport: ${da.stapeTransports.map(t => t.host).join(', ')}`);
+    }
+    if (da.taggrsTransports.length > 0) {
+      console.log(`  TAGGRS-Transport (verschluesselt): ${da.taggrsTransports.map(t => t.host).join(', ')}`);
     }
     if (da.features.enhancedConversions) {
       console.log(`  Enhanced Conversions: aktiv (hashed email: ${da.features.enhancedConversions.hasHashedEmail})`);
