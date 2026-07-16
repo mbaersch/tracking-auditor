@@ -1869,7 +1869,15 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   // SST detection from post-accept requests + merge with pre-consent
   const postAcceptSSTUrls = detectSSTFromUrls(postAcceptRequestUrls, siteHost);
-  reportData.sst = mergeSST(preSSTUrls, postAcceptSSTUrls);
+  // Stape Custom Loader: decodierte (Google-Host-)Synthetik-URLs ebenfalls in die
+  // SST-Erkennung einspeisen -- sonst fehlen getunnelte Container/Measurement-IDs in
+  // reportData.sst (sie tauchten bisher nur in der Deep-Analysis auf). Spiegelt compare.js/analyzeSide.
+  const stapeDecoded = noPayloadAnalysis ? [] :
+    extractStapeFindings([...getPreRequests.full(), ...getPostAcceptRequests.full()]).decodedRequests;
+  const stapeSSTUrls = stapeDecoded.length > 0
+    ? detectSSTFromUrls(stapeDecoded.map(d => d.syntheticUrl), siteHost)
+    : null;
+  reportData.sst = mergeSST(preSSTUrls, postAcceptSSTUrls, stapeSSTUrls);
 
   // Response body analysis for custom loaders
   const postAcceptResponseBodies = await getPostAcceptResponseBodies();
