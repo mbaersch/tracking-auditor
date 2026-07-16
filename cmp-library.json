@@ -969,5 +969,70 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "backlog-quickwin"
+  },
+  "cookies-plus": {
+    "name": "Cookies Plus",
+    "accept": ".cookiesplus-accept",
+    "reject": ".cookiesplus-reject",
+    "rejectSteps": [
+      ".cookiesplus-more-information",
+      ".cookiesplus-save"
+    ],
+    "detect": [
+      "#cookiesplus-content"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
+  },
+  "redim-cookiehint": {
+    "name": "reDim CookieHint",
+    "accept": "#cookiehintsubmit",
+    "reject": "#cookiehintsubmitno",
+    "detect": [
+      "#redim-cookiehint"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
+  },
+  "secureprivacy": {
+    "name": "SecurePrivacy",
+    "accept": "a.sp-cookie-allow",
+    "reject": "a.sp-cookie-allow",
+    "detect": [
+      "a.sp-cookie-allow"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
+  },
+  "sgalinski-cookie-optin": {
+    "name": "Sgalinski Cookie Opt-In",
+    "accept": ".sg-cookie-optin-box-button-accept-all",
+    "reject": ".sg-cookie-optin-box-button-accept-specific",
+    "detect": [
+      "[class*=\"sg-cookie-optin\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
+  },
+  "apotheken-de": {
+    "name": "apotheken.de Cookie Consent",
+    "accept": "[data-action=\"click->cookie-banner#saveAllCookies\"]",
+    "reject": "[data-action=\"click->cookie-banner#saveCookies\"]",
+    "detect": [
+      "[data-action*=\"cookie-banner#\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
   }
 }
