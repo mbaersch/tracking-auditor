@@ -746,7 +746,7 @@
     "accept": "#tx-ekd-consentmanager-accept",
     "reject": "#tx-ekd-consentmanager-deny",
     "detect": [
-      "#tx-ekd-consentmanager-accept"
+      "#ekdcm_showBanner"
     ],
     "shadowDom": false,
     "priority": 4,
@@ -1169,6 +1169,157 @@
     "reject": "a.GDPR-tools-consent__btn.accept_btn",
     "detect": [
       "div.GDPR-tools-consent"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "hw-datenschutz": {
+    "name": "HW Datenschutz",
+    "accept": "[data-action=\"acceptalltracking\"]",
+    "reject": "button#hw_datenschutz_banner__none",
+    "detect": [
+      "div.hw_datenschutz_banner__button_wrap"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "impuls-cookie-monster": {
+    "name": "Impuls Cookie Monster",
+    "accept": "button.icm_cookie_accept_all",
+    "reject": "button.icm_cookie_save_choices",
+    "detect": [
+      "div.impuls-cookie-monster-banner"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "ionos-cookie-banner": {
+    "name": "IONOS Cookie Banner",
+    "accept": "input#main3rdpartyconsent-submit-accept",
+    "reject": "input#main3rdpartyconsent-submit-decline",
+    "detect": [
+      "[data-id-consent-html=\"js-banner-consent-text\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "ka-cookies": {
+    "name": "KA Cookies",
+    "accept": "button#ka-cookies-button-accept",
+    "reject": "button#ka-cookies-button-accept",
+    "detect": [
+      "div.ka-cookies-buttons"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "lwd-cookie-master": {
+    "name": "LWD Cookie Master",
+    "accept": "a.cc-cookie-accept",
+    "reject": "a.cc-cookie-decline",
+    "detect": [
+      "a.cc-cookie-accept"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "oil-js": {
+    "name": "Oil.js",
+    "accept": "button.as-oil__btn.as-oil__btn-optin",
+    "reject": "button.as-oil__btn.as-oil__btn-optin",
+    "detect": [
+      ".as-oil__btn-optin"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "onepage-cookie-banner": {
+    "name": "Onepage Cookie Banner",
+    "accept": "a.cc-btn.cc-allow-all",
+    "reject": "a.cc-btn.cc-deny",
+    "detect": [
+      "div#cookieconsent:body"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "simple-cookie-notification-bar": {
+    "name": "Simple Cookie Notification Bar",
+    "accept": "a#scnb-cookie-accept",
+    "reject": "a#scnb-cookie-accept",
+    "detect": [
+      "div#scnb-cookie-bar"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "simple-gdpr-cookie-compliance": {
+    "name": "Simple GDPR Cookie Compliance",
+    "accept": "button#sgcc-accept-button",
+    "reject": "button#sgcc-accept-button",
+    "detect": [
+      "div.cookie-compliance-button-block"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "wf-cookie-consent": {
+    "name": "WF Cookie Consent",
+    "accept": "a#cookieChoiceDismiss",
+    "reject": "a#cookieChoiceDismiss",
+    "detect": [
+      "div#cookieChoiceInfo"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "wum-consent-manager": {
+    "name": "WUM Consent Manager",
+    "accept": "a.button.button--icon.button--icon--confirm",
+    "reject": "a.button.button--icon.button--icon--confirm",
+    "detect": [
+      "a.button--icon--confirm"
+    ],
+    "shadowDom": false,
+    "acceptOnly": true,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "dom-harvest"
+  },
+  "dsgvo-tools-cookie-hinweis": {
+    "name": "DSGVO Tools Cookie Hinweis",
+    "accept": "#fhw_cookiehinweis .mainbutton",
+    "reject": "#fhw_cookiehinweis .mainbutton",
+    "detect": [
+      "div#fhw_cookiehinweis"
     ],
     "shadowDom": false,
     "acceptOnly": true,
