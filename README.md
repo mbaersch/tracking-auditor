@@ -9,6 +9,8 @@ Vier Hauptfunktionen:
 3. **[Tracking-Vergleich](#3-tracking-vergleich-comparejs)** -- Zwei Setups gegeneinander vergleichen (z.B. Live vs. sGTM)
 4. **[Asynchroner Flow-Vergleich](#4-asynchroner-flow-vergleich-har-basiert)** -- Einen Checkout-Flow ueber die Zeit vergleichen (Baseline vorher, Delta nachher), inkl. PII-Nachweis pro Vendor
 
+Die CMP-Bibliothek erkennt aktuell **122 Consent-Banner und CMPs** automatisch (Accept/Reject-Selektoren in [`cmp-library.json`](cmp-library.json)) -- siehe [Changelog](#changelog) zum Wachstum.
+
 Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-Vergleich](examples/compare-example-report.md)
 
 
@@ -352,3 +354,18 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 - Der Reject-Durchlauf nutzt einen komplett separaten Browser-Prozess
 - Service Worker koennen dazu fuehren, dass Requests nicht erfasst werden (gtag nutzt SW wenn verfuegbar). Mit `--disable-sw` werden sie deregistriert
 - Auf Windows mit Git Bash werden relative URL-Pfade (z.B. `/kategorie/`) manchmal zu lokalen Pfaden umgeschrieben. Das Script erkennt und korrigiert das automatisch, alternativ volle URLs verwenden oder `MSYS_NO_PATHCONV=1` setzen
+
+## Changelog
+
+### 2026-07-16 -- Grosser CMP-Bibliothek-Ausbau: 77 -> 122
+
+Die CMP-Bibliothek wuchs an einem Tag von **77 auf 122** Consent-Banner und CMPs (+45). Ablauf: automatischer Sieblauf ueber eine grosse CMP-Liste, anschliessend ein headful DOM-Harvester mit Klick-Verifikation (nur tatsaechlich klick-verifizierte Selektoren wurden uebernommen). Haertefaelle -- Shadow DOM, iframe-basierte Banner, Two-Step-Reject (Second Layer) und bot-erkannte Seiten -- wurden per Hand nachgezogen. Nebenbei mehrere Fehllabels bereinigt (als eigenstaendige CMPs exportierte Engine-Klone von CCM19, Complianz, Avia, Ezoic, Truendo u.a.).
+
+### davor
+
+- **2026-05** -- 43 verifizierte CMPs (Basis)
+- Start -- ~40 CMPs (initiale Library)
+
+## Danke
+
+♥️ Danke: Die Quelle für den Ausbau der CMP Bibliothek des Auditors von 77 auf 122 CMPs und Banner war eine von Joachim Nickel bereitgestellte CMP-Liste aus [exatics](https://www.exatics.de/).
