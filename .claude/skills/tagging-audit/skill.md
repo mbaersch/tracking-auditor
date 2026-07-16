@@ -61,7 +61,7 @@ Folgende Parameter helfen bei Sonderfaellen. Sie sind NICHT fuer den Normalfall 
 
 ### CMP wird nicht erkannt
 
-Die Auto-Erkennung deckt ~60 CMPs ab und bietet im Browser ein Dropdown zur manuellen Auswahl sowie einen Skip-Button. Im manuellen Modus erscheint eine Consent Card -- der User klickt Accept/Reject selbst und bestaetigt per Button. Falls die CMP unbekannt ist:
+Die Auto-Erkennung deckt ~77 CMPs ab und bietet im Browser ein Dropdown zur manuellen Auswahl sowie einen Skip-Button. Im manuellen Modus erscheint eine Consent Card -- der User klickt Accept/Reject selbst und bestaetigt per Button. Falls die CMP unbekannt ist:
 
 1. CMP zuerst einlernen mit dem **cmp-learn** Skill
 2. Dann Audit erneut starten (ohne `--cmp` -- die Auto-Erkennung findet die neu gelernte CMP)

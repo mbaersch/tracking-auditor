@@ -668,5 +668,221 @@
     "shadowDom": false,
     "priority": 3,
     "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "typo3-c3cookie": {
+    "name": "TYPO3 C3Cookie",
+    "accept": "[data-action=\"accept-all\"]",
+    "reject": "[data-action=\"deny-all\"]",
+    "detect": [
+      ".c3cookie-button"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "consentik": {
+    "name": "Consentik",
+    "accept": "#cst-cookies-submit",
+    "reject": "#cst-cookies-decline",
+    "detect": [
+      "#cst-cookies-submit"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "contao-privacy-center": {
+    "name": "Contao Privacy Center",
+    "accept": ".accept-all",
+    "reject": ".reject-all",
+    "detect": [
+      ".privacy-center"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "cookieadmin": {
+    "name": "CookieAdmin",
+    "accept": "#cookieadmin_accept_button",
+    "reject": "#cookieadmin_reject_button",
+    "detect": [
+      "#cookieadmin_accept_button"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "cookietrust-cmp": {
+    "name": "Cookietrust CMP",
+    "accept": "#ct-btn-accept",
+    "reject": "#ct-btn-reject",
+    "detect": [
+      "#ct-consent"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "dsgvo-pixelmate": {
+    "name": "DSGVO-Pixelmate",
+    "accept": ".pixelmate-general-allow",
+    "reject": ".pixelmate-general-deny",
+    "detect": [
+      ".pixelmate-general-banner"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "ekd-consentmanager": {
+    "name": "EKD Consentmanager",
+    "accept": "#tx-ekd-consentmanager-accept",
+    "reject": "#tx-ekd-consentmanager-deny",
+    "detect": [
+      "#tx-ekd-consentmanager-accept"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "typo3-ig-cookieconsent": {
+    "name": "TYPO3 IG CookieConsent",
+    "accept": "#gdpr-cookieall-accept",
+    "reject": "#gdpr-cookie-accept",
+    "detect": [
+      "#gdpr-cookieall-accept"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "joomla-cookie-hint": {
+    "name": "Joomla Cookie Hint",
+    "accept": "#cookiehintsubmit",
+    "reject": "#cookiehintsubmitno",
+    "detect": [
+      "#cookiehintsubmit"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "js-consent-banner": {
+    "name": "JS Consent Banner",
+    "accept": ".js-consent-accept-all",
+    "reject": ".js-consent-reject-all",
+    "detect": [
+      ".js-consent-accept-all"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "kookietool-cmp": {
+    "name": "KookieTool CMP",
+    "accept": "#kekt-accept-all",
+    "reject": "#kekt-accept-essential",
+    "detect": [
+      "#kekt-consent-box"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "legal-cockpit": {
+    "name": "Legal Cockpit",
+    "accept": "#c-p-bn",
+    "reject": "#c-s-bn",
+    "detect": [
+      ".show--consent"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "mod-cookiesaccept": {
+    "name": "mod_cookiesaccept",
+    "accept": "#cookie_einverstanden",
+    "reject": "#cookie_ablehnen",
+    "detect": [
+      "#cookie_einverstanden"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "plentyshop-cookie-consent": {
+    "name": "PlentyShop Cookie Consent",
+    "accept": "[data-testing=\"cookie-bar-accept-all\"]",
+    "reject": "[data-testing=\"cookie-bar-deny-all\"]",
+    "detect": [
+      ".cookie-bar"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "termly": {
+    "name": "Termly",
+    "accept": ".t-acceptAllButton",
+    "reject": ".t-declineButton",
+    "detect": [
+      ".t-consentPrompt"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "termsfeed-cookie-consent": {
+    "name": "TermsFeed Cookie Consent",
+    "accept": ".cc-nb-okagree",
+    "reject": ".cc-nb-reject",
+    "detect": [
+      "#freeprivacypolicy-com---nb"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "trustcommander": {
+    "name": "TrustCommander",
+    "accept": "#popin_tc_privacy_button_3",
+    "reject": "#popin_tc_privacy_button_2",
+    "detect": [
+      "#popin_tc_privacy_button_3"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
+  },
+  "werk3-consent": {
+    "name": "Werk3 Consent",
+    "accept": "[data-full-consent=\"true\"]",
+    "reject": ".ccm--decline-cookies",
+    "detect": [
+      ".ccm--decline-cookies"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "sieblauf-auto"
   }
 }
