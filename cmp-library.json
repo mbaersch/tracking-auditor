@@ -884,5 +884,90 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "sieblauf-auto"
+  },
+  "cookiefox": {
+    "name": "CookieFox",
+    "accept": ".cookiefox__button--primary",
+    "reject": ".cookiefox__button--secondary",
+    "detect": [
+      "[class*=\"cookiefox\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "backlog-quickwin"
+  },
+  "drupal-cookies-jsr": {
+    "name": "Drupal Cookies JSR",
+    "accept": "button.cookiesjsr-btn.allowAll",
+    "reject": "button.cookiesjsr-btn.denyAll",
+    "detect": [
+      "#cookiesjsr"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "backlog-quickwin"
+  },
+  "hofff-contao-consent": {
+    "name": "Hofff Contao Consent",
+    "accept": ".hofff-consent-button-accept",
+    "reject": ".hofff-consent-button-revoke",
+    "detect": [
+      "#hofff-consent-banner"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "backlog-quickwin"
+  },
+  "sg-cookies-bar": {
+    "name": "SG Cookies Bar",
+    "accept": ".sgcm-button-all",
+    "reject": ".sgcm-button-required",
+    "detect": [
+      "#sg-cookie-groups-box-start"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "backlog-quickwin"
+  },
+  "contao-cookiebar": {
+    "name": "Contao Cookiebar",
+    "accept": "button.cc-btn.success",
+    "reject": "button.cc-btn.deny",
+    "detect": [
+      ".contao-cookiebar"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "backlog-quickwin"
+  },
+  "worldsoft-consent": {
+    "name": "Worldsoft Cookie-Consent",
+    "accept": "button.cbotPopup-btn-active",
+    "reject": "button.cbotPopup-btn:has-text(\"Ablehnen\")",
+    "detect": [
+      "[class*=\"cbotPopup\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "backlog-quickwin"
+  },
+  "cm4all-cookie-policy": {
+    "name": "CM4ALL Cookie Policy",
+    "accept": ".cm-cookie-content-button--accept-all",
+    "reject": ".cm-cookie-content-button--reject-all",
+    "detect": [
+      "#cookieSettingsDialog",
+      ".cm-cookie-container"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "backlog-quickwin"
   }
 }
