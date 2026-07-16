@@ -267,6 +267,8 @@ node flow-delta.js \
 
 Zentrale Datenbank bekannter Tracking-Produkte -- analog zur `cmp-library.json` fuer CMPs. Wird von `audit.js`, `compare.js` und den `flow-*`-Tools automatisch geladen.
 
+> Viele Endpunkt-Signaturen sowie der PII-/Event-Parser (`pii-lib/`) stammen aus der [Tracking Auditor Browser-Extension](https://www.markus-baersch.de/tracking-auditor-extension.html) -- dem Schwesterprojekt, das dieselben Requests live im DevTools-Panel erkennt und aufschluesselt (inkl. Stape-/TAGGRS-Transport-Decode). Neue Vendor-Signaturen aus der Extension werden hierher destilliert.
+
 ### Inhalt
 
 Jeder Eintrag beschreibt ein Tracking-Produkt mit:
