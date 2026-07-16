@@ -1448,5 +1448,21 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "user-provided"
+  },
+  "wix-cookie-banner": {
+    "name": "Wix Cookie Banner",
+    "accept": "[data-hook=\"consent-banner-apply-button\"]",
+    "reject": "[data-hook=\"consent-banner-settings-save-button\"]",
+    "rejectSteps": [
+      "[data-hook=\"consent-banner-settings-button\"]",
+      "[data-hook=\"consent-banner-settings-save-button\"]"
+    ],
+    "detect": [
+      "[data-hook^=\"consent-banner\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
   }
 }

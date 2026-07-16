@@ -34,7 +34,7 @@ flow-lib.js       Gemeinsame Analyse-/Report-Logik fuer flow-analyze und flow-re
 pii-lib/          Vendored PII/Event-Parser (Snapshot aus der Tracking-Auditor-Extension)
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
-cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~121 CMPs)
+cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~122 CMPs)
 tracking-vendors.json  Datenbank bekannter Tracking-Produkte (Scripts, Endpoints, Domains)
 reports/          Ablageort fuer generierte Reports (lokal, nicht im Repo)
 ```
