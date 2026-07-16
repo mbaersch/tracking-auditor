@@ -295,8 +295,19 @@ function analyzeSide(collector, siteUrl) {
   };
 }
 
+// Diff-Key: bekannte Vendor per product-key, unbekannte Third-Parties per Host
+// -- sonst kollabieren alle unbekannten zu "Sonstige Third-Party", und A/B mit
+// UNTERSCHIEDLICHEN unbekannten Trackern gaelten faelschlich als identisch.
+function keyOf(d) {
+  return d.key || '_tp_' + ((d.hostnames && d.hostnames[0]) || d.vendor);
+}
+// Anzeige-Label: Produktname, sonst konkreter Host (statt "_tp_..."-Key oder
+// dem Sammelbegriff "Sonstige Third-Party").
+function diffLabel(d) {
+  return d.product || (d.hostnames && d.hostnames[0]) || d.vendor;
+}
+
 function buildDiff(analysisA, analysisB) {
-  const keyOf = (d) => d.key || d.vendor;
   const keysA = new Set(analysisA.all.map(keyOf));
   const keysB = new Set(analysisB.all.map(keyOf));
 
@@ -313,7 +324,7 @@ function buildDiff(analysisA, analysisB) {
     details.push({
       key,
       vendor: a.vendor,
-      product: a.product || a.vendor,
+      product: diffLabel(a),
       category: a.category,
       directionsA: a.directions, directionsB: b.directions,
       typesA: a.types, typesB: b.types,
@@ -322,8 +333,8 @@ function buildDiff(analysisA, analysisB) {
   }
 
   const sstDiff = {
-    containersMatch: JSON.stringify(analysisA.sst.containers.sort()) === JSON.stringify(analysisB.sst.containers.sort()),
-    measurementIdsMatch: JSON.stringify(analysisA.sst.measurementIds.sort()) === JSON.stringify(analysisB.sst.measurementIds.sort()),
+    containersMatch: JSON.stringify([...analysisA.sst.containers].sort()) === JSON.stringify([...analysisB.sst.containers].sort()),
+    measurementIdsMatch: JSON.stringify([...analysisA.sst.measurementIds].sort()) === JSON.stringify([...analysisB.sst.measurementIds].sort()),
   };
 
   const cmA = analysisA.consentMode;
@@ -420,8 +431,8 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
   ln(`## TL;DR`);
   ln();
   const productName = (key, analysis) => {
-    const entry = analysis.all.find(d => (d.key || d.vendor) === key);
-    return entry && entry.product ? entry.product : key;
+    const entry = analysis.all.find(d => keyOf(d) === key);
+    return entry ? diffLabel(entry) : key;
   };
   ln(`- **${diff.both.length}** Tracking-Produkte auf beiden Seiten`);
   if (diff.onlyA.length) ln(`- **${diff.onlyA.length}** nur auf ${meta.labelA}: ${diff.onlyA.map(k => productName(k, analysisA)).join(', ')}`);
@@ -465,22 +476,22 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
     ln(`| ${d.product} | ${d.category || '-'} | ${aInfo} | ${bInfo} | ${status} |`);
   }
   for (const key of diff.onlyA) {
-    const a = analysisA.all.find(d => (d.key || d.vendor) === key);
-    const label = a && a.product ? a.product : key;
+    const a = analysisA.all.find(d => keyOf(d) === key);
+    const label = a ? diffLabel(a) : key;
     const cat = a && a.category ? a.category : '-';
     ln(`| ${label} | ${cat} | vorhanden | - | nur ${meta.labelA} |`);
   }
   for (const key of diff.onlyB) {
-    const b = analysisB.all.find(d => (d.key || d.vendor) === key);
-    const label = b && b.product ? b.product : key;
+    const b = analysisB.all.find(d => keyOf(d) === key);
+    const label = b ? diffLabel(b) : key;
     const cat = b && b.category ? b.category : '-';
     ln(`| ${label} | ${cat} | - | vorhanden | nur ${meta.labelB} |`);
   }
   ln();
 
   // Pre-Consent
-  const preProductsA = new Set(analysisA.preConsent.map(d => d.key || d.vendor));
-  const preProductsB = new Set(analysisB.preConsent.map(d => d.key || d.vendor));
+  const preProductsA = new Set(analysisA.preConsent.map(d => keyOf(d)));
+  const preProductsB = new Set(analysisB.preConsent.map(d => keyOf(d)));
   if (preProductsA.size > 0 || preProductsB.size > 0) {
     ln(`## Pre-Consent Requests`);
     ln();
@@ -488,13 +499,13 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
     ln(`|---------|--------|--------|`);
     const allPreProducts = [...new Set([...preProductsA, ...preProductsB])].sort();
     for (const key of allPreProducts) {
-      const aEntry = analysisA.preConsent.find(d => (d.key || d.vendor) === key);
-      const bEntry = analysisB.preConsent.find(d => (d.key || d.vendor) === key);
+      const aEntry = analysisA.preConsent.find(d => keyOf(d) === key);
+      const bEntry = analysisB.preConsent.find(d => keyOf(d) === key);
       let aLabel = aEntry ? (aEntry.types.length > 0 ? aEntry.types.join(', ') : 'vorhanden') : '-';
       let bLabel = bEntry ? (bEntry.types.length > 0 ? bEntry.types.join(', ') : 'vorhanden') : '-';
       if (aEntry && aEntry.directions.includes('sst-tunnel')) aLabel += ' (sst-tunnel)';
       if (bEntry && bEntry.directions.includes('sst-tunnel')) bLabel += ' (sst-tunnel)';
-      const name = aEntry ? (aEntry.product || aEntry.vendor) : (bEntry ? (bEntry.product || bEntry.vendor) : key);
+      const name = aEntry ? diffLabel(aEntry) : (bEntry ? diffLabel(bEntry) : key);
       ln(`| ${name} | ${aLabel} | ${bLabel} |`);
     }
     ln();
