@@ -1219,15 +1219,14 @@
   "ka-cookies": {
     "name": "KA Cookies",
     "accept": "button#ka-cookies-button-accept",
-    "reject": "button#ka-cookies-button-accept",
+    "reject": "#ka-cookies-button-settings",
     "detect": [
       "div.ka-cookies-buttons"
     ],
     "shadowDom": false,
-    "acceptOnly": true,
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
-    "source": "dom-harvest"
+    "source": "dom-harvest+enriched-user"
   },
   "lwd-cookie-master": {
     "name": "LWD Cookie Master",
