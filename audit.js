@@ -1496,8 +1496,8 @@ function generateReport(data) {
   }
   md += '\n';
 
-  // Merge Stape findings into SST data for display
-  if (data.deepAnalysis?.stapeTransports?.length > 0) {
+  // Merge Stape/TAGGRS transport findings into SST data for display
+  if (data.deepAnalysis?.stapeTransports?.length > 0 || data.deepAnalysis?.taggrsTransports?.length > 0) {
     if (!data.sst) data.sst = { containers: new Set(), measurementIds: new Set(), loaders: [], collectEndpoints: [] };
     data.sst.stapeTransports = data.deepAnalysis.stapeTransports;
     data.sst.taggrsTransports = data.deepAnalysis.taggrsTransports;
