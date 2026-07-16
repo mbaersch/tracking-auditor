@@ -1117,15 +1117,14 @@
   "eu-cookie-compliance": {
     "name": "EU Cookie Compliance",
     "accept": "button.eu-cookie-compliance-default-button",
-    "reject": "button.eu-cookie-compliance-default-button",
+    "reject": ".eu-cookie-compliance-save-preferences-button",
     "detect": [
       "div.eu-cookie-compliance-buttons"
     ],
     "shadowDom": false,
-    "acceptOnly": true,
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
-    "source": "dom-harvest"
+    "source": "dom-harvest+enriched-user"
   },
   "eu-cookie-directive-lite": {
     "name": "EU Cookie Directive Lite",
