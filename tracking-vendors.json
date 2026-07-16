@@ -66,10 +66,15 @@
     ],
     "endpoints": [
       { "pattern": "googleadservices.com/pagead/conversion", "type": "conversion" },
+      { "pattern": "googleadservices.com/pagead/1p-conversion", "type": "conversion" },
+      { "pattern": "googleadservices.com/pagead/form-data", "type": "conversion" },
+      { "pattern": "googleadservices.com/ccm/form-data", "type": "conversion" },
       { "pattern": "googleadservices.com/pagead/1p-user-list", "type": "remarketing" },
       { "pattern": "googleads.g.doubleclick.net/pagead/conversion", "type": "conversion" },
+      { "pattern": "googleads.g.doubleclick.net/pagead/1p-conversion", "type": "conversion" },
       { "pattern": "googleads.g.doubleclick.net/pagead/1p-user-list", "type": "remarketing" },
-      { "pattern": "googleads.g.doubleclick.net/pagead/viewthroughconversion", "type": "remarketing" }
+      { "pattern": "googleads.g.doubleclick.net/pagead/viewthroughconversion", "type": "remarketing" },
+      { "pattern": "googleads.g.doubleclick.net/rmkt/collect", "type": "remarketing" }
     ],
     "domains": ["googleadservices.com", "googleads.g.doubleclick.net"]
   },
@@ -177,6 +182,7 @@
     ],
     "endpoints": [
       { "pattern": "awin1.com/sread", "type": "conversion" },
+      { "pattern": "awin1.com/basket.php", "type": "conversion" },
       { "pattern": "awin1.com/pread", "type": "conversion" },
       { "pattern": "awin1.com/read", "type": "event" }
     ],
@@ -190,6 +196,8 @@
       { "pattern": "licdn.com/li.lms-analytics/" }
     ],
     "endpoints": [
+      { "pattern": "ads.linkedin.com/wa", "type": "conversion" },
+      { "pattern": "ads.linkedin.com/collect", "type": "event" },
       { "pattern": "ads.linkedin.com", "type": "event" },
       { "pattern": "linkedin.com/px", "type": "event" }
     ],
@@ -230,6 +238,7 @@
       { "pattern": "static.criteo.net/js/" }
     ],
     "endpoints": [
+      { "pattern": "criteo.com/event", "type": "event" },
       { "pattern": "dis.criteo.com", "type": "event" }
     ],
     "domains": ["criteo.com", "criteo.net"]
@@ -242,9 +251,10 @@
       { "pattern": "cdn.taboola.com/libtrc/" }
     ],
     "endpoints": [
-      { "pattern": "trc.taboola.com", "type": "event" }
+      { "pattern": "trc.taboola.com", "type": "event" },
+      { "pattern": "trc-events.taboola.com", "type": "event" }
     ],
-    "domains": ["trc.taboola.com", "cdn.taboola.com"]
+    "domains": ["trc.taboola.com", "trc-events.taboola.com", "cdn.taboola.com"]
   },
   "outbrain": {
     "vendor": "Outbrain",
@@ -279,10 +289,37 @@
       { "pattern": "js.hs-analytics.net/" }
     ],
     "endpoints": [
+      { "pattern": "hubspot.com/__ptq.gif", "type": "pageview" },
+      { "pattern": "hubspot.com/__ptbe.gif", "type": "event" },
+      { "pattern": "hubspot.com/__ptc.gif", "type": "click" },
       { "pattern": "track.hubspot.com", "type": "event" },
       { "pattern": "forms.hsforms.com", "type": "event" },
       { "pattern": "forms.hscollectedforms.net", "type": "event" }
     ],
     "domains": ["hubspot.com", "hs-scripts.com", "hs-analytics.net", "hsforms.com", "hscollectedforms.net", "hs-banner.com"]
+  },
+  "reddit-pixel": {
+    "vendor": "Reddit",
+    "product": "Reddit Pixel",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "redditstatic.com/ads/pixel" }
+    ],
+    "endpoints": [
+      { "pattern": "alb.reddit.com/rp.gif", "type": "event" }
+    ],
+    "domains": ["alb.reddit.com", "redditstatic.com"]
+  },
+  "snapchat-pixel": {
+    "vendor": "Snap",
+    "product": "Snapchat Pixel",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "sc-static.net/scevent" }
+    ],
+    "endpoints": [
+      { "pattern": "snapchat.com/p", "type": "event" }
+    ],
+    "domains": ["tr.snapchat.com", "sc-static.net"]
   }
 }

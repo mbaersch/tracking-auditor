@@ -276,7 +276,7 @@ Jeder Eintrag beschreibt ein Tracking-Produkt mit:
 - **endpoints** -- URL-Patterns fuer ausgehende Tracking-Requests (z.B. `google-analytics.com/g/collect`) mit optionaler Request-Typ-Klassifizierung (pageview, event, conversion)
 - **domains** -- Fallback-Domains fuer Zuordnung wenn kein Script/Endpoint-Pattern matcht
 
-Aktuell ~17 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, Awin.
+Aktuell 20 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, HubSpot, Awin, Reddit Pixel, Snapchat Pixel.
 
 ### Neuen Vendor hinzufuegen
 
@@ -286,7 +286,7 @@ Neuen JSON-Eintrag mit folgendem Schema anlegen:
 "mein-vendor": {
   "vendor": "Vendor Name",
   "product": "Produkt Name",
-  "category": "analytics|advertising|retargeting|session-recording|native-ads|tag-management",
+  "category": "analytics|advertising|retargeting|session-recording|native-ads|tag-management|marketing-automation",
   "scripts": [{ "pattern": "domain.com/script.js" }],
   "endpoints": [{ "pattern": "domain.com/collect", "type": "event" }],
   "domains": ["domain.com"]
@@ -302,7 +302,7 @@ Die Tracker-Tabellen in Reports zeigen produktgenaue Details:
 | **Produkt** | Konkretes Tracking-Produkt (z.B. "Google Analytics 4", nicht nur "Google") |
 | **Kategorie** | Funktionale Kategorie (analytics, advertising, session-recording, ...) |
 | **Richtung** | `script` (geladen), `request`/`domain` (direkt gesendet) oder `sst-tunnel` (First-Party getunnelt via Stape Custom Loader) |
-| **Typen** | Request-Klassifizierung (pageview, event, conversion, remarketing) |
+| **Typen** | Request-Klassifizierung (pageview, event, click, conversion, remarketing) |
 
 Nicht erkannte Third-Party-Requests werden als "Sonstige Third-Party" gefuehrt.
 
