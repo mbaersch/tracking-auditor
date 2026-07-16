@@ -10,7 +10,7 @@
 
 import {
   matchRequest, detectSSTFromUrls, extractStapeFindings, extractStapeMatches,
-} from './compare.js';
+} from './lib/tracking-classify.js';
 import {
   parseRequest, piiFromRecord, eventName, accountId, PROVIDER_LABEL,
 } from './pii-lib/index.js';

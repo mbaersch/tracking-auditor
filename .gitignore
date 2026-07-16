@@ -25,6 +25,10 @@
 !pii-lib/
 !pii-lib/*.js
 
+# Gemeinsamer Tracking-Klassifikations-Kern (audit.js/compare.js/flow-lib.js)
+!lib/
+!lib/*.js
+
 # Skill: Verzeichnisse stufenweise freigeben
 !.claude/
 .claude/*
