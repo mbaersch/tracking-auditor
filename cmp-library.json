@@ -328,8 +328,8 @@
   },
   "webtoffee": {
     "name": "Webtoffee / Cookie Law Info",
-    "accept": "#wt-cli-accept-all-btn",
-    "reject": "#wt-cli-reject-btn",
+    "accept": "#wt-cli-accept-all-btn, #cookie_action_accept",
+    "reject": "#wt-cli-reject-btn, #cookie_action_reject",
     "detect": [
       "#cookie-law-info-bar",
       ".cli-bar-container"
@@ -511,5 +511,162 @@
     "shadowDom": false,
     "priority": 3,
     "learnedAt": "2026-07-01T11:22:00.000Z"
+  },
+  "moove-gdpr": {
+    "name": "Moove GDPR Cookie Compliance",
+    "accept": ".moove-gdpr-infobar-allow-all",
+    "reject": null,
+    "rejectSteps": [
+      ".moove-gdpr-infobar-settings-btn",
+      ".moove-gdpr-modal-save-settings"
+    ],
+    "detect": [
+      "#moove_gdpr_cookie_info_bar",
+      "#moove_gdpr_cookie_modal"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "avia-enfold": {
+    "name": "Avia Cookie Consent (Enfold)",
+    "accept": ".avia-cookie-select-all",
+    "reject": ".avia-cookie-hide-notification",
+    "detect": [
+      ".avia-cookie-consent"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "clearfy-cookie-notice": {
+    "name": "Clearfy Cookie Notice",
+    "accept": "#clearfy-cookie-accept",
+    "reject": null,
+    "detect": [
+      ".clearfy-cookie"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "ezoic": {
+    "name": "Ezoic CMP",
+    "accept": "#ez-accept-all",
+    "reject": null,
+    "rejectSteps": [
+      "#ez-manage-settings",
+      "#ez-save-settings"
+    ],
+    "detect": [
+      "#ez-cookie-dialog",
+      ".ez-btn-row-container"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "wp-cookie-allow": {
+    "name": "WP Cookie Allow",
+    "accept": ".wpca-btn-accept",
+    "reject": ".wpca-btn-decline",
+    "detect": [],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "cm-cookie-manager": {
+    "name": "CM Cookie Manager",
+    "accept": "#dcm-accept",
+    "reject": "#dcm-decline",
+    "detect": [],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "cpnb": {
+    "name": "Cookies Policy Notification Bar",
+    "accept": "#cpnb-accept-btn",
+    "reject": null,
+    "detect": [],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "datamints-consentmanager": {
+    "name": "TYPO3 Datamints Consentmanager",
+    "accept": ".ccm-action--accept",
+    "reject": null,
+    "rejectSteps": [
+      ".ccm-action--configure",
+      ".ccm-action--save-close"
+    ],
+    "detect": [],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "go-x-blocks": {
+    "name": "go-x-blocks Cookie Consent",
+    "accept": ".consent-banner-button.accept-consent-all",
+    "reject": ".consent-banner-button.reject-consent-all",
+    "detect": [],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "sellwerk": {
+    "name": "Sellwerk / Website-Check (Dury Legal)",
+    "accept": "#jmdCookieConsentWrapper .accept",
+    "reject": "#jmdCookieConsentWrapper .deny",
+    "detect": [
+      "#jmdCookieConsentWrapper"
+    ],
+    "shadowDom": true,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "pressidium": {
+    "name": "Pressidium Cookie Consent",
+    "accept": "#c-p-bn",
+    "reject": "#c-s-bn",
+    "detect": [
+      "#cc--main"
+    ],
+    "shadowDom": true,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "open-cmp": {
+    "name": "Open CMP",
+    "accept": ".cmp-button-accept-all",
+    "reject": "[aria-label=\"Reject all consents\"]",
+    "detect": [],
+    "shadowDom": true,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "bst-dsgvo": {
+    "name": "BST DSGVO Cookie",
+    "accept": "button.bst-accept",
+    "reject": null,
+    "detect": [
+      "button.bst-accept"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
+  },
+  "typo3-nb": {
+    "name": "TYPO3 NB Cookie Banner",
+    "accept": "#cookie-banner #level10, #cookie-banner #level10 *",
+    "reject": "#cookie-banner #level1, #cookie-banner #level1 *",
+    "detect": [
+      "#cookie-banner",
+      "div.cookie--inner"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-07-16T00:00:00.000Z"
   }
 }
