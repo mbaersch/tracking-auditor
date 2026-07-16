@@ -385,14 +385,16 @@
   },
   "truendo": {
     "name": "Truendo",
-    "accept": "#cc-accept",
-    "reject": "#cc-necessary",
+    "accept": "#cc-accept, [onclick*=\"Truendo.acceptAllCookies\"]",
+    "reject": "#cc-necessary, [onclick*=\"Truendo.acceptNecessaryCookiesOnly\"]",
     "detect": [
       "#cc-banner",
-      "[src*='cdn.truendo.com']"
+      "[src*=\"cdn.truendo.com\"]",
+      ".truendo-container"
     ],
     "shadowDom": false,
-    "learnedAt": "2026-02-23T20:00:00.000Z"
+    "learnedAt": "2026-02-23T20:00:00.000Z",
+    "source": "enriched-user-provided"
   },
   "silktide": {
     "name": "Silktide",
