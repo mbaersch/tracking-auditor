@@ -726,6 +726,36 @@ function setupRequestCollector(page, phase = 'unknown') {
 }
 
 /**
+ * Sammelt den Zustand nach einer Consent-Entscheidung -- identisch fuer Phase 2
+ * (Post-Accept) und Phase 4 (Post-Reject): dataLayer-Diff, klassifizierte Tracker
+ * (inkl. Stape) sowie Cookie-/localStorage-Diff gegen eine Pre-Consent-Baseline.
+ * Consent-Mode- und SST-Auswertung bleiben phasenspezifisch beim Aufrufer.
+ *
+ * @param {object} baseline - { dataLayer, cookies, localStorage } aus der Pre-Consent-Phase
+ * @returns {Promise<object>} Rohwerte + Diffs: { dataLayer, dataLayerDiff, requestUrls,
+ *   classified, trackers, cookies, localStorage, cookiesDiff, localStorageDiff }
+ */
+async function collectPostConsentState(page, context, siteHost, getRequests, baseline, noPayloadAnalysis) {
+  const dataLayer = await collectDataLayer(page);
+  const dataLayerDiff = diffDataLayer(baseline.dataLayer, dataLayer);
+  console.log(`  dataLayer Diff: ${dataLayerDiff.length} neue Eintraege`);
+
+  const requestUrls = getRequests();
+  const classified = requestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
+  const stapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getRequests.full(), siteHost);
+  const trackers = deduplicateMatches([...classified, ...stapeMatches]);
+  console.log(`  Neue Requests: ${requestUrls.length} total, ${classified.length} third-party`);
+
+  const cookies = await collectCookies(context);
+  const localStorage = await collectLocalStorage(page);
+  const cookiesDiff = diffCookies(baseline.cookies, cookies);
+  const localStorageDiff = diffLocalStorage(baseline.localStorage, localStorage);
+  console.log(`  Neue Cookies: ${cookiesDiff.length}, Neue localStorage Keys: ${Object.keys(localStorageDiff).length}`);
+
+  return { dataLayer, dataLayerDiff, requestUrls, classified, trackers, cookies, localStorage, cookiesDiff, localStorageDiff };
+}
+
+/**
  * Set up response body collection for first-party JS resources.
  * Returns an async getter that resolves to [{ url, body }].
  */
@@ -1851,25 +1881,22 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   await waitForSettle(page1, 3000);
 
-  // dataLayer diff
-  const postAcceptDataLayer = await collectDataLayer(page1);
-  const postAcceptDataLayerDiff = diffDataLayer(preDataLayer, postAcceptDataLayer);
-  console.log(`  dataLayer Diff: ${postAcceptDataLayerDiff.length} neue Eintraege`);
-
-  // New requests
-  const postAcceptRequestUrls = getPostAcceptRequests();
-  const postAcceptClassified = postAcceptRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
-  const postAcceptStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getPostAcceptRequests.full(), siteHost);
-  const postAcceptTrackers = deduplicateMatches([...postAcceptClassified, ...postAcceptStapeMatches]);
-  console.log(`  Neue Requests: ${postAcceptRequestUrls.length} total, ${postAcceptClassified.length} third-party`);
-  await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Daten gesammelt', `DL: +${postAcceptDataLayerDiff.length} | 3P: +${postAcceptClassified.length}`);
-
-  // Cookie/localStorage diff
-  const postAcceptCookies = await collectCookies(context1);
-  const postAcceptLocalStorage = await collectLocalStorage(page1);
-  const postAcceptCookiesDiff = diffCookies(preCookies, postAcceptCookies);
-  const postAcceptLocalStorageDiff = diffLocalStorage(preLocalStorage, postAcceptLocalStorage);
-  console.log(`  Neue Cookies: ${postAcceptCookiesDiff.length}, Neue localStorage Keys: ${Object.keys(postAcceptLocalStorageDiff).length}`);
+  // Post-Accept-Zustand einsammeln (dataLayer-, Tracker-, Cookie-/localStorage-Diff);
+  // Consent-Mode- und SST-Auswertung folgen phasenspezifisch weiter unten.
+  const postAccept = await collectPostConsentState(
+    page1, context1, siteHost, getPostAcceptRequests,
+    { dataLayer: preDataLayer, cookies: preCookies, localStorage: preLocalStorage },
+    noPayloadAnalysis,
+  );
+  const postAcceptDataLayer = postAccept.dataLayer;
+  const postAcceptDataLayerDiff = postAccept.dataLayerDiff;
+  const postAcceptRequestUrls = postAccept.requestUrls;
+  const postAcceptTrackers = postAccept.trackers;
+  const postAcceptCookies = postAccept.cookies;
+  const postAcceptLocalStorage = postAccept.localStorage;
+  const postAcceptCookiesDiff = postAccept.cookiesDiff;
+  const postAcceptLocalStorageDiff = postAccept.localStorageDiff;
+  await updateStatusBar(page1, 'Phase 2', 'Post-Accept – Daten gesammelt', `DL: +${postAcceptDataLayerDiff.length} | 3P: +${postAccept.classified.length}`);
 
   // Consent Mode params after accept
   const postAcceptConsentMode = extractConsentModeParams(postAcceptRequestUrls);
@@ -2214,22 +2241,17 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   await waitForSettle(page2, 3000);
 
-  // Post-reject data
-  const rejectPostDataLayer = await collectDataLayer(page2);
-  const rejectDataLayerDiff = diffDataLayer(rejectPreDataLayer, rejectPostDataLayer);
-  console.log(`  dataLayer Diff: ${rejectDataLayerDiff.length} neue Eintraege`);
-
-  const rejectPostRequestUrls = getRejectPostRequests();
-  const rejectPostClassified = rejectPostRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
-  const rejectPostStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getRejectPostRequests.full(), siteHost);
-  const rejectPostTrackers = deduplicateMatches([...rejectPostClassified, ...rejectPostStapeMatches]);
-  console.log(`  Neue Requests: ${rejectPostRequestUrls.length} total, ${rejectPostClassified.length} third-party`);
-
-  const rejectPostCookies = await collectCookies(context2);
-  const rejectPostLocalStorage = await collectLocalStorage(page2);
-  const rejectCookiesDiff = diffCookies(rejectPreCookies, rejectPostCookies);
-  const rejectLocalStorageDiff = diffLocalStorage(rejectPreLocalStorage, rejectPostLocalStorage);
-  console.log(`  Neue Cookies: ${rejectCookiesDiff.length}, Neue localStorage Keys: ${Object.keys(rejectLocalStorageDiff).length}`);
+  // Post-Reject-Zustand einsammeln (identische Sammel-Logik wie Post-Accept).
+  const postReject = await collectPostConsentState(
+    page2, context2, siteHost, getRejectPostRequests,
+    { dataLayer: rejectPreDataLayer, cookies: rejectPreCookies, localStorage: rejectPreLocalStorage },
+    noPayloadAnalysis,
+  );
+  const rejectDataLayerDiff = postReject.dataLayerDiff;
+  const rejectPostTrackers = postReject.trackers;
+  const rejectPostCookies = postReject.cookies;
+  const rejectCookiesDiff = postReject.cookiesDiff;
+  const rejectLocalStorageDiff = postReject.localStorageDiff;
 
   reportData.postReject = {
     dataLayerDiff: rejectDataLayerDiff,
@@ -2244,7 +2266,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     analyzeRequestPayloads(rejectFullRequests, rejectPostCookies, siteHost, reportData.deepAnalysis);
   }
 
-  await updateStatusBar(page2, 'Phase 5', 'Fertig – Report wird generiert...', `DL: +${rejectDataLayerDiff.length} | 3P: +${rejectPostClassified.length}`);
+  await updateStatusBar(page2, 'Phase 5', 'Fertig – Report wird generiert...', `DL: +${rejectDataLayerDiff.length} | 3P: +${postReject.classified.length}`);
   await browser2.close();
   console.log('  Browser 2 geschlossen.');
 
