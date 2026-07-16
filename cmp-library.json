@@ -555,7 +555,7 @@
   "ezoic": {
     "name": "Ezoic CMP",
     "accept": "#ez-accept-all",
-    "reject": null,
+    "reject": "#ez-save-settings",
     "rejectSteps": [
       "#ez-manage-settings",
       "#ez-save-settings"
@@ -566,7 +566,8 @@
     ],
     "shadowDom": false,
     "priority": 3,
-    "learnedAt": "2026-07-16T00:00:00.000Z"
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "enriched-user"
   },
   "wp-cookie-allow": {
     "name": "WP Cookie Allow",
