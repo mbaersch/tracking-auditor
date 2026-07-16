@@ -1395,5 +1395,17 @@
     "priority": 4,
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "user-provided"
+  },
+  "framer-cookie-consent": {
+    "name": "Framer Cookie-Consent",
+    "accept": "#__framer-cookie-component-button-accept",
+    "reject": "#__framer-cookie-component-button-reject",
+    "detect": [
+      "[id^=\"__framer-cookie-component\"]"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-07-16T00:00:00.000Z",
+    "source": "user-provided"
   }
 }
