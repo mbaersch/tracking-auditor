@@ -579,7 +579,7 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function measureSide(browser, url, label, postWait) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ viewport: null });
   const page = await context.newPage();
 
   try {

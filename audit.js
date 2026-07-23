@@ -1739,7 +1739,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   console.log('\nPhase 1: Pre-Consent...');
 
   const browser1 = await chromium.launch({ headless: false, args: ['--disable-blink-features=AutomationControlled'] });
-  const context1 = await browser1.newContext();
+  const context1 = await browser1.newContext({ viewport: null });
   const page1 = await context1.newPage();
 
   let getPreRequests = setupRequestCollector(page1, 'pre-consent');
@@ -2178,7 +2178,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   console.log('\nPhase 4: Post-Reject (neuer Browser)...');
 
   const browser2 = await chromium.launch({ headless: false, args: ['--disable-blink-features=AutomationControlled'] });
-  const context2 = await browser2.newContext();
+  const context2 = await browser2.newContext({ viewport: null });
   const page2 = await context2.newPage();
 
   // Pre-consent baseline in fresh browser
