@@ -53,6 +53,7 @@ Ausgabe: `reports/<project>/delta-<ts>.md`. **Mit Read lesen** und bewertet zusa
 - **NEU/entfallen/geaendert** pro Vendor hervorheben. Neue PII an einen Vendor ist datenschutzrelevant -> immer benennen.
 - Achtung Stub: Google Ads `ccm/form-data` mit `em=tv.1` ist ein **Enhanced-Conversions-Stub ohne Wert** (Feld scharf, aber keine PII uebertragen) -- nicht als PII-Send werten.
 - Shopify & Co. senden Conversion-PII oft erst beim Kaufabschluss/server-side -> pre-purchase 0 PII ist plausibel, kein Fehler.
+- Achtung OpenAI: Die PII-Tabelle zeigt nur, DASS ein Feld floss -- nicht, ob die Website es uebergeben oder das SDK es per Automatic Advanced Matching selbst von der Seite gelesen hat. Diese Unterscheidung steht nur im Audit-Report (`audit.js`, Abschnitt "OpenAI Ads Pixel"). Hier also nicht auf Absicht der Website schliessen.
 
 **Tracker-Delta:**
 - Bekannte Produkte per Library-Key, unbekannte Third-Parties **per Host** verglichen.
@@ -89,7 +90,8 @@ Ausgabe: `reports/<project>/delta-<ts>.md`. **Mit Read lesen** und bewertet zusa
 
 ### Datengrundlage
 
-- PII/Event-Erkennung: vendored Parser unter `pii-lib/` (GA4, Meta, TikTok, Pinterest, Google Ads, Microsoft UET) -- Snapshot aus der separaten Tracking-Auditor-Browser-Extension.
+- PII/Event-Erkennung: vendored Parser unter `pii-lib/` (GA4, Meta, TikTok, Pinterest, Google Ads, Microsoft UET, OpenAI) -- Snapshot aus der separaten Tracking-Auditor-Browser-Extension.
+- Ein Request kann **mehrere Events** liefern (OpenAI batcht mehrere Events in einen POST). Jedes wird einzeln ausgewertet, damit im Batch mitgeschickte Identifier nicht verloren gehen.
 - Vendoren ohne dedizierten Parser (z.B. Awin): Praesenz-Erkennung ueber `tracking-vendors.json`.
 
 ## Abgrenzung

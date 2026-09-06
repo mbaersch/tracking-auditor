@@ -2,9 +2,9 @@
 //
 // VENDORED SNAPSHOT der Per-Vendor-Parser aus der separaten Tracking-Auditor-
 // Browser-Extension (eigenes Repo). Die Dateien ga4.js/meta.js/tiktok.js/
-// pinterest.js/googleads.js/uet.js/params.js sind eine VERBATIM-Kopie und duerfen
-// hier NICHT editiert werden -- bei Aenderungen in der Extension neu kopieren.
-// Nur dieses index.js ist tracking-auditor-eigen.
+// pinterest.js/googleads.js/uet.js/openai.js/params.js sind eine VERBATIM-Kopie
+// und duerfen hier NICHT editiert werden -- bei Aenderungen in der Extension neu
+// kopieren. Nur dieses index.js ist tracking-auditor-eigen.
 //
 // Jeder Parser gibt fuer einen passenden Request einen normalisierten Record mit
 //   .provider, .identifiers {email,phone,name,address}, .userData, .transport,
@@ -16,6 +16,7 @@ import { parseUetRequest } from './uet.js';
 import { parseTiktokRequest } from './tiktok.js';
 import { parsePinterestRequest } from './pinterest.js';
 import { parseGoogleAdsRequest } from './googleads.js';
+import { parseOpenAiRequest } from './openai.js';
 
 export const PARSERS = [
   { id: 'ga4', parse: parseGa4Request },
@@ -24,6 +25,7 @@ export const PARSERS = [
   { id: 'tiktok', parse: parseTiktokRequest },
   { id: 'pinterest', parse: parsePinterestRequest },
   { id: 'googleads', parse: parseGoogleAdsRequest },
+  { id: 'openai', parse: parseOpenAiRequest },
 ];
 
 // Anzeigename je Provider (fuer Report/Snapshot).
@@ -34,16 +36,21 @@ export const PROVIDER_LABEL = {
   tiktok: 'TikTok Pixel',
   pinterest: 'Pinterest Tag',
   googleads: 'Google Ads',
+  openai: 'OpenAI Pixel',
 };
 
 // Erster passender Parser gewinnt (Reihenfolge wie im Extension-Panel).
-export function parseRequest(url, postData) {
+// Rueckgabe ist IMMER eine Liste: ein Request kann mehrere Events tragen (OpenAI
+// batcht mehrere Events in einen POST), und ein Parser darf deshalb ein Array
+// liefern. Nie auf das erste Element verkuerzen -- das unterschlaegt den Rest.
+export function parseRequests(url, postData) {
   for (const p of PARSERS) {
     let rec = null;
     try { rec = p.parse(url, postData); } catch { rec = null; }
-    if (rec) return rec;
+    if (!rec) continue;
+    return Array.isArray(rec) ? rec : [rec];
   }
-  return null;
+  return [];
 }
 
 // Normalisiert die PII-Praesenz eines Records in eine stabile, delta-freundliche Form.
@@ -88,5 +95,5 @@ export function eventName(rec) {
 
 // Best-effort Konto-/Tag-ID.
 export function accountId(rec) {
-  return rec.accountId || rec.tid || rec.id || rec.ti || rec.code || rec.convId || null;
+  return rec.accountId || rec.tid || rec.id || rec.ti || rec.code || rec.convId || rec.pixelId || null;
 }

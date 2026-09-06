@@ -12,7 +12,7 @@ import {
   matchRequest, detectSSTFromUrls, extractStapeFindings, extractStapeMatches,
 } from './lib/tracking-classify.js';
 import {
-  parseRequest, piiFromRecord, eventName, accountId, PROVIDER_LABEL,
+  parseRequests, piiFromRecord, eventName, accountId, PROVIDER_LABEL,
 } from './pii-lib/index.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -89,8 +89,9 @@ export function analyze(requests, siteUrl) {
 
   for (const r of requests) {
     addTracker(matchRequest(r.url, siteHost), r.phase);
-    const rec = parseRequest(r.url, r.postData);
-    if (rec) addPii(rec.provider, rec, r.phase);
+    // Ein POST kann mehrere Events tragen (OpenAI batcht) -- jedes Event ist ein
+    // eigener Record und kann eigene Identifier fuehren.
+    for (const rec of parseRequests(r.url, r.postData)) addPii(rec.provider, rec, r.phase);
   }
 
   // Stape Custom Loader: getunnelte Hits klassifizieren und als eigene Tracker-
@@ -100,8 +101,7 @@ export function analyze(requests, siteUrl) {
   for (const m of stapeMatches) addTracker(m, 'tunnel');
   const stape = extractStapeFindings(requests);
   for (const d of stape.decodedRequests) {
-    const rec = parseRequest(d.syntheticUrl, null);
-    if (rec) addPii(rec.provider, rec, 'tunnel');
+    for (const rec of parseRequests(d.syntheticUrl, null)) addPii(rec.provider, rec, 'tunnel');
   }
 
   // — SST / Consent Mode —
@@ -124,19 +124,23 @@ export function analyze(requests, siteUrl) {
   const consentSamples = [];
   const seenCm = new Set();
   for (const r of requests) {
-    const rec = parseRequest(r.url, r.postData);
-    if (!rec || !rec.consent) continue;
-    const gcs = rec.consent.gcs || null;
-    if (gcs) {
-      gcsCounts[gcs] = (gcsCounts[gcs] || 0) + 1;
-      const st = gcsState(gcs);
-      if (st && st.fullyDenied) fullyDeniedPings++;
-    }
-    if (gcs || rec.consent.gcd) {
-      const key = `${r.phase}|${gcs || '-'}|${rec.consent.gcd || '-'}`;
-      if (!seenCm.has(key)) {
-        seenCm.add(key);
-        consentSamples.push({ phase: r.phase || '-', gcs: gcs || '(kein gcs)', gcd: rec.consent.gcd || '-' });
+    // Nur Google-Records fuehren gcs/gcd. Andere Provider haben ein .consent mit
+    // eigener Form (OpenAI: {granted, credentialless, source}) und fallen hier
+    // ueber die fehlenden Felder von selbst raus.
+    for (const rec of parseRequests(r.url, r.postData)) {
+      if (!rec.consent) continue;
+      const gcs = rec.consent.gcs || null;
+      if (gcs) {
+        gcsCounts[gcs] = (gcsCounts[gcs] || 0) + 1;
+        const st = gcsState(gcs);
+        if (st && st.fullyDenied) fullyDeniedPings++;
+      }
+      if (gcs || rec.consent.gcd) {
+        const key = `${r.phase}|${gcs || '-'}|${rec.consent.gcd || '-'}`;
+        if (!seenCm.has(key)) {
+          seenCm.add(key);
+          consentSamples.push({ phase: r.phase || '-', gcs: gcs || '(kein gcs)', gcd: rec.consent.gcd || '-' });
+        }
       }
     }
   }
