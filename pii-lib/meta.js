@@ -6,7 +6,8 @@
 // for larger payloads, a form POST (rqm=formPOST) carrying the params in the body.
 // The loader connect.facebook.net/.../fbevents.js is not an event and is ignored.
 
-import { extractParams } from './params.js';
+import { extractParams, hashAlgo, makeGetter } from './params.js';
+import { isSameSiteUrl } from './domain.js';   // eTLD+1 same-site test for the first-party call
 
 // ---------------------------------------------------------------------------
 // Detection
@@ -57,7 +58,7 @@ const META_FIELD = {
 
 const UD_KEY_RE = /^(ud|udff|cud|ncud|aud)\[([\w]+)\]$/;
 
-// Returns { <fieldKey>: { bucket, label, mask, normalizedMask, hashed } } or null.
+// Returns { <fieldKey>: { bucket, label, mask, normalizedMask, hashed, algo } } or null.
 export function extractMetaUserData(queryParams, bodyParams) {
   const fields = {};
   const consider = (params) => {
@@ -68,9 +69,9 @@ export function extractMetaUserData(queryParams, bodyParams) {
       const def = META_FIELD[key];
       if (!def) continue; // unknown advanced-matching subfield
       const f = fields[key] || (fields[key] = {
-        bucket: def.bucket, label: def.label, mask: null, normalizedMask: null, hashed: false,
+        bucket: def.bucket, label: def.label, mask: null, normalizedMask: null, hashed: false, algo: null,
       });
-      if (rep === 'ud' || rep === 'udff' || rep === 'aud') f.hashed = true;
+      if (rep === 'ud' || rep === 'udff' || rep === 'aud') { f.hashed = true; f.algo = hashAlgo(v); }
       else if (rep === 'cud') f.mask = v;
       else if (rep === 'ncud') f.normalizedMask = v;
     }
@@ -129,12 +130,52 @@ export function parseMetaConsent(get) {
 }
 
 // ---------------------------------------------------------------------------
+// Pixel-init signal (silent-pixel detection)
+// ---------------------------------------------------------------------------
+//
+// Every pixel fetches its config on init:
+//   connect.facebook.net/signals/config/<id>?v=…&domain=…&optin_meta_enabled_capi=…
+// This request fires whether or not the pixel is allowed to send events, so it's
+// a reliable "a pixel exists here" anchor. If we see the config but no /tr/ event
+// with the same id, the pixel is very likely silently blocked (Meta "traffic
+// permission" settings). The config itself is NOT a tracking event — it's only
+// used to drive the absence diagnosis, never rendered on its own.
+
+const SIGNAL_CONFIG_RE = /^\/signals\/config\/(\d+)\/?$/;
+
+// Returns { id, domain, capiOptin, version } for a pixel-init config fetch, else null.
+export function parseMetaSignal(url) {
+  let host = '', pathname = '';
+  try { const u = new URL(url); host = u.host.toLowerCase(); pathname = u.pathname; }
+  catch (e) { return null; }
+  if (host !== 'connect.facebook.net' && !host.endsWith('.connect.facebook.net')) return null;
+  const m = SIGNAL_CONFIG_RE.exec(pathname);
+  if (!m) return null;
+  const { queryParams } = extractParams(url, null);
+  return {
+    id: m[1],
+    domain: queryParams.domain || null,
+    capiOptin: queryParams.optin_meta_enabled_capi === 'true',
+    version: queryParams.v || null,
+  };
+}
+
+// Given the pixel ids seen via config and the ids that actually fired a /tr/
+// event, return the ids that initialised but stayed silent. Pure set difference.
+export function metaUnfiredPixelIds(configIds, firedIds) {
+  const fired = firedIds instanceof Set ? firedIds : new Set(firedIds || []);
+  return Array.from(new Set(configIds || [])).filter((id) => !fired.has(id));
+}
+
+// ---------------------------------------------------------------------------
 // Full parse
 // ---------------------------------------------------------------------------
 
-// Returns a normalized record or null for non-Meta requests.
-// transport: 'standard' | 'first-party'
-export function parseMetaRequest(url, postData) {
+// Returns a normalized record or null for non-Meta requests. `pageUrl` is the
+// inspected page's real URL (from the panel) — the only trusted source for the
+// first-party call; absent under `node --test` unless a test supplies it.
+// transport: 'standard' | 'first-party' | 'unknown'
+export function parseMetaRequest(url, postData, pageUrl) {
   let host = '', pathname = '';
   try { const u = new URL(url); host = u.host; pathname = u.pathname; }
   catch (e) { return null; }
@@ -142,15 +183,18 @@ export function parseMetaRequest(url, postData) {
   if (!isTrPath(pathname)) return null;
 
   const { queryParams, bodyParams } = extractParams(url, postData);
-  const get = (k) => queryParams[k] ?? (bodyParams && bodyParams[k]) ?? null;
+  const get = makeGetter(queryParams, bodyParams);
 
   const id = get('id');
   const ev = get('ev');
   if (!id) return null; // a pixel event always carries its pixel id
 
+  // A /tr hit on a non-Facebook host looks like a proxied pixel (numeric id + ev).
+  // Only call it first-party when the host is same-site as the inspected page;
+  // otherwise keep the hit visible but label it 'unknown' (no first-party claim).
   let transport = null;
   if (isFacebookHost(host)) transport = 'standard';
-  else if (/^\d+$/.test(String(id)) && ev) transport = 'first-party'; // proxied /tr on own domain
+  else if (/^\d+$/.test(String(id)) && ev) transport = isSameSiteUrl(host, pageUrl) ? 'first-party' : 'unknown';
   if (!transport) return null;
 
   const userData = extractMetaUserData(queryParams, bodyParams);

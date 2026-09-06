@@ -13,7 +13,7 @@
 // hit already has everything). The noscript/img bracket-param variant
 // (ed[value]=…, pd[em]=…) is a later add.
 
-import { extractParams } from './params.js';
+import { extractParams, hashAlgo, looksHashed, makeGetter } from './params.js';
 
 // ---------------------------------------------------------------------------
 // Detection
@@ -73,14 +73,7 @@ const PD_FIELD = {
   hashed_maids: { bucket: 'maid',       label: 'Mobile ad ID' },
 };
 
-function looksHashed(v) {
-  // Pinterest accepts SHA-256 (64), SHA-1 (40) or MD5 (32) hex.
-  if (typeof v !== 'string') return false;
-  const s = v.trim();
-  return [32, 40, 64].includes(s.length) && /^[0-9a-f]+$/i.test(s);
-}
-
-// Returns { <fieldKey>: { bucket, label, hashed } } or null.
+// Returns { <fieldKey>: { bucket, label, hashed, algo } } or null.
 export function extractPinterestUserData(pd) {
   if (!pd || typeof pd !== 'object' || Array.isArray(pd)) return null;
   const fields = {};
@@ -89,7 +82,7 @@ export function extractPinterestUserData(pd) {
     if (!def) continue;
     if (v == null || v === '') continue;
     const val = Array.isArray(v) ? v[0] : v;            // some fields can be arrays
-    fields[k] = { bucket: def.bucket, label: def.label, hashed: looksHashed(val) };
+    fields[k] = { bucket: def.bucket, label: def.label, hashed: looksHashed(val), algo: hashAlgo(val) };
   }
   return Object.keys(fields).length ? fields : null;
 }
@@ -131,8 +124,8 @@ export function extractPinterestEcommerce(ed) {
   if (ed.promo_code)                                 out.promoCode = String(ed.promo_code);
   if (ed.search_query)                               out.searchQuery = String(ed.search_query);
 
-  if (Array.isArray(ed.line_items) && ed.line_items.length) {
-    out.lineItems = ed.line_items.map((it) => ({
+  if (Array.isArray(ed.line_items) && ed.line_items.some((it) => it && typeof it === 'object')) {
+    out.lineItems = ed.line_items.filter((it) => it && typeof it === 'object').map((it) => ({
       id:       it.product_id != null ? String(it.product_id) : null,
       name:     it.product_name != null ? String(it.product_name) : null,
       price:    it.product_price != null ? String(it.product_price) : null,
@@ -185,7 +178,7 @@ export function parsePinterestRequest(url, postData) {
   if (!isV3Path(pathname)) return null;
 
   const { queryParams, bodyParams } = extractParams(url, postData);
-  const get = (k) => queryParams[k] ?? (bodyParams && bodyParams[k]) ?? null;
+  const get = makeGetter(queryParams, bodyParams);
 
   const tid = get('tid');
   if (!tid) return null;                                // a tag hit always carries its tag id

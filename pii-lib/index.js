@@ -1,10 +1,9 @@
 // ── PII/Event-Parser Dispatcher ─────────────────────────────────────────────
 //
 // VENDORED SNAPSHOT der Per-Vendor-Parser aus der separaten Tracking-Auditor-
-// Browser-Extension (eigenes Repo). Die Dateien ga4.js/meta.js/tiktok.js/
-// pinterest.js/googleads.js/uet.js/openai.js/params.js sind eine VERBATIM-Kopie
-// und duerfen hier NICHT editiert werden -- bei Aenderungen in der Extension neu
-// kopieren. Nur dieses index.js ist tracking-auditor-eigen.
+// Browser-Extension (eigenes Repo). ALLE Dateien in diesem Verzeichnis ausser
+// diesem index.js sind eine VERBATIM-Kopie und duerfen hier NICHT editiert
+// werden -- bei Aenderungen in der Extension neu kopieren.
 //
 // Jeder Parser gibt fuer einen passenden Request einen normalisierten Record mit
 //   .provider, .identifiers {email,phone,name,address}, .userData, .transport,
@@ -16,8 +15,21 @@ import { parseUetRequest } from './uet.js';
 import { parseTiktokRequest } from './tiktok.js';
 import { parsePinterestRequest } from './pinterest.js';
 import { parseGoogleAdsRequest } from './googleads.js';
+import { parseFloodlightRequest } from './floodlight.js';
+import { parseLinkedInRequest } from './linkedin.js';
+import { parseRedditRequest } from './reddit.js';
+import { parseSnapchatRequest } from './snapchat.js';
+import { parseHubspotRequest } from './hubspot.js';
+import { parseCriteoRequest } from './criteo.js';
+import { parseTaboolaRequest } from './taboola.js';
+import { parseOutbrainRequest } from './outbrain.js';
+import { parseAwinRequest } from './awin.js';
 import { parseOpenAiRequest } from './openai.js';
 
+// Reihenfolge wie im Extension-Panel -- sie ist Teil der Klassifikation, nicht
+// Kosmetik: GA4 steht vor Google Ads (GA4 beansprucht nur /g/collect, Ads die
+// ccm/collect- und Conversion-Endpunkte), Floodlight direkt hinter Ads (gleiche
+// DoubleClick-Infrastruktur, eigener Endpunkt).
 export const PARSERS = [
   { id: 'ga4', parse: parseGa4Request },
   { id: 'meta', parse: parseMetaRequest },
@@ -25,6 +37,15 @@ export const PARSERS = [
   { id: 'tiktok', parse: parseTiktokRequest },
   { id: 'pinterest', parse: parsePinterestRequest },
   { id: 'googleads', parse: parseGoogleAdsRequest },
+  { id: 'floodlight', parse: parseFloodlightRequest },
+  { id: 'linkedin', parse: parseLinkedInRequest },
+  { id: 'reddit', parse: parseRedditRequest },
+  { id: 'snapchat', parse: parseSnapchatRequest },
+  { id: 'hubspot', parse: parseHubspotRequest },
+  { id: 'criteo', parse: parseCriteoRequest },
+  { id: 'taboola', parse: parseTaboolaRequest },
+  { id: 'outbrain', parse: parseOutbrainRequest },
+  { id: 'awin', parse: parseAwinRequest },
   { id: 'openai', parse: parseOpenAiRequest },
 ];
 
@@ -36,17 +57,31 @@ export const PROVIDER_LABEL = {
   tiktok: 'TikTok Pixel',
   pinterest: 'Pinterest Tag',
   googleads: 'Google Ads',
+  floodlight: 'Floodlight',
+  linkedin: 'LinkedIn Insight Tag',
+  reddit: 'Reddit Pixel',
+  snapchat: 'Snapchat Pixel',
+  hubspot: 'HubSpot',
+  criteo: 'Criteo',
+  taboola: 'Taboola Pixel',
+  outbrain: 'Outbrain Pixel',
+  awin: 'Awin Affiliate',
   openai: 'OpenAI Pixel',
 };
 
-// Erster passender Parser gewinnt (Reihenfolge wie im Extension-Panel).
+// Erster passender Parser gewinnt.
 // Rueckgabe ist IMMER eine Liste: ein Request kann mehrere Events tragen (OpenAI
 // batcht mehrere Events in einen POST), und ein Parser darf deshalb ein Array
 // liefern. Nie auf das erste Element verkuerzen -- das unterschlaegt den Rest.
-export function parseRequests(url, postData) {
+//
+// pageUrl ist die URL der auditierten Seite. GA4, Meta, Google Ads und UET
+// erkennen damit First-Party-Transporte per eTLD+1-Vergleich; OHNE sie kann kein
+// Request als 'first-party' klassifiziert werden. Die uebrigen Parser ignorieren
+// den Parameter.
+export function parseRequests(url, postData, pageUrl) {
   for (const p of PARSERS) {
     let rec = null;
-    try { rec = p.parse(url, postData); } catch { rec = null; }
+    try { rec = p.parse(url, postData, pageUrl); } catch { rec = null; }
     if (!rec) continue;
     return Array.isArray(rec) ? rec : [rec];
   }

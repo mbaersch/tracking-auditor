@@ -90,9 +90,10 @@ Ausgabe: `reports/<project>/delta-<ts>.md`. **Mit Read lesen** und bewertet zusa
 
 ### Datengrundlage
 
-- PII/Event-Erkennung: vendored Parser unter `pii-lib/` (GA4, Meta, TikTok, Pinterest, Google Ads, Microsoft UET, OpenAI) -- Snapshot aus der separaten Tracking-Auditor-Browser-Extension.
+- PII/Event-Erkennung: vendored Parser unter `pii-lib/` fuer 16 Dienste (GA4, Meta, Microsoft UET, TikTok, Pinterest, Google Ads, Floodlight, LinkedIn, Reddit, Snapchat, HubSpot, Criteo, Taboola, Outbrain, Awin, OpenAI) -- Snapshot aus der separaten Tracking-Auditor-Browser-Extension, gleicher Umfang wie deren DevTools-Panel.
 - Ein Request kann **mehrere Events** liefern (OpenAI batcht mehrere Events in einen POST). Jedes wird einzeln ausgewertet, damit im Batch mitgeschickte Identifier nicht verloren gehen.
-- Vendoren ohne dedizierten Parser (z.B. Awin): Praesenz-Erkennung ueber `tracking-vendors.json`.
+- Dienste ohne dedizierten Parser (GTM, Google Tag, AdSense, Clarity, Hotjar): Praesenz-Erkennung ueber `tracking-vendors.json`.
+- Transport `first-party` beruht auf einem eTLD+1-Vergleich gegen die Shop-URL. Bei gefilterten HARs (nur Vendor-Requests, kein HTML-Dokument) raet `inferSiteUrl` den Host falsch -- dann ist die Transport-Spalte nicht belastbar. In dem Fall `--url` explizit setzen.
 
 ## Abgrenzung
 

@@ -227,7 +227,9 @@ Beispiel-Report: [Tracking-Vergleich](examples/compare-example-report.md)
 
 Waehrend `compare.js` zwei URLs **synchron in einem Lauf** vergleicht, dient der Flow-Vergleich dem **Vorher/Nachher ueber die Zeit** (z.B. GTM-/Consent-/Server-Side-Umstellung): Baseline jetzt aufzeichnen, nach der Umstellung erneut, dann das Delta bestimmen. Der Schwerpunkt liegt auf einem **mehrstufigen Checkout-Flow** (Startseite -> Produkt -> Warenkorb -> Checkout -> Adresse) und dem **Nachweis, welche personenbezogenen Felder (E-Mail, Telefon, Name, Adresse) an welchen Vendor** gehen -- inklusive gehashter Formen (Meta/TikTok Advanced Matching, GA4/Ads Enhanced Conversions).
 
-Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension; GA4, Meta, TikTok, Pinterest, Google Ads, Microsoft UET, OpenAI). Vendoren ohne dedizierten Parser (z.B. Awin) werden ueber `tracking-vendors.json` als Praesenz erkannt.
+Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension). Abgedeckt sind 16 Dienste: GA4, Meta, Microsoft UET, TikTok, Pinterest, Google Ads, Floodlight, LinkedIn, Reddit, Snapchat, HubSpot, Criteo, Taboola, Outbrain, Awin, OpenAI -- damit derselbe Umfang wie im DevTools-Panel der Extension. Dienste ohne dedizierten Parser (GTM, Google Tag, AdSense, Clarity, Hotjar) werden ueber `tracking-vendors.json` als Praesenz erkannt.
+
+Vier Parser (GA4, Meta, Google Ads, UET) bekommen zusaetzlich die URL der auditierten Seite und erkennen damit **First-Party-Transporte per eTLD+1-Vergleich**. Ohne diese Angabe kann kein Request als `first-party` gelten -- eine Klassifikation nach blosser URL-Form wuerde sonst Google-eigene Hosts wie `stats.g.doubleclick.net` faelschlich als eigenes Setup ausweisen.
 
 Ein einzelner Request kann dabei **mehrere Events** liefern: das OpenAI-Pixel buendelt mehrere Events in einen POST. Jedes Event wird einzeln ausgewertet, damit im Batch mitgeschickte Identifier nicht verloren gehen.
 
@@ -361,6 +363,12 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 - Auf Windows mit Git Bash werden relative URL-Pfade (z.B. `/kategorie/`) manchmal zu lokalen Pfaden umgeschrieben. Das Script erkennt und korrigiert das automatisch, alternativ volle URLs verwenden oder `MSYS_NO_PATHCONV=1` setzen
 
 ## Changelog
+
+### 2026-09-06 -- Parser-Gleichstand mit der Browser-Extension
+
+Die vendored Parser unter `pii-lib/` decken jetzt dieselben 16 Dienste ab wie das DevTools-Panel der Extension. Neu mit PII-/Event-Auswertung im Flow-Vergleich: Floodlight, LinkedIn, Reddit, Snapchat, HubSpot, Criteo, Taboola, Outbrain, Awin. Die sechs vorhandenen Parser waren gedriftet und sind mitgezogen worden.
+
+Dabei fiel eine Fehlklassifikation auf: Die alte First-Party-Erkennung schloss allein aus der URL-Form (`v=2` plus `tid=G-`) auf einen First-Party-Transport und wies deshalb Google-eigene Hosts wie `stats.g.doubleclick.net` oder `pagead2.googlesyndication.com` als eigenes Setup aus. Jetzt entscheidet ein eTLD+1-Vergleich gegen die Seiten-URL.
 
 ### 2026-09-06 -- OpenAI Ads Pixel
 

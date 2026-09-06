@@ -91,7 +91,7 @@ export function analyze(requests, siteUrl) {
     addTracker(matchRequest(r.url, siteHost), r.phase);
     // Ein POST kann mehrere Events tragen (OpenAI batcht) -- jedes Event ist ein
     // eigener Record und kann eigene Identifier fuehren.
-    for (const rec of parseRequests(r.url, r.postData)) addPii(rec.provider, rec, r.phase);
+    for (const rec of parseRequests(r.url, r.postData, siteUrl)) addPii(rec.provider, rec, r.phase);
   }
 
   // Stape Custom Loader: getunnelte Hits klassifizieren und als eigene Tracker-
@@ -101,7 +101,7 @@ export function analyze(requests, siteUrl) {
   for (const m of stapeMatches) addTracker(m, 'tunnel');
   const stape = extractStapeFindings(requests);
   for (const d of stape.decodedRequests) {
-    for (const rec of parseRequests(d.syntheticUrl, null)) addPii(rec.provider, rec, 'tunnel');
+    for (const rec of parseRequests(d.syntheticUrl, null, siteUrl)) addPii(rec.provider, rec, 'tunnel');
   }
 
   // — SST / Consent Mode —
@@ -127,7 +127,7 @@ export function analyze(requests, siteUrl) {
     // Nur Google-Records fuehren gcs/gcd. Andere Provider haben ein .consent mit
     // eigener Form (OpenAI: {granted, credentialless, source}) und fallen hier
     // ueber die fehlenden Felder von selbst raus.
-    for (const rec of parseRequests(r.url, r.postData)) {
+    for (const rec of parseRequests(r.url, r.postData, siteUrl)) {
       if (!rec.consent) continue;
       const gcs = rec.consent.gcs || null;
       if (gcs) {

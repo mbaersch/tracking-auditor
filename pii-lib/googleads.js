@@ -26,22 +26,25 @@
 // `em`/`emd` enhanced-conversions tokens (reading, not validating) — no hash
 // recomputation, no compliance verdicts.
 
-import { extractParams } from './params.js';
+import { extractParams, makeGetter, piiField } from './params.js';
 import { parseGcs, parseGcd } from './ga4.js';   // consent decoders, ported once, reused here
+import { isSameSiteUrl } from './domain.js';       // eTLD+1 same-site test for the first-party call
 
 // ---------------------------------------------------------------------------
 // Host / path detection
 // ---------------------------------------------------------------------------
 
 // Google-owned hosts that carry Ads beacons. www.google.<tld> covers the EU TLD
-// mirrors (google.de etc.) that the 1p-* endpoints duplicate to.
+// mirrors (google.de etc.) that the 1p-* endpoints duplicate to; googlesyndication
+// covers the pagead / pagead2 ccm/collect twins gtag fires straight to Google.
 export function isGoogleAdsHost(host) {
   const h = (host || '').toLowerCase();
   return (
     h === 'googleads.g.doubleclick.net' ||
     h === 'www.googleadservices.com' || h === 'googleadservices.com' ||
     h === 'ad.doubleclick.net' ||
-    /^(www\.)?google\.[a-z.]+$/.test(h)
+    /^(www\.)?google\.[a-z.]+$/.test(h) ||
+    /(^|\.)googlesyndication\.com$/.test(h)
   );
 }
 
@@ -104,17 +107,7 @@ const EM_FIELD = {
   co: { bucket: 'country',   label: 'Country' },
 };
 
-function looksHashed(v) {
-  if (typeof v !== 'string') return false;
-  const s = v.trim();
-  // Hex SHA-256/SHA-1/MD5 (conversion `em`) …
-  if ([32, 40, 64].includes(s.length) && /^[0-9a-f]+$/i.test(s)) return true;
-  // … or base64url SHA-256 (form-data `em` ships 32 bytes as 43 chars, no padding).
-  if ((s.length === 43 || s.length === 44) && /^[A-Za-z0-9_-]+={0,2}$/.test(s)) return true;
-  return false;
-}
-
-// Returns { <fieldKey>: { bucket, label, hashed } } or null. The version marker
+// Returns { <fieldKey>: { bucket, label, hashed, algo } } or null. The version marker
 // and a bare `tv.1` stub yield null.
 export function parseEmToken(em) {
   if (!em || typeof em !== 'string') return null;
@@ -129,7 +122,7 @@ export function parseEmToken(em) {
     const prefix = rawKey.replace(/\d+$/, '');           // fn0 → fn
     const def = EM_FIELD[prefix];
     if (!def || val === '') continue;
-    fields[rawKey] = { bucket: def.bucket, label: def.label, hashed: looksHashed(val) };
+    fields[rawKey] = piiField(def.bucket, def.label, val);
   }
   return Object.keys(fields).length ? fields : null;
 }
@@ -221,23 +214,32 @@ function firstPathId(pathname) {
   return m ? m[1] : null;
 }
 
-// Returns a normalized record or null for non-Ads / noise requests.
-export function parseGoogleAdsRequest(url, postData) {
+// Returns a normalized record or null for non-Ads / noise requests. `pageUrl` is
+// the inspected page's real URL (from the panel) — the only trusted source for
+// the first-party call; absent under `node --test` unless a test supplies it.
+export function parseGoogleAdsRequest(url, postData, pageUrl) {
   let host = '', pathname = '';
   try { const u = new URL(url); host = u.host; pathname = u.pathname; }
   catch (e) { return null; }
 
   const { queryParams, bodyParams } = extractParams(url, postData);
-  const get = (k) => queryParams[k] ?? (bodyParams && bodyParams[k]) ?? null;
+  const get = makeGetter(queryParams, bodyParams);
 
   const en = get('en');
   const cls = classifyPath(pathname, en);
   if (!cls) return null;
 
+  // transport: where the hit actually egresses — NOT what script fired it.
+  //  - 'google'      : a Google-owned Ads host (the vendor endpoint).
+  //  - 'first-party' : an sGTM proxy on the *site's own* registrable domain
+  //                    (page eTLD+1 == host eTLD+1) — positively confirmed.
+  //  - 'unknown'     : a non-Google host we cannot positively tie to the site
+  //                    (foreign proxy, or no page URL to compare). Never assume
+  //                    first-party from the absence of a match — it earns no pill.
   const googleHost = isGoogleAdsHost(host);
-  const onAdsPath = true;                                // classifyPath already vouched for it
-  if (!googleHost && !onAdsPath) return null;
-  const transport = googleHost ? 'google' : 'first-party';
+  const transport = googleHost
+    ? 'google'
+    : (isSameSiteUrl(host, pageUrl) ? 'first-party' : 'unknown');
 
   // Conversion id: from the path (…/<id>/) for most families, else from tid (AW-…)
   // for ccm/collect. Without one this isn't a real tag hit → drop as noise.

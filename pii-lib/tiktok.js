@@ -13,7 +13,7 @@
 // (signal_diagnostic_labels + _inspection.identity_params) — we surface that
 // verbatim (reading parameters, not validating).
 
-import { extractParams } from './params.js';
+import { extractParams, piiField } from './params.js';
 import { decodeBase64Utf8 } from './ga4.js';
 
 // ---------------------------------------------------------------------------
@@ -71,11 +71,7 @@ const TIKTOK_USER_FIELD = {
   country:      { bucket: 'country',    label: 'Country' },
 };
 
-function looksHashed(v) {
-  return typeof v === 'string' && /^[0-9a-f]{64}$/i.test(v.trim());
-}
-
-// Returns { <fieldKey>: { bucket, label, hashed } } from a context.user object,
+// Returns { <fieldKey>: { bucket, label, hashed, algo } } from a context.user object,
 // or null when no recognised non-empty identifier is present.
 export function extractTiktokUserData(user) {
   if (!user || typeof user !== 'object' || Array.isArray(user)) return null;
@@ -84,7 +80,7 @@ export function extractTiktokUserData(user) {
     const def = TIKTOK_USER_FIELD[k];
     if (!def) continue;                                  // unknown / non-identifier
     if (v == null || v === '') continue;                 // present but empty
-    fields[k] = { bucket: def.bucket, label: def.label, hashed: looksHashed(v) };
+    fields[k] = piiField(def.bucket, def.label, v);
   }
   return Object.keys(fields).length ? fields : null;
 }
@@ -131,8 +127,8 @@ export function extractTiktokEcommerce(properties) {
 
   // contents[] is the richest form; content_id / content_ids are the scalar
   // fallbacks (single id / list of ids).
-  if (Array.isArray(properties.contents) && properties.contents.length) {
-    out.contents = properties.contents.map((it) => ({
+  if (Array.isArray(properties.contents) && properties.contents.some((it) => it && typeof it === 'object')) {
+    out.contents = properties.contents.filter((it) => it && typeof it === 'object').map((it) => ({
       id:       it.content_id != null ? String(it.content_id) : null,
       name:     it.content_name != null ? String(it.content_name) : null,
       brand:    it.brand != null ? String(it.brand) : null,
