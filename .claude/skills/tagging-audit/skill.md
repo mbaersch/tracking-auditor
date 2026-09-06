@@ -52,8 +52,17 @@ Report liegt unter `reports/<project>/audit-<YYYY-MM-DD-HHMM>.md`. Lies ihn und 
 - **Consent Mode** -- gcs/gcd Parameter vorhanden und korrekt?
 - **Cookie-Inventar** -- Anzahl Cookies pre vs. post Consent
 - **E-Commerce Events** -- dataLayer-Events vorhanden? Produktdaten konsistent?
+- **OpenAI Ads Pixel** (eigener Abschnitt, nur bei Fund) -- siehe unten
 
 **Report-Format:** Die Tracker-Tabellen zeigen Produkt-Level Detail (z.B. "Google Analytics 4", "Google Ads" statt nur "Google"). Spalten: Produkt, Kategorie, Richtung (script/request/domain/sst-tunnel), Typen (pageview/conversion/event). Datenquelle ist `tracking-vendors.json`. Richtung `sst-tunnel` = First-Party-getunnelter Hit, der aus einem Base64-codierten Stape-Custom-Loader-Request dekodiert und dem echten Produkt (GA4/Ads/Floodlight) zugeordnet wurde -- diese Tracker laufen auf der First-Party-Domain und tauchen daher nicht in den "Sonstige Third-Party"-Listen auf. **TAGGRS** Custom Loader (AES-verschluesselter Envelope) wird dagegen nur am Fingerprint **erkannt** und im SST-Abschnitt als Existenznachweis gemeldet -- nicht entschluesselt, daher keine `sst-tunnel`-Klassifizierung der einzelnen Hits.
+
+**OpenAI Ads Pixel:** Bekommt einen eigenen Abschnitt, weil das Pixel seine Events im POST-Body batcht und mehr ueber sich verraet als andere. Beim Auswerten beachten:
+
+- Das Pixel ist **Opt-out**: ohne expliziten `oaiq('consent', false)` misst es, und es kennt weder TCF noch Consent Mode. Eine Website muss ihre CMP von Hand daran koppeln. Events in der Phase `pre-consent` sind daher der Normalfall bei fehlender Anbindung -- und genau der zu meldende Befund.
+- Der Consent-Zustand kommt vom Pixel selbst. **"Nie gefragt" und "aktiv zugestimmt" sind auf der Leitung nicht unterscheidbar** -- beides meldet es als erteilt. Nie als "Einwilligung liegt vor" interpretieren.
+- **Verworfene Events** (`unsupported_event_name`, `missing_event_props`, `invalid_event_props`, `invalid_event_options`) meldet das Pixel im Diagnostic-Event. Das sind Implementierungsfehler, die sonst unsichtbar bleiben, weil zu ihnen gar kein Request existiert -- immer benennen.
+- Die Tabelle "User-Daten nach Herkunft" unterscheidet, ob die Website einen Identifier uebergeben hat (`init`) oder das SDK ihn per Automatic Advanced Matching selbst von der Seite gelesen hat (`Formular`/`JS-Variable`/`HTML`). Auto-Spalten sind datenschutzrelevant: Die Website sammelt dann unbeabsichtigt. Geo-Felder (Land/Region/Stadt/PLZ) gehen bauartbedingt im Klartext -- neutral benennen, nicht als Leck.
+- Fehlen Events, sagt der Abschnitt selbst, welcher der drei Zustaende vorliegt (SDK ohne Config-Fetch = ID unbekannt · Config-Fetch ohne Events = initialisiert, nichts gemessen · Consent verweigert). Nicht darueber hinaus spekulieren.
 
 ## Wenn es Probleme gibt
 

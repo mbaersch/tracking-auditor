@@ -23,6 +23,7 @@
 | Microsoft Clarity | – | ja | – |
 | Hotjar | – | ja | – |
 | TikTok Pixel | – | CSP-blockiert | – |
+| OpenAI Ads Pixel | ja | ja | – |
 
 **Sonstige Third-Party Domains:** Pre-Consent 2, Post-Accept +3, Post-Reject +0
 
@@ -90,6 +91,53 @@
 **Dynamic Remarketing (Google Ads)**
 - ✓ Produkt-IDs in 2 Request(s)
 - Seiten-Typen: product, cart
+
+## OpenAI Ads Pixel
+
+**SDK geladen in Phase(n):** pre-consent
+
+### Pixel Nx4TeaEarlGreyHot88Zq
+
+- SDK-Version: 0.1.41
+- Config-Fetch in Phase(n): pre-consent
+
+**Consent-Zustand laut Pixel**
+
+| Phase | Zustand | Transport |
+|-------|---------|----------|
+| pre-consent | erteilt (Diagnostic) | vollstaendig |
+| post-accept | erteilt (Diagnostic) | vollstaendig |
+
+Das Pixel kennt weder TCF noch Consent Mode und misst per Default. "Nie gefragt" und "aktiv zugestimmt" sind auf der Leitung nicht unterscheidbar -- beides meldet das Pixel als erteilt.
+
+**Events**
+
+| Phase | Event | Typ | Betrag | Items | Dedup-ID |
+|-------|-------|-----|--------|-------|----------|
+| pre-consent | page_viewed | contents | - | - | - |
+| post-accept | checkout_started | contents | 249,90 EUR | 3 | - |
+| post-accept | order_created | contents | 249,90 EUR | 3 | ja |
+
+⚠ 1 Event(s) vor der Consent-Entscheidung gefeuert.
+
+**Automatic Advanced Matching (Konto-Einstellung):** enabled
+
+**Vom Pixel verworfene Events**
+
+- ⚠ 2 verworfen in Phase post-accept (unsupported_event_name: 1, invalid_event_props: 1) -- betroffen: Purchase, items_added
+
+Das Pixel meldet fehlerhafte Aufrufe selbst. Verworfene Events werden nicht gesendet und sind sonst unsichtbar -- die Zahl kommt aus dem Diagnostic-Event.
+
+**User-Daten nach Herkunft**
+
+| Feld | init | Formular (auto) |
+|------|------|------|
+| E-Mail | SHA-256 | SHA-256 |
+| Telefon | - | SHA-256 |
+| Land | Klartext | - |
+| PLZ | Klartext | Klartext |
+
+Die auto-Spalten hat das SDK selbst von der Seite gelesen (Automatic Advanced Matching), nicht die Website uebergeben. Geo-Felder werden bauartbedingt im Klartext uebertragen.
 
 ## Pre-Consent
 

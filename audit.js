@@ -40,6 +40,7 @@ import {
   extractStapeFindings, extractStapeMatches,
   extractTaggrsTransports,
 } from './lib/tracking-classify.js';
+import { parseOpenAiRequest, isOpenAiSdkHost } from './pii-lib/openai.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LIBRARY_PATH = resolve(__dirname, 'cmp-library.json');
@@ -203,6 +204,104 @@ function detectMetaSetup(fullRequests, cookies, siteHost) {
   return { hasBrowserPixel, hasFirstPartyEvents, hasFbpCookie };
 }
 
+// ── OpenAI Ads Pixel (oaiq) ──────────────────────────────────────────────────
+//
+// Das Pixel ist Opt-out: ohne expliziten oaiq('consent', false) misst es, und es
+// kennt weder TCF noch Consent Mode. Es feuert also typischerweise schon vor
+// jeder Consent-Entscheidung -- deshalb traegt hier jedes Event seine Phase.
+//
+// Die Pixel-ID steht NICHT in der SDK-URL. Sie kommt entweder aus dem Pfad des
+// Config-Fetches oder aus ?pid= am Event-Request. Bleiben beide aus, ist nur
+// belegt, DASS ein Pixel geladen wurde -- was der Report so ausweist, statt eine
+// ID zu erfinden.
+
+const OPENAI_UNKNOWN_PIXEL = '(ID unbekannt)';
+const OPENAI_CONFIG_PATH = /\/pixel-config\/v\d+\/([^/]+)\.json$/;
+
+function openAiConfigPixelId(requestUrl) {
+  try {
+    const m = new URL(requestUrl).pathname.match(OPENAI_CONFIG_PATH);
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+
+/**
+ * Sammelt SDK-Loads, Config-Fetches und geparste Events in deepAnalysis.openai.
+ * Wird wie die uebrigen Payload-Analysen pro Phase aufgerufen und akkumuliert.
+ */
+function analyzeOpenAiPixel(fullRequests, openai) {
+  const pixelEntry = (id) => {
+    if (!openai.pixels.has(id)) {
+      openai.pixels.set(id, {
+        sdkVersions: new Set(), events: [], consent: [], consentSeen: new Set(),
+        diagnostics: [], userData: new Map(),
+      });
+    }
+    return openai.pixels.get(id);
+  };
+
+  for (const req of fullRequests) {
+    const phase = req.phase || '-';
+
+    // Der CDN-Host liefert SDK und Config -- nie ein Event.
+    if (isOpenAiSdkHost(getHostname(req.url) || '')) {
+      const configId = openAiConfigPixelId(req.url);
+      if (configId) {
+        pixelEntry(configId);
+        if (!openai.configFetches.some(c => c.pixelId === configId && c.phase === phase)) {
+          openai.configFetches.push({ pixelId: configId, phase });
+        }
+      } else if (req.url.includes('/sdk/oaiq')) {
+        openai.sdkLoads.add(phase);
+      }
+      continue;
+    }
+
+    for (const rec of parseOpenAiRequest(req.url, req.postData) || []) {
+      const entry = pixelEntry(rec.pixelId || OPENAI_UNKNOWN_PIXEL);
+      if (rec.sdkVersion) entry.sdkVersions.add(rec.sdkVersion);
+
+      if (rec.diagnostic) entry.diagnostics.push({ phase, ...rec.diagnostic });
+
+      if (rec.consent) {
+        const key = `${phase}|${rec.consent.granted}|${rec.consent.source}`;
+        if (!entry.consentSeen.has(key)) {
+          entry.consentSeen.add(key);
+          entry.consent.push({ phase, ...rec.consent });
+        }
+      }
+
+      // openai::sdk_init und oai::diagnostic teilen den Transport mit echten
+      // Events, sind aber keine Messung -- sie stehen in eigenen Bloecken.
+      if (!rec.flags.internal) {
+        entry.events.push({
+          phase,
+          event: rec.event,
+          dataType: rec.dataType,
+          revenue: rec.revenue,
+          items: rec.flags.itemCount,
+          dedupeId: rec.flags.dedupeId,
+          optOut: rec.flags.optOut,
+          standard: rec.flags.standardEvent,
+        });
+      }
+
+      // Der user-Block haengt am Batch-Envelope, nicht am einzelnen Event -- also
+      // Praesenz je Feld sammeln, nicht zaehlen. Die Phasen zeigen, ob schon vor
+      // der Consent-Entscheidung Identifier geflossen sind.
+      for (const [k, f] of Object.entries(rec.userData || {})) {
+        const cur = entry.userData.get(k) || {
+          bucket: f.bucket, source: f.source, hashed: f.hashed, algo: f.algo,
+          values: f.list ? f.list.length : 1, phases: new Set(),
+        };
+        cur.values = Math.max(cur.values, f.list ? f.list.length : 1);
+        cur.phases.add(phase);
+        entry.userData.set(k, cur);
+      }
+    }
+  }
+}
+
 /**
  * Runs all payload analyses on enriched request objects.
  * Called after each phase, accumulates findings into deepAnalysis.
@@ -290,6 +389,10 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
   if (!deepAnalysis.features.metaSetup) {
     deepAnalysis.features.metaSetup = detectMetaSetup(allRequests, cookies, siteHost);
   }
+
+  // 8. OpenAI Ads Pixel -- die Original-Requests, nicht allRequests: die Events
+  // stehen im POST-Body, den die synthetischen Stape-URLs nicht tragen.
+  analyzeOpenAiPixel(fullRequests, deepAnalysis.openai);
 }
 
 // ── Server-Side Tagging Detection ────────────────────────────────────────────
@@ -1247,6 +1350,165 @@ function formatTrackingFeaturesSection(deepAnalysis) {
   return md;
 }
 
+const OPENAI_SOURCE_LABELS = [
+  ['in', 'init'],
+  ['fm', 'Formular (auto)'],
+  ['js', 'JS-Variable (auto)'],
+  ['ht', 'HTML (auto)'],
+];
+
+const OPENAI_BUCKET_LABELS = [
+  ['email', 'E-Mail'], ['phone', 'Telefon'],
+  ['firstName', 'Vorname'], ['lastName', 'Nachname'],
+  ['externalId', 'Externe ID'],
+  ['country', 'Land'], ['region', 'Region'], ['city', 'Stadt'], ['postal', 'PLZ'],
+];
+
+// Phasen, die vor einer Consent-Entscheidung liegen. Ein Event oder Identifier
+// hier ist der eigentliche Befund -- das Pixel misst per Default.
+const PRE_CONSENT_PHASES = new Set(['pre-consent', 'reject-pre']);
+
+function openAiConsentLabel(c) {
+  if (c.granted === false) return 'verweigert';
+  if (c.granted === true) {
+    return c.source === 'diagnostic' ? 'erteilt (Diagnostic)' : 'nicht verweigert (voller Payload)';
+  }
+  return 'unbekannt';
+}
+
+function formatOpenAiSection(openai) {
+  if (!openai) return '';
+  const hasEvents = [...openai.pixels.values()].some(p => p.events.length > 0);
+  if (!openai.pixels.size && !openai.sdkLoads.size) return '';
+
+  let md = '## OpenAI Ads Pixel\n\n';
+
+  // Die Zustaende ohne Events unterscheiden sich an FEHLENDEN Requests, nicht an
+  // vorhandenen -- deshalb hier explizit benannt. Eine ID kann aus dem Config-Pfad
+  // ODER aus ?pid= eines Marker-Requests stammen.
+  const knownIds = [...openai.pixels.keys()].filter(id => id !== OPENAI_UNKNOWN_PIXEL);
+  const denied = [...openai.pixels.values()].some(p => p.consent.some(c => c.granted === false));
+
+  if (!hasEvents) {
+    if (denied) {
+      md += 'Consent verweigert. Das SDK laedt trotzdem -- die Einwilligung steuert nur den '
+          + 'Config-Fetch und die Messung, nicht den Download. Gesendet wurde allein der '
+          + 'Session-Marker des Pixels, ohne Identifier.\n\n';
+    } else if (!knownIds.length) {
+      md += 'SDK geladen, aber weder Config-Fetch noch Events. Das Pixel ist verbaut, seine ID '
+          + 'bleibt unbekannt: entweder wurde Consent verweigert (dann unterbleibt der '
+          + 'Config-Fetch) oder das Pixel wurde nie initialisiert.\n\n';
+    } else {
+      md += 'Pixel initialisiert und Consent nicht verweigert -- gemessen wurde in diesem Audit '
+          + 'trotzdem nichts.\n\n';
+    }
+  }
+
+  if (openai.sdkLoads.size) {
+    md += `**SDK geladen in Phase(n):** ${[...openai.sdkLoads].join(', ')}\n\n`;
+  }
+
+  for (const [pixelId, p] of openai.pixels) {
+    md += `### Pixel ${pixelId}\n\n`;
+
+    const sdk = [...p.sdkVersions];
+    const cfgPhases = openai.configFetches.filter(c => c.pixelId === pixelId).map(c => c.phase);
+    if (sdk.length) md += `- SDK-Version: ${sdk.join(', ')}\n`;
+    if (cfgPhases.length) md += `- Config-Fetch in Phase(n): ${[...new Set(cfgPhases)].join(', ')}\n`;
+    if (sdk.length || cfgPhases.length) md += '\n';
+
+    if (p.consent.length) {
+      md += '**Consent-Zustand laut Pixel**\n\n';
+      md += '| Phase | Zustand | Transport |\n';
+      md += '|-------|---------|----------|\n';
+      for (const c of p.consent) {
+        md += `| ${c.phase} | ${openAiConsentLabel(c)} | ${c.credentialless ? 'ohne Credentials' : 'vollstaendig'} |\n`;
+      }
+      md += '\n';
+      // Der Hinweis gilt nur fuer erteilten Consent -- unter einer Tabelle, die
+      // "verweigert" sagt, waere er irrefuehrend.
+      if (p.consent.some(c => c.granted === true)) {
+        md += 'Das Pixel kennt weder TCF noch Consent Mode und misst per Default. '
+            + '"Nie gefragt" und "aktiv zugestimmt" sind auf der Leitung nicht unterscheidbar -- '
+            + 'beides meldet das Pixel als erteilt.\n\n';
+      }
+    }
+
+    if (p.events.length) {
+      md += '**Events**\n\n';
+      md += '| Phase | Event | Typ | Betrag | Items | Dedup-ID |\n';
+      md += '|-------|-------|-----|--------|-------|----------|\n';
+      for (const e of p.events) {
+        const betrag = e.revenue && e.revenue.value
+          ? `${String(e.revenue.value).replace('.', ',')} ${e.revenue.currency || ''}`.trim()
+          : '-';
+        const name = e.standard ? e.event : `${e.event} (custom)`;
+        md += `| ${e.phase} | ${name}${e.optOut ? ' ⚠ opt_out' : ''} | ${e.dataType || '-'} | `
+            + `${betrag} | ${e.items || '-'} | ${e.dedupeId ? 'ja' : '-'} |\n`;
+      }
+      md += '\n';
+
+      const preConsent = p.events.filter(e => PRE_CONSENT_PHASES.has(e.phase));
+      if (preConsent.length) {
+        md += `⚠ ${preConsent.length} Event(s) vor der Consent-Entscheidung gefeuert.\n\n`;
+      }
+    }
+
+    const diag = p.diagnostics;
+    if (diag.length) {
+      const aam = diag.map(d => d.autoMatching).find(Boolean);
+      if (aam) md += `**Automatic Advanced Matching (Konto-Einstellung):** ${aam}\n\n`;
+
+      const dropped = diag.filter(d => d.droppedCount > 0);
+      if (dropped.length) {
+        md += '**Vom Pixel verworfene Events**\n\n';
+        for (const d of dropped) {
+          const reasons = d.droppedReasons
+            ? Object.entries(d.droppedReasons).map(([r, n]) => `${r}: ${n}`).join(', ') : '-';
+          const names = d.droppedNames ? Object.keys(d.droppedNames).join(', ') : null;
+          md += `- ⚠ ${d.droppedCount} verworfen in Phase ${d.phase} (${reasons})`;
+          md += names ? ` -- betroffen: ${names}\n` : '\n';
+        }
+        md += '\nDas Pixel meldet fehlerhafte Aufrufe selbst. Verworfene Events werden nicht '
+            + 'gesendet und sind sonst unsichtbar -- die Zahl kommt aus dem Diagnostic-Event.\n\n';
+      }
+    }
+
+    if (p.userData.size) {
+      const sources = OPENAI_SOURCE_LABELS.filter(([src]) =>
+        [...p.userData.values()].some(f => f.source === src));
+
+      md += '**User-Daten nach Herkunft**\n\n';
+      md += `| Feld | ${sources.map(([, l]) => l).join(' | ')} |\n`;
+      md += `|------|${sources.map(() => '------').join('|')}|\n`;
+      for (const [bucket, label] of OPENAI_BUCKET_LABELS) {
+        const cells = sources.map(([src]) => {
+          const f = [...p.userData.values()].find(v => v.bucket === bucket && v.source === src);
+          if (!f) return '-';
+          const form = f.hashed ? (f.algo === 'sha256' ? 'SHA-256' : f.algo) : 'Klartext';
+          return f.values > 1 ? `${form} (${f.values} Werte)` : form;
+        });
+        if (cells.every(c => c === '-')) continue;
+        md += `| ${label} | ${cells.join(' | ')} |\n`;
+      }
+      md += '\n';
+
+      const auto = [...p.userData.values()].some(f => f.source !== 'in');
+      if (auto) {
+        md += 'Die auto-Spalten hat das SDK selbst von der Seite gelesen (Automatic Advanced '
+            + 'Matching), nicht die Website uebergeben. Geo-Felder werden bauartbedingt im '
+            + 'Klartext uebertragen.\n\n';
+      }
+      const early = [...p.userData.values()].filter(f => [...f.phases].some(ph => PRE_CONSENT_PHASES.has(ph)));
+      if (early.length) {
+        md += '⚠ Identifier flossen bereits vor der Consent-Entscheidung.\n\n';
+      }
+    }
+  }
+
+  return md;
+}
+
 function formatProductAnalysis(analysis) {
   if (!analysis || !analysis.format) return '';
 
@@ -1514,6 +1776,11 @@ function generateReport(data) {
   // ── Tracking Features ──
   if (data.deepAnalysis) {
     md += formatTrackingFeaturesSection(data.deepAnalysis);
+  }
+
+  // ── OpenAI Ads Pixel ──
+  if (data.deepAnalysis) {
+    md += formatOpenAiSection(data.deepAnalysis.openai);
   }
 
   // ── Pre-Consent ──
@@ -1800,6 +2067,11 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
       taggrsTransports: [],
       googleSubTypes: new Set(),
       measurementIds: [],
+      openai: {
+        sdkLoads: new Set(),   // Phasen mit oaiq-SDK-Load (ohne dass eine ID bekannt waere)
+        configFetches: [],     // { pixelId, phase } -- belegt ein Pixel auch ohne Event
+        pixels: new Map(),
+      },
     },
     sst: null,
   };

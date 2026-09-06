@@ -310,6 +310,19 @@
     ],
     "domains": ["alb.reddit.com", "redditstatic.com"]
   },
+  "openai-pixel": {
+    "vendor": "OpenAI",
+    "product": "OpenAI Ads Pixel",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "bzrcdn.openai.com/sdk/oaiq" }
+    ],
+    "endpoints": [
+      { "pattern": "bzrcdn.openai.com/pixel-config/", "type": "config" },
+      { "pattern": "bzr.openai.com/v1/sdk/events", "type": "event" }
+    ],
+    "domains": ["bzr.openai.com", "bzrcdn.openai.com"]
+  },
   "snapchat-pixel": {
     "vendor": "Snap",
     "product": "Snapchat Pixel",

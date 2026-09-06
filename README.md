@@ -160,6 +160,7 @@ Der generierte Report enthaelt:
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
 - **CSP-Blockaden** (nur wenn CSP Tracking-Requests blockiert hat) -- Liste der blockierten Tracker-Domains
 - **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions, Dynamic Remarketing, Meta CAPI, Stape Custom Loader IDs
+- **OpenAI Ads Pixel** (nur wenn ein Pixel gefunden wurde) -- eigener Abschnitt, weil das Pixel seine Events im POST-Body batcht und dabei mehr ueber sich verraet als andere: Pixel-ID, Events je Consent-Phase (mit Betrag in Minor Units korrekt umgerechnet), der vom Pixel selbst gemeldete Consent-Zustand, die vom SDK **verworfenen** Events samt Grund sowie die User-Daten aufgeschluesselt nach Herkunft -- also ob die Website einen Identifier bewusst uebergeben oder das SDK ihn per Automatic Advanced Matching selbst von der Seite gelesen hat
 
 Beispiel-Report: [Audit-Report](examples/audit-example-report.md)
 
@@ -226,7 +227,9 @@ Beispiel-Report: [Tracking-Vergleich](examples/compare-example-report.md)
 
 Waehrend `compare.js` zwei URLs **synchron in einem Lauf** vergleicht, dient der Flow-Vergleich dem **Vorher/Nachher ueber die Zeit** (z.B. GTM-/Consent-/Server-Side-Umstellung): Baseline jetzt aufzeichnen, nach der Umstellung erneut, dann das Delta bestimmen. Der Schwerpunkt liegt auf einem **mehrstufigen Checkout-Flow** (Startseite -> Produkt -> Warenkorb -> Checkout -> Adresse) und dem **Nachweis, welche personenbezogenen Felder (E-Mail, Telefon, Name, Adresse) an welchen Vendor** gehen -- inklusive gehashter Formen (Meta/TikTok Advanced Matching, GA4/Ads Enhanced Conversions).
 
-Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension; GA4, Meta, TikTok, Pinterest, Google Ads, Microsoft UET). Vendoren ohne dedizierten Parser (z.B. Awin) werden ueber `tracking-vendors.json` als Praesenz erkannt.
+Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension; GA4, Meta, TikTok, Pinterest, Google Ads, Microsoft UET, OpenAI). Vendoren ohne dedizierten Parser (z.B. Awin) werden ueber `tracking-vendors.json` als Praesenz erkannt.
+
+Ein einzelner Request kann dabei **mehrere Events** liefern: das OpenAI-Pixel buendelt mehrere Events in einen POST. Jedes Event wird einzeln ausgewertet, damit im Batch mitgeschickte Identifier nicht verloren gehen.
 
 **Empfohlener Weg -- HAR selbst aufnehmen und auswerten:**
 
@@ -278,7 +281,7 @@ Jeder Eintrag beschreibt ein Tracking-Produkt mit:
 - **endpoints** -- URL-Patterns fuer ausgehende Tracking-Requests (z.B. `google-analytics.com/g/collect`) mit optionaler Request-Typ-Klassifizierung (pageview, event, conversion)
 - **domains** -- Fallback-Domains fuer Zuordnung wenn kein Script/Endpoint-Pattern matcht
 
-Aktuell 20 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, HubSpot, Awin, Reddit Pixel, Snapchat Pixel.
+Aktuell 21 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, HubSpot, Awin, Reddit Pixel, Snapchat Pixel, OpenAI Ads Pixel.
 
 ### Neuen Vendor hinzufuegen
 
@@ -358,6 +361,12 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 - Auf Windows mit Git Bash werden relative URL-Pfade (z.B. `/kategorie/`) manchmal zu lokalen Pfaden umgeschrieben. Das Script erkennt und korrigiert das automatisch, alternativ volle URLs verwenden oder `MSYS_NO_PATHCONV=1` setzen
 
 ## Changelog
+
+### 2026-09-06 -- OpenAI Ads Pixel
+
+Das OpenAI-Pixel (`oaiq`) wird erkannt und ausgewertet -- als Praesenz in den Tracker-Tabellen und in einem eigenen Report-Abschnitt. Auswertbar ist mehr als bei anderen Pixeln, weil das SDK ein eigenes Diagnostic-Event mitschickt: es meldet den Consent-Zustand, die Konto-Einstellung fuer Automatic Advanced Matching und die Events, die es selbst **verworfen** hat (samt Grund) -- also Implementierungsfehler, die sonst unsichtbar bleiben, weil zu ihnen gar kein Request existiert.
+
+Zwei Eigenheiten praegen den Abschnitt: Das Pixel ist **Opt-out** (es misst ohne expliziten Widerspruch und kennt weder TCF noch Consent Mode), deshalb traegt jedes Event seine Consent-Phase. Und der `user`-Block ist nach **Herkunft** verschachtelt, weshalb der Report unterscheiden kann, ob die Website einen Identifier uebergeben hat oder das SDK ihn selbst von der Seite gelesen hat.
 
 ### 2026-07-16 -- Grosser CMP-Bibliothek-Ausbau: 77 -> 122
 
