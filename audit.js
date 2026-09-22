@@ -2007,10 +2007,21 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   const browser1 = await chromium.launch({ headless: false, args: ['--disable-blink-features=AutomationControlled'] });
   const context1 = await browser1.newContext();
-  const page1 = await context1.newPage();
+  let page1 = await context1.newPage();
 
   let getPreRequests = setupRequestCollector(page1, 'pre-consent');
   harCollectors.push(getPreRequests);
+
+  // Neu geoeffnete Tabs im selben Context (z.B. Produktseiten, die per
+  // target="_blank" oeffnen) bekommen sofort einen eigenen Request-Collector,
+  // sonst sind ihre Requests (u.a. GA4-Hits) fuer den Audit unsichtbar, weil
+  // page.on('request') strikt pro Page-Objekt gilt.
+  context1.on('page', (newPage) => {
+    console.log(`  Neuer Tab geoeffnet (${newPage.url() || 'wird geladen...'})`);
+    const getNewTabRequests = setupRequestCollector(newPage, 'new-tab');
+    harCollectors.push(getNewTabRequests);
+  });
+
   let getPreResponseBodies = setupResponseBodyCollector(page1, siteHost);
   let getCSPViolations1 = () => [];
   if (!noPayloadAnalysis) {
@@ -2268,13 +2279,19 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
           // ── Click-Step (z.B. Add-to-Cart): Bereit → Klick-Erkennung → Auto-Collect ──
 
           // Phase A: User bereitet vor (Menge, Variante etc.)
-          const prepAction = await showEcomStepPrompt(page1, step.name, i + 1, interactiveSteps.length, {
+          const { action: prepAction, page: prepPage } = await showEcomStepPrompt(page1, step.name, i + 1, interactiveSteps.length, {
             nextLabel: 'Bereit',
             instruction: 'Bereite alles vor (Menge, Variante, Optionen...). Klicke "Bereit" wenn du gleich den Button klicken wirst.',
-          });
+          }, context1);
           if (prepAction === 'done') {
             console.log(`  Audit abgeschlossen nach Schritt ${i} von ${interactiveSteps.length}`);
             break;
+          }
+          if (prepPage !== page1) {
+            console.log(`  Neuer Tab erkannt, Tracking wechselt zu: ${prepPage.url()}`);
+            page1.off('load', onLoadStatusBar);
+            page1 = prepPage;
+            page1.on('load', onLoadStatusBar);
           }
 
           // Collectors starten VOR dem Klick
@@ -2358,10 +2375,16 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
         } else {
           // ── Navigate-Steps: User navigiert, dann bestätigt ──
-          const action = await showEcomStepPrompt(page1, step.name, i + 1, interactiveSteps.length);
+          const { action, page: navPage } = await showEcomStepPrompt(page1, step.name, i + 1, interactiveSteps.length, {}, context1);
           if (action === 'done') {
             console.log(`  Audit abgeschlossen nach Schritt ${i} von ${interactiveSteps.length}`);
             break;
+          }
+          if (navPage !== page1) {
+            console.log(`  Neuer Tab erkannt, Tracking wechselt zu: ${navPage.url()}`);
+            page1.off('load', onLoadStatusBar);
+            page1 = navPage;
+            page1.on('load', onLoadStatusBar);
           }
 
           console.log(`  Schritt: ${step.name} (interaktiv)...`);
