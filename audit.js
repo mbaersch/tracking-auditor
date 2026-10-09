@@ -1341,6 +1341,9 @@ function formatTrackingFeaturesSection(deepAnalysis) {
     md += '**Meta**\n';
     if (ms.blockedByCSP) md += '- ⚠ Browser Pixel durch CSP blockiert (connect.facebook.net)\n';
     else if (ms.hasBrowserPixel) md += '- Browser Pixel aktiv (connect.facebook.net)\n';
+    if (ms.formPostBlockedByCSP) {
+      md += `- ⚠ Grosse Pixel-Events durch CSP blockiert (${ms.formPostBlockedByCSP.join(', ')}): Ab 2048 Zeichen URL-Laenge sendet das Pixel in Chrome per Formular-POST in ein iframe an facebook.com/tr -- diese Events (typisch Purchase/AddToCart mit Produktdaten) gehen verloren. Fix: \`form-action\` und \`frame-src\` brauchen beide \`https://www.facebook.com\`\n`;
+    }
     if (ms.hasFirstPartyEvents) md += '- ✓ First-Party Events Endpunkt erkannt (CAPI-Indikator)\n';
     if (!ms.hasBrowserPixel && ms.hasFbpCookie) md += '- _fbp Cookie ohne Browser Pixel (vermutlich CAPI-only)\n';
     if (ms.hasBrowserPixel && !ms.hasFirstPartyEvents) md += '- ⚠ Kein CAPI-Endpunkt erkannt\n';
@@ -1722,6 +1725,9 @@ function generateTLDR(data) {
     // Meta Setup
     if (da.features.metaSetup) {
       const ms = da.features.metaSetup;
+      if (ms.formPostBlockedByCSP) {
+        md += `**⚠ Meta:** Grosse Pixel-Events (z.B. Purchase) durch CSP blockiert (${ms.formPostBlockedByCSP.join(', ')})\n\n`;
+      }
       if (ms.blockedByCSP) {
         // Don't add Meta TL;DR line – CSP blockade is already shown in CSP section
       } else if (ms.hasBrowserPixel && ms.hasFirstPartyEvents) {
@@ -2580,6 +2586,16 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   // Fix false positives: if Meta pixel was blocked by CSP, it's not actually active
   if (!noPayloadAnalysis && reportData.deepAnalysis.features.metaSetup) {
+    // fbevents.js schickt Events ab 2048 Zeichen URL-Laenge in Chrome per <form>-POST in ein
+    // iframe statt per Beacon, ohne Fallback. Blockieren koennen form-action UND frame-src;
+    // frame-src meldet als blockedURI nur den Origin (https://www.facebook.com, ohne /tr).
+    const formPostDirectives = [...new Set(reportData.deepAnalysis.cspViolations
+      .filter(v => (v.effectiveDirective === 'form-action' && v.blockedURI.includes('facebook.com/tr')) ||
+                   (v.effectiveDirective === 'frame-src' && getHostname(v.blockedURI) === 'www.facebook.com'))
+      .map(v => v.effectiveDirective))];
+    if (formPostDirectives.length > 0) {
+      reportData.deepAnalysis.features.metaSetup.formPostBlockedByCSP = formPostDirectives;
+    }
     const cspBlockedUrls = reportData.deepAnalysis.cspViolations.map(v => v.blockedURI);
     const metaBlockedByCSP = cspBlockedUrls.some(u => u.includes('connect.facebook.net'));
     if (metaBlockedByCSP && reportData.deepAnalysis.features.metaSetup.hasBrowserPixel) {

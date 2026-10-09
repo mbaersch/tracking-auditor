@@ -159,7 +159,7 @@ Der generierte Report enthaelt:
 - **E-Commerce-Pfad** -- dataLayer-Events und Tracker pro Schritt (Kategorie bis Checkout), inkl. Consent Mode Status pro Step
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
 - **CSP-Blockaden** (nur wenn CSP Tracking-Requests blockiert hat) -- Liste der blockierten Tracker-Domains
-- **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions, Dynamic Remarketing, Meta CAPI, Stape Custom Loader IDs
+- **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions, Dynamic Remarketing, Meta CAPI, Stape Custom Loader IDs. Warnt zusaetzlich, wenn die CSP per `form-action` oder `frame-src` den Formular-POST des Meta Pixels blockiert: Events ab 2048 Zeichen URL-Laenge (typisch Purchase mit Produktdaten) schickt das Pixel in Chrome nicht per Beacon, sondern per `<form>` in ein iframe an `facebook.com/tr` -- ohne Fallback, die Events gehen verloren, waehrend kleine Events wie PageView unauffaellig durchkommen
 - **OpenAI Ads Pixel** (nur wenn ein Pixel gefunden wurde) -- eigener Abschnitt, weil das Pixel seine Events im POST-Body batcht und dabei mehr ueber sich verraet als andere: Pixel-ID, Events je Consent-Phase (mit Betrag in Minor Units korrekt umgerechnet), der vom Pixel selbst gemeldete Consent-Zustand, die vom SDK **verworfenen** Events samt Grund sowie die User-Daten aufgeschluesselt nach Herkunft -- also ob die Website einen Identifier bewusst uebergeben oder das SDK ihn per Automatic Advanced Matching selbst von der Seite gelesen hat
 
 Beispiel-Report: [Audit-Report](examples/audit-example-report.md)

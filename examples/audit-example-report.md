@@ -38,11 +38,15 @@
 | Add-to-Cart | Google Analytics 4, Google Ads, Meta Pixel | G111 |
 | Checkout | Google Analytics 4, Floodlight, Meta Pixel | G111 |
 
-**⚠ CSP blockiert 3 Tracking-Requests**
+**⚠ CSP blockiert 4 Tracking-Requests**
 
 **✓ Enhanced Conversions aktiv (hashed email)**
 
 **✓ Dynamic Remarketing: Produkt-IDs in 2 Ads-Requests**
+
+**⚠ Meta:** Grosse Pixel-Events (z.B. Purchase) durch CSP blockiert (form-action)
+
+**⚠ Meta:** Browser Pixel aktiv, kein CAPI-Endpunkt erkannt
 
 ## Hinweise
 
@@ -55,6 +59,7 @@
 | https://analytics.tiktok.com/i18n/pixel/events.js?sdkid=BORG7TK (TikTok) | script-src-elem |
 | https://snap.licdn.com/li.lms-analytics/insight.min.js (LinkedIn) | script-src-elem |
 | https://www.facebook.com/tr/?id=1701170117011&ev=PageView&noscript=1 (Meta) | connect-src |
+| https://www.facebook.com/tr/ (Meta Pixel) | form-action |
 
 ## Server-Side Tagging Analyse
 
@@ -91,6 +96,11 @@
 **Dynamic Remarketing (Google Ads)**
 - ✓ Produkt-IDs in 2 Request(s)
 - Seiten-Typen: product, cart
+
+**Meta**
+- Browser Pixel aktiv (connect.facebook.net)
+- ⚠ Grosse Pixel-Events durch CSP blockiert (form-action): Ab 2048 Zeichen URL-Laenge sendet das Pixel in Chrome per Formular-POST in ein iframe an facebook.com/tr -- diese Events (typisch Purchase/AddToCart mit Produktdaten) gehen verloren. Fix: `form-action` und `frame-src` brauchen beide `https://www.facebook.com`
+- ⚠ Kein CAPI-Endpunkt erkannt
 
 ## OpenAI Ads Pixel
 
