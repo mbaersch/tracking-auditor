@@ -169,7 +169,7 @@ async function learnSelectorTerminal(browser, page, label, { knownShadowDom = fa
   if (!result || !isPlausibleResult(result)) {
     if (result) console.log(`\n⚠ Click landed on <${result.tag}> – likely Shadow DOM.`);
     console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
-    const freshContext = await browser.newContext();
+    const freshContext = await browser.newContext({ viewport: null });
     const freshPage = await freshContext.newPage();
     await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
     await freshPage.waitForTimeout(1500);
@@ -189,7 +189,7 @@ async function learnSelectorTerminal(browser, page, label, { knownShadowDom = fa
   const confirmed = await prompt('\n  Use this selector? [Y/n] ');
   if (confirmed.toLowerCase() === 'n') {
     console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
-    const freshContext = await browser.newContext();
+    const freshContext = await browser.newContext({ viewport: null });
     const freshPage = await freshContext.newPage();
     await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
     await freshPage.waitForTimeout(1500);
@@ -202,7 +202,7 @@ async function learnSelectorTerminal(browser, page, label, { knownShadowDom = fa
 }
 
 async function learnTwoStepRejectTerminal(browser, url, { knownShadowDom = false } = {}) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ viewport: null });
   const page = await context.newPage();
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
@@ -228,7 +228,7 @@ async function learnTwoStepRejectTerminal(browser, url, { knownShadowDom = false
     if (!result1 || !isPlausibleResult(result1)) {
       if (result1) console.log(`\n⚠ Click landed on <${result1.tag}> – likely Shadow DOM.`);
       console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
-      const freshContext = await browser.newContext();
+      const freshContext = await browser.newContext({ viewport: null });
       const freshPage = await freshContext.newPage();
       await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
       await freshPage.waitForTimeout(1500);
@@ -240,7 +240,7 @@ async function learnTwoStepRejectTerminal(browser, url, { knownShadowDom = false
       const confirmed1 = await prompt('\n  Use this selector for Step 1? [Y/n] ');
       if (confirmed1.toLowerCase() === 'n') {
         console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
-        const freshContext = await browser.newContext();
+        const freshContext = await browser.newContext({ viewport: null });
         const freshPage = await freshContext.newPage();
         await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
         await freshPage.waitForTimeout(1500);
@@ -254,7 +254,7 @@ async function learnTwoStepRejectTerminal(browser, url, { knownShadowDom = false
 
   // Fresh context, execute step 1 to reveal step 2
   await context.close();
-  const ctx2 = await browser.newContext();
+  const ctx2 = await browser.newContext({ viewport: null });
   const pg2 = await ctx2.newPage();
   await pg2.goto(url, { waitUntil: 'domcontentloaded' });
   await pg2.waitForTimeout(1500);
@@ -405,7 +405,7 @@ async function learnSelectorBrowserUI(browser, page, label, { knownShadowDom = f
 
   if (!result || !isPlausibleResult(result)) {
     console.log(`  Shadow DOM erkannt – neuer Browser-Kontext wird erstellt...`);
-    const freshContext = await browser.newContext();
+    const freshContext = await browser.newContext({ viewport: null });
     const freshPage = await freshContext.newPage();
     await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
     await freshPage.waitForTimeout(1500);
@@ -420,7 +420,7 @@ async function learnSelectorBrowserUI(browser, page, label, { knownShadowDom = f
   const { confirmed } = await showSelectorResult(page, result, label);
   if (!confirmed) {
     console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
-    const freshContext = await browser.newContext();
+    const freshContext = await browser.newContext({ viewport: null });
     const freshPage = await freshContext.newPage();
     await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
     await freshPage.waitForTimeout(1500);
@@ -433,7 +433,7 @@ async function learnSelectorBrowserUI(browser, page, label, { knownShadowDom = f
 }
 
 async function learnTwoStepRejectBrowserUI(browser, url, { knownShadowDom = false } = {}) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ viewport: null });
   const page = await context.newPage();
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
@@ -452,7 +452,7 @@ async function learnTwoStepRejectBrowserUI(browser, url, { knownShadowDom = fals
 
     if (!result1 || !isPlausibleResult(result1)) {
       console.log(`  Shadow DOM erkannt – neuer Browser-Kontext wird erstellt...`);
-      const freshContext = await browser.newContext();
+      const freshContext = await browser.newContext({ viewport: null });
       const freshPage = await freshContext.newPage();
       await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
       await freshPage.waitForTimeout(1500);
@@ -465,7 +465,7 @@ async function learnTwoStepRejectBrowserUI(browser, url, { knownShadowDom = fals
       const { confirmed } = await showSelectorResult(page, result1, 'SETTINGS/MORE (Step 1)');
       if (!confirmed) {
         console.log(`  Neuer Browser-Kontext (saubere Cookies) wird erstellt...`);
-        const freshContext = await browser.newContext();
+        const freshContext = await browser.newContext({ viewport: null });
         const freshPage = await freshContext.newPage();
         await freshPage.goto(url, { waitUntil: 'domcontentloaded' });
         await freshPage.waitForTimeout(1500);
@@ -479,7 +479,7 @@ async function learnTwoStepRejectBrowserUI(browser, url, { knownShadowDom = fals
 
   // Fresh context, execute step 1 to reveal step 2
   await context.close();
-  const ctx2 = await browser.newContext();
+  const ctx2 = await browser.newContext({ viewport: null });
   const pg2 = await ctx2.newPage();
   await pg2.goto(url, { waitUntil: 'domcontentloaded' });
   await pg2.waitForTimeout(1500);
@@ -532,7 +532,7 @@ async function learnTwoStepRejectBrowserUI(browser, url, { knownShadowDom = fals
 
 async function launchFresh() {
   const browser = await chromium.launch({ headless: false, args: ['--disable-blink-features=AutomationControlled'] });
-  const context = await browser.newContext();
+  const context = await browser.newContext({ viewport: null });
   const page = await context.newPage();
   return { browser, page };
 }
@@ -611,7 +611,7 @@ function findLibraryMatches(lib, acceptSelector, rejectSelector) {
         }
 
         // Frischer Kontext → Step 1 klicken → zweiten Layer oeffnen
-        const ctx2 = await b2.newContext();
+        const ctx2 = await b2.newContext({ viewport: null });
         const pg2 = await ctx2.newPage();
         await pg2.goto(url, { waitUntil: 'domcontentloaded' });
         await pg2.waitForTimeout(1500);
