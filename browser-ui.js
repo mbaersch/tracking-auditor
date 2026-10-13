@@ -800,46 +800,37 @@ const ECOM_STEP_INSTRUCTIONS = {
 };
 
 /**
- * Show a floating E-Commerce step prompt (non-blocking, page stays navigable).
- * Re-injects itself after navigation so the prompt survives page.goto() by the user.
- * page.exposeFunction() survives navigations; only the DOM needs re-injection.
- *
- * @param {import('playwright').Page} page
- * @param {string} stepName – e.g. 'Kategorie-Seite'
- * @param {number} stepNumber – 1-based
- * @param {number} totalSteps
- * @param {{ nextLabel?: string, instruction?: string }} [options]
- * @returns {Promise<'next'|'done'>}
+ * Zeigt die Schritt-Prompt-Card und wartet auf "Schritt abschliessen"/"Audit
+ * abschliessen". Wenn `context` uebergeben wird, wird zusaetzlich jeder neu
+ * geoeffnete Tab im selben BrowserContext verfolgt (z.B. Produktseite oeffnet
+ * sich per target="_blank" in einem neuen Tab): Callback und Prompt-Overlay
+ * werden dort gespiegelt, damit der Nutzer den Schritt von dort abschliessen
+ * kann. Rueckgabe: { action: 'next'|'done', page: <Page, auf der geklickt wurde> }.
  */
-export async function showEcomStepPrompt(page, stepName, stepNumber, totalSteps, options = {}) {
+export async function showEcomStepPrompt(page, stepName, stepNumber, totalSteps, options = {}, context = null) {
   const callbackName = nextCallbackName('ecom');
 
   let resolvePromise;
   const resultPromise = new Promise((resolve) => { resolvePromise = resolve; });
-
-  try {
-    await page.exposeFunction(callbackName, (value) => {
-      resolvePromise(value);
-    });
-  } catch { /* unique name should prevent collisions */ }
+  let activePage = page;
 
   const instruction = options.instruction
     || ECOM_STEP_INSTRUCTIONS[stepName]
     || 'Führe den Schritt aus und klicke dann "Schritt abschließen".';
-  const nextLabel = options.nextLabel || 'Schritt abschlie\u00DFen';
+  const nextLabel = options.nextLabel || 'Schritt abschließen';
 
   const injectArgs = {
     styles: ECOM_PROMPT_STYLES,
-    title: '\uD83D\uDCE6 Schritt ' + stepNumber + '/' + totalSteps + ': ' + escapeHTML(stepName),
+    title: '📦 Schritt ' + stepNumber + '/' + totalSteps + ': ' + escapeHTML(stepName),
     instruction: escapeHTML(instruction),
     nextLabel: escapeHTML(nextLabel),
     cbName: callbackName,
   };
 
-  // Injection function – called initially and after every navigation
-  async function injectPrompt() {
+  // Injection function -- initial und nach jeder Navigation/neuem Tab aufgerufen
+  async function injectPrompt(targetPage) {
     const { styles, title, instruction, nextLabel, cbName } = injectArgs;
-    await page.evaluate(({ styles, title, instruction, nextLabel, cbName }) => {
+    await targetPage.evaluate(({ styles, title, instruction, nextLabel, cbName }) => {
       // Guard: don't double-inject
       if (document.getElementById('__audit-ecomprompt')) return;
 
@@ -855,7 +846,7 @@ export async function showEcomStepPrompt(page, stepName, stepNumber, totalSteps,
         '<div id="__audit-ecomprompt-msg">' + instruction + '</div>' +
         '<div id="__audit-ecomprompt-actions">' +
           '<button id="__audit-ecomprompt-next">' + nextLabel + '</button>' +
-          '<button id="__audit-ecomprompt-done">Audit abschlie\u00DFen</button>' +
+          '<button id="__audit-ecomprompt-done">Audit abschließen</button>' +
         '</div>';
       document.body.appendChild(card);
 
@@ -896,29 +887,56 @@ export async function showEcomStepPrompt(page, stepName, stepNumber, totalSteps,
     }, { styles, title, instruction, nextLabel, cbName });
   }
 
-  // Initial injection
-  await injectPrompt();
+  // Verfolgte Pages: die urspruengliche Page plus alle waehrenddessen neu
+  // geoeffneten Tabs im selben Context. Jede bekommt Callback + Overlay
+  // gespiegelt; "load" reinjiziert nach Navigation innerhalb der jeweiligen Page.
+  const tracked = new Map(); // page -> onLoad handler
 
-  // Re-inject after every navigation (DOM is destroyed, exposeFunction survives)
-  const onLoad = async () => {
-    try { await injectPrompt(); } catch { /* page may have been closed */ }
-  };
-  page.on('load', onLoad);
+  async function attachTo(targetPage) {
+    if (tracked.has(targetPage)) return;
+    try {
+      await targetPage.exposeFunction(callbackName, (value) => {
+        activePage = targetPage;
+        resolvePromise(value);
+      });
+    } catch { /* unique name should prevent collisions, oder Page schon zu */ }
+    const onLoad = async () => {
+      try { await injectPrompt(targetPage); } catch { /* page may have been closed */ }
+    };
+    targetPage.on('load', onLoad);
+    tracked.set(targetPage, onLoad);
+    try { await injectPrompt(targetPage); } catch { /* page may not be ready yet */ }
+  }
+
+  await attachTo(page);
+
+  // Neue Tabs im selben Context verfolgen (z.B. target="_blank"-Links)
+  let onNewPage = null;
+  if (context) {
+    onNewPage = async (newPage) => {
+      try { await newPage.waitForLoadState('domcontentloaded', { timeout: 10000 }); } catch { /* */ }
+      await attachTo(newPage);
+    };
+    context.on('page', onNewPage);
+  }
 
   const result = await resultPromise;
 
-  // Clean up: remove listener and DOM
-  page.off('load', onLoad);
-  try {
-    await page.evaluate(() => {
-      const el = document.getElementById('__audit-ecomprompt');
-      if (el) el.remove();
-      const st = document.getElementById('__audit-ecomprompt-style');
-      if (st) st.remove();
-    });
-  } catch { /* page may have navigated */ }
+  // Clean up: Listener und DOM auf allen verfolgten Pages entfernen
+  if (context && onNewPage) context.off('page', onNewPage);
+  for (const [trackedPage, onLoad] of tracked) {
+    trackedPage.off('load', onLoad);
+    try {
+      await trackedPage.evaluate(() => {
+        const el = document.getElementById('__audit-ecomprompt');
+        if (el) el.remove();
+        const st = document.getElementById('__audit-ecomprompt-style');
+        if (st) st.remove();
+      });
+    } catch { /* page may have navigated or closed */ }
+  }
 
-  return result;
+  return { action: result, page: activePage };
 }
 
 /**
