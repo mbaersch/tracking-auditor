@@ -23,7 +23,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   VENDORS, getHostname, getSiteDomain, truncate,
-  matchRequest, deduplicateMatches, detectSSTFromUrls, extractConsentModeParams,
+  matchRequest, deduplicateMatches, detectSSTFromUrls, detectSSTFromStape, extractConsentModeParams,
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
   extractStapeFindings, extractStapeMatches,
 } from './lib/tracking-classify.js';
@@ -262,7 +262,7 @@ function analyzeSide(collector, siteUrl) {
   // Stape Custom Loader: feed synthetic (Google-host) URLs into SST detection
   const stape = extractStapeFindings(allRequests);
   if (stape.decodedRequests.length > 0) {
-    const sstFromStape = detectSSTFromUrls(stape.decodedRequests.map(d => d.syntheticUrl), siteUrl);
+    const sstFromStape = detectSSTFromStape(stape.decodedRequests, siteUrl);
     for (const id of sstFromStape.containers) sst.containers.add(id);
     for (const id of sstFromStape.measurementIds) sst.measurementIds.add(id);
     sst.loaders.push(...sstFromStape.loaders);

@@ -35,7 +35,7 @@ import {
 } from './browser-ui.js';
 import {
   VENDORS, getHostname, getSiteDomain, truncate,
-  matchRequest, deduplicateMatches, detectSSTFromUrls, extractConsentModeParams,
+  matchRequest, deduplicateMatches, detectSSTFromUrls, detectSSTFromStape, extractConsentModeParams,
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
   extractStapeFindings, extractStapeMatches,
   extractTaggrsTransports,
@@ -1215,7 +1215,9 @@ function formatSSTSection(sstData) {
   if (sstData.stapeTransports && sstData.stapeTransports.length > 0) {
     md += '**Custom Loader Transport (Stape):**\n\n';
     for (const t of sstData.stapeTransports) {
-      md += `- ${t.host} – Base64-encodierter Transport erkannt\n`;
+      md += t.encoding === 'xor'
+        ? `- ${t.host} – Base64+XOR-verschleierter Loader erkannt (Stape v2.1)\n`
+        : `- ${t.host} – Base64-encodierter Transport erkannt\n`;
     }
     md += '\n';
   }
@@ -2215,7 +2217,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const stapeDecoded = noPayloadAnalysis ? [] :
     extractStapeFindings([...getPreRequests.full(), ...getPostAcceptRequests.full()]).decodedRequests;
   const stapeSSTUrls = stapeDecoded.length > 0
-    ? detectSSTFromUrls(stapeDecoded.map(d => d.syntheticUrl), siteHost)
+    ? detectSSTFromStape(stapeDecoded, siteHost)
     : null;
   reportData.sst = mergeSST(preSSTUrls, postAcceptSSTUrls, stapeSSTUrls);
 

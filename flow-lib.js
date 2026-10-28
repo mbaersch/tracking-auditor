@@ -9,7 +9,7 @@
 // egal ob aus HAR-Entries oder aus dem Live-Collector.
 
 import {
-  matchRequest, detectSSTFromUrls, extractStapeFindings, extractStapeMatches,
+  matchRequest, detectSSTFromUrls, detectSSTFromStape, extractStapeFindings, extractStapeMatches,
 } from './lib/tracking-classify.js';
 import {
   parseRequests, piiFromRecord, eventName, accountId, PROVIDER_LABEL,
@@ -107,7 +107,7 @@ export function analyze(requests, siteUrl) {
   // — SST / Consent Mode —
   const sst = detectSSTFromUrls(allUrls, siteHost);
   if (stape.decodedRequests.length) {
-    const sstStape = detectSSTFromUrls(stape.decodedRequests.map(d => d.syntheticUrl), siteHost);
+    const sstStape = detectSSTFromStape(stape.decodedRequests, siteHost);
     for (const id of sstStape.containers) sst.containers.add(id);
     for (const id of sstStape.measurementIds) sst.measurementIds.add(id);
     sst.loaders.push(...sstStape.loaders);
