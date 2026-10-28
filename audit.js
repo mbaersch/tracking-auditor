@@ -37,7 +37,7 @@ import {
   VENDORS, getHostname, getSiteDomain, truncate,
   matchRequest, deduplicateMatches, detectSSTFromUrls, detectSSTFromStape, extractConsentModeParams,
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
-  extractStapeFindings, extractStapeMatches,
+  extractStapeFindings, extractStapeMatches, extractFirstPartyCollectMatches,
   extractTaggrsTransports,
 } from './lib/tracking-classify.js';
 import { parseOpenAiRequest, isOpenAiSdkHost } from './pii-lib/openai.js';
@@ -855,7 +855,8 @@ async function collectPostConsentState(page, context, siteHost, getRequests, bas
   const requestUrls = getRequests();
   const classified = requestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
   const stapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getRequests.full(), siteHost);
-  const trackers = deduplicateMatches([...classified, ...stapeMatches]);
+  const trackers = deduplicateMatches([...classified, ...stapeMatches,
+    ...extractFirstPartyCollectMatches(requestUrls, siteHost)]);
   console.log(`  Neue Requests: ${requestUrls.length} total, ${classified.length} third-party`);
 
   const cookies = await collectCookies(context);
@@ -1946,7 +1947,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const stepFullRequests = getStepRequests.full();
   const stepClassified = stepRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
   const stepStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(stepFullRequests, siteHost);
-  const stepTrackers = deduplicateMatches([...stepClassified, ...stepStapeMatches]);
+  const stepTrackers = deduplicateMatches([...stepClassified, ...stepStapeMatches,
+    ...extractFirstPartyCollectMatches(stepRequestUrls, siteHost)]);
 
   const stepConsentMode = extractConsentModeParams(stepRequestUrls);
 
@@ -2096,7 +2098,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   const preRequestUrls = getPreRequests();
   const preClassified = preRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
   const preStapeMatches = noPayloadAnalysis ? [] : extractStapeMatches(getPreRequests.full(), siteHost);
-  const preTrackers = deduplicateMatches([...preClassified, ...preStapeMatches]);
+  const preTrackers = deduplicateMatches([...preClassified, ...preStapeMatches,
+    ...extractFirstPartyCollectMatches(preRequestUrls, siteHost)]);
   console.log(`  Requests: ${preRequestUrls.length} total, ${preClassified.length} third-party`);
   await updateStatusBar(page1, 'Phase 1', `Pre-Consent – CMP: ${cmpLabel}`, `DL: ${preDataLayer.length} | 3P: ${preClassified.length}`);
 
@@ -2335,7 +2338,8 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
           const stepRequestUrls = getStepRequests();
           const stepClassified = stepRequestUrls.map(r => matchRequest(r, siteHost)).filter(Boolean);
-          const stepTrackers = deduplicateMatches(stepClassified);
+          const stepTrackers = deduplicateMatches([...stepClassified,
+            ...extractFirstPartyCollectMatches(stepRequestUrls, siteHost)]);
           const stepConsentMode = extractConsentModeParams(stepRequestUrls);
 
           const stepCookies = await collectCookies(context1);

@@ -10,6 +10,7 @@
 
 import {
   matchRequest, detectSSTFromUrls, detectSSTFromStape, extractStapeFindings, extractStapeMatches,
+  extractFirstPartyCollectMatches,
 } from './lib/tracking-classify.js';
 import {
   parseRequests, piiFromRecord, eventName, accountId, PROVIDER_LABEL,
@@ -41,7 +42,6 @@ export function gcsState(gcs) {
 // ── Analyse ───────────────────────────────────────────────────────────────────
 
 export function analyze(requests, siteUrl) {
-  const siteHost = getHostname(siteUrl);
   const allUrls = requests.map(r => r.url);
 
   // — Trackers (Praesenz ueber tracking-vendors.json, inkl. Stape-Tunnel) —
@@ -88,7 +88,8 @@ export function analyze(requests, siteUrl) {
   };
 
   for (const r of requests) {
-    addTracker(matchRequest(r.url, siteHost), r.phase);
+    addTracker(matchRequest(r.url, siteUrl), r.phase);
+    for (const m of extractFirstPartyCollectMatches([r], siteUrl)) addTracker(m, r.phase);
     // Ein POST kann mehrere Events tragen (OpenAI batcht) -- jedes Event ist ein
     // eigener Record und kann eigene Identifier fuehren.
     for (const rec of parseRequests(r.url, r.postData, siteUrl)) addPii(rec.provider, rec, r.phase);
@@ -97,7 +98,7 @@ export function analyze(requests, siteUrl) {
   // Stape Custom Loader: getunnelte Hits klassifizieren und als eigene Tracker-
   // Richtung ('sst-tunnel') mergen; ausserdem die synthetischen Google-URLs durch
   // die PII-Parser schicken, damit getunnelte PII nicht verloren geht.
-  const stapeMatches = extractStapeMatches(requests, siteHost);
+  const stapeMatches = extractStapeMatches(requests, siteUrl);
   for (const m of stapeMatches) addTracker(m, 'tunnel');
   const stape = extractStapeFindings(requests);
   for (const d of stape.decodedRequests) {
@@ -105,9 +106,9 @@ export function analyze(requests, siteUrl) {
   }
 
   // — SST / Consent Mode —
-  const sst = detectSSTFromUrls(allUrls, siteHost);
+  const sst = detectSSTFromUrls(allUrls, siteUrl);
   if (stape.decodedRequests.length) {
-    const sstStape = detectSSTFromStape(stape.decodedRequests, siteHost);
+    const sstStape = detectSSTFromStape(stape.decodedRequests, siteUrl);
     for (const id of sstStape.containers) sst.containers.add(id);
     for (const id of sstStape.measurementIds) sst.measurementIds.add(id);
     sst.loaders.push(...sstStape.loaders);

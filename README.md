@@ -155,7 +155,7 @@ Der generierte Report enthaelt:
 - **Consent Mode Verification** -- Prueft ob nach Accept ein gcs-Update erfolgt (G100 -> G1xx). Zeigt Advanced vs. Basic Consent Mode Diagnose mit Erklaerung
 - **Pre-Consent** -- Tracking vor jeglicher Consent-Entscheidung (Verstoesse sofort erkennbar)
 - **Post-Accept / Post-Reject** -- Diffs bei Cookies, localStorage, Requests, dataLayer
-- **Server-Side Tagging** -- Erkennung von Custom GTM/gtag-Loadern und First-Party Collect Endpoints. Base64-getunnelte Hits (Stape Custom Loader) werden dekodiert und dem korrekten Produkt zugeordnet (GA4, Google Ads, Floodlight) -- in den Tracker-Tabellen als Richtung `sst-tunnel`. Der Loader v2.1 verschleiert seinen Parameter zusaetzlich per XOR; auch er wird dekodiert und im SST-Abschnitt als solcher benannt. Verschluesselt getunnelte Transporte (**TAGGRS** Custom Loader) werden am Envelope-Fingerprint **erkannt** (Existenznachweis im SST-Abschnitt), aber nicht entschluesselt -- Detail-Parameter wie Events, IDs oder Consent-Mode-Status bleiben verborgen
+- **Server-Side Tagging** -- Erkennung von Custom GTM/gtag-Loadern und First-Party Collect Endpoints. Base64-getunnelte Hits (Stape Custom Loader) werden dekodiert und dem korrekten Produkt zugeordnet (GA4, Google Ads, Floodlight) -- in den Tracker-Tabellen als Richtung `sst-tunnel`. Der Loader v2.1 verschleiert seinen Parameter zusaetzlich per XOR; auch er wird dekodiert und im SST-Abschnitt als solcher benannt. GA4-Hits, die ohne Tunnel direkt an einen Server-Container auf der eigenen Domain gehen, erscheinen als Richtung `sst-collect` in den Tracker- und Consent-Mode-Tabellen. Verschluesselt getunnelte Transporte (**TAGGRS** Custom Loader) werden am Envelope-Fingerprint **erkannt** (Existenznachweis im SST-Abschnitt), aber nicht entschluesselt -- Detail-Parameter wie Events, IDs oder Consent-Mode-Status bleiben verborgen
 - **E-Commerce-Pfad** -- dataLayer-Events und Tracker pro Schritt (Kategorie bis Checkout), inkl. Consent Mode Status pro Step
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
 - **CSP-Blockaden** (nur wenn CSP Tracking-Requests blockiert hat) -- Liste der blockierten Tracker-Domains
@@ -308,7 +308,7 @@ Die Tracker-Tabellen in Reports zeigen produktgenaue Details:
 |--------|-------------|
 | **Produkt** | Konkretes Tracking-Produkt (z.B. "Google Analytics 4", nicht nur "Google") |
 | **Kategorie** | Funktionale Kategorie (analytics, advertising, session-recording, ...) |
-| **Richtung** | `script` (geladen), `request`/`domain` (direkt gesendet) oder `sst-tunnel` (First-Party getunnelt via Stape Custom Loader) |
+| **Richtung** | `script` (geladen), `request`/`domain` (direkt gesendet), `sst-tunnel` (First-Party getunnelt via Stape Custom Loader) oder `sst-collect` (GA4-Hit direkt an einen Server-Container auf der eigenen Domain, `server_container_url`) |
 | **Typen** | Request-Klassifizierung (pageview, event, click, conversion, remarketing) |
 
 Nicht erkannte Third-Party-Requests werden als "Sonstige Third-Party" gefuehrt.

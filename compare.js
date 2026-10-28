@@ -25,7 +25,7 @@ import {
   VENDORS, getHostname, getSiteDomain, truncate,
   matchRequest, deduplicateMatches, detectSSTFromUrls, detectSSTFromStape, extractConsentModeParams,
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
-  extractStapeFindings, extractStapeMatches,
+  extractStapeFindings, extractStapeMatches, extractFirstPartyCollectMatches,
 } from './lib/tracking-classify.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -247,9 +247,12 @@ function analyzeSide(collector, siteUrl) {
   const postStapeMatches = extractStapeMatches(postConsent, siteUrl);
   const allStapeMatches = extractStapeMatches(allRequests, siteUrl);
 
-  const preMatched = [...preConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...preStapeMatches];
-  const postMatched = [...postConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...postStapeMatches];
-  const allMatched = [...allRequests.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...allStapeMatches];
+  const preMatched = [...preConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...preStapeMatches,
+    ...extractFirstPartyCollectMatches(preConsent, siteUrl)];
+  const postMatched = [...postConsent.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...postStapeMatches,
+    ...extractFirstPartyCollectMatches(postConsent, siteUrl)];
+  const allMatched = [...allRequests.map(r => matchRequest(r.url, siteUrl)).filter(Boolean), ...allStapeMatches,
+    ...extractFirstPartyCollectMatches(allRequests, siteUrl)];
 
   const preDeduped = deduplicateMatches(preMatched);
   const postDeduped = deduplicateMatches(postMatched);
