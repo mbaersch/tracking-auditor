@@ -213,9 +213,10 @@
     ],
     "endpoints": [
       { "pattern": "bat.bing.com/action", "type": "event" },
+      { "pattern": "bat.bing.net/action", "type": "event" },
       { "pattern": "bat.bing.com/p/insights/", "type": "event" }
     ],
-    "domains": ["bat.bing.com"]
+    "domains": ["bat.bing.com", "bat.bing.net"]
   },
   "microsoft-clarity": {
     "vendor": "Microsoft",

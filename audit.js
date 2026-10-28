@@ -36,6 +36,7 @@ import {
 import {
   VENDORS, getHostname, getSiteDomain, truncate,
   matchRequest, deduplicateMatches, detectSSTFromUrls, detectSSTFromStape, extractConsentModeParams,
+  extractUetConsentParams,
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
   extractStapeFindings, extractStapeMatches, extractFirstPartyCollectMatches,
   extractTaggrsTransports,
@@ -1197,6 +1198,32 @@ function formatTrackerSection(deduped) {
   return md;
 }
 
+function formatUetConsent(params) {
+  let md = '| asc | Event | src | Request URL |\n';
+  md += '|-----|-------|-----|-------------|\n';
+  for (const p of params) {
+    md += `| ${p.asc} | ${p.event || '–'} | ${p.src || '–'} | \`${p.url}\` |\n`;
+  }
+  return md;
+}
+
+/** asc values of a phase, e.g. "D" or "D, G". */
+function uetAscSummary(params) {
+  return [...new Set((params || []).map(p => p.asc))].join(', ');
+}
+
+/**
+ * UET after reject is fine when every hit carries asc=D and no UET cookie
+ * (_uetsid/_uetvid/MUID) or _uet* localStorage key appeared.
+ */
+function uetRespectsReject(postReject) {
+  const hits = postReject.uetConsent || [];
+  if (!hits.length || hits.some(p => p.asc !== 'D')) return false;
+  const uetName = n => /^_uet/i.test(n) || n === 'MUID';
+  if ((postReject.cookiesDiff || []).some(c => uetName(c.name))) return false;
+  return !Object.keys(postReject.localStorageDiff || {}).some(uetName);
+}
+
 function formatConsentMode(params) {
   if (!params.length) return '_Keine Consent Mode Parameter gefunden._\n';
   let md = '| gcs | gcd | Event | Request URL |\n';
@@ -1623,6 +1650,15 @@ function generateTLDR(data) {
     }
   }
 
+  const uetPhases = [
+    ['Pre-Consent', data.preConsent.uetConsent],
+    ['Post-Accept', data.postAccept.uetConsent],
+    ['Post-Reject', data.postReject.uetConsent],
+  ].filter(([, p]) => p && p.length);
+  if (uetPhases.length) {
+    md += `**Microsoft UET Consent Mode:** ${uetPhases.map(([l, p]) => `${l} asc=${uetAscSummary(p)}`).join(' · ')}\n\n`;
+  }
+
   // Tracker overview across all phases
   const preKnown = data.preConsent.trackers.filter(t => t.vendor !== 'Sonstige Third-Party');
   const acceptKnown = data.postAccept.trackers.filter(t => t.vendor !== 'Sonstige Third-Party');
@@ -1805,6 +1841,9 @@ function generateReport(data) {
   md += '### Consent Mode Parameter\n\n';
   md += formatConsentMode(data.preConsent.consentMode);
   md += '\n';
+  if (data.preConsent.uetConsent?.length) {
+    md += '### Microsoft UET Consent\n\n' + formatUetConsent(data.preConsent.uetConsent) + '\n';
+  }
 
   md += '### Cookies\n\n';
   md += formatCookieTable(data.preConsent.cookies);
@@ -1839,6 +1878,9 @@ function generateReport(data) {
     }
   }
   md += '\n';
+  if (data.postAccept.uetConsent?.length) {
+    md += '### Microsoft UET Consent\n\n' + formatUetConsent(data.postAccept.uetConsent) + '\n';
+  }
 
   md += '### Cookies (Diff)\n\n';
   md += formatCookieTable(data.postAccept.cookiesDiff);
@@ -1858,6 +1900,10 @@ function generateReport(data) {
   md += '### Neue Requests\n\n';
   md += formatTrackerSection(data.postReject.trackers);
 
+  if (data.postReject.uetConsent?.length) {
+    md += '### Microsoft UET Consent\n\n' + formatUetConsent(data.postReject.uetConsent) + '\n';
+  }
+
   md += '### Cookies (Diff)\n\n';
   md += formatCookieTable(data.postReject.cookiesDiff);
   md += '\n';
@@ -1867,7 +1913,9 @@ function generateReport(data) {
   md += '\n';
 
   md += '### Auffaelligkeiten (Tracker trotz Reject?)\n\n';
-  const rejectTrackers = data.postReject.trackers.filter(t => t.vendor !== 'Sonstige Third-Party');
+  const uetDeniedOnly = uetRespectsReject(data.postReject);
+  const rejectKnownAll = data.postReject.trackers.filter(t => t.vendor !== 'Sonstige Third-Party');
+  const rejectTrackers = rejectKnownAll.filter(t => !(uetDeniedOnly && t.key === 'microsoft-ads'));
   if (rejectTrackers.length > 0) {
     md += '**WARNUNG:** Folgende bekannte Tracker wurden trotz Reject gefunden:\n\n';
     for (const t of rejectTrackers) {
@@ -1876,6 +1924,9 @@ function generateReport(data) {
     md += '\n';
   } else {
     md += '_Keine bekannten Tracker nach Reject erkannt._\n\n';
+  }
+  if (uetDeniedOnly && rejectKnownAll.length !== rejectTrackers.length) {
+    md += '**Microsoft Ads (UET):** Nach Reject nur Hits mit `asc=D` (Consent verweigert), keine UET-Cookies oder -Storage-Eintraege -- kein Verstoss.\n\n';
   }
 
   // ── E-Commerce Pfad ──
@@ -2126,6 +2177,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     dataLayer: preDataLayer,
     trackers: preTrackers,
     consentMode: preConsentMode,
+    uetConsent: extractUetConsentParams(preRequestUrls),
     cookies: preCookies,
     localStorage: preLocalStorage,
   };
@@ -2208,6 +2260,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     dataLayerDiff: postAcceptDataLayerDiff,
     trackers: postAcceptTrackers,
     consentMode: postAcceptConsentMode,
+    uetConsent: extractUetConsentParams(postAcceptRequestUrls),
     cookiesDiff: postAcceptCookiesDiff,
     localStorageDiff: postAcceptLocalStorageDiff,
   };
@@ -2560,6 +2613,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   reportData.postReject = {
     dataLayerDiff: rejectDataLayerDiff,
     trackers: rejectPostTrackers,
+    uetConsent: extractUetConsentParams(postReject.requestUrls),
     cookiesDiff: rejectCookiesDiff,
     localStorageDiff: rejectLocalStorageDiff,
   };

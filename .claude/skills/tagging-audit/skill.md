@@ -49,7 +49,7 @@ Report liegt unter `reports/<project>/audit-<YYYY-MM-DD-HHMM>.md`. Lies ihn und 
 
 - **Pre-Consent Tracking** -- Tracker vor Consent-Entscheidung? (Verstoss)
 - **Tracking nach Reject** -- Bekannte Tracker trotz Reject? (Verstoss)
-- **Consent Mode** -- gcs/gcd Parameter vorhanden und korrekt?
+- **Consent Mode** -- gcs/gcd Parameter vorhanden und korrekt? Bei Microsoft UET der `asc`-Wert (`D`/`G`): UET-Hits mit `asc=D` ohne UET-Cookies sind das Gegenstueck zu G100-Pings, kein Verstoss
 - **Cookie-Inventar** -- Anzahl Cookies pre vs. post Consent
 - **E-Commerce Events** -- dataLayer-Events vorhanden? Produktdaten konsistent?
 - **OpenAI Ads Pixel** (eigener Abschnitt, nur bei Fund) -- siehe unten
