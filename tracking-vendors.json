@@ -281,6 +281,19 @@
     ],
     "domains": ["hotjar.com", "hotjar.io", "static.hotjar.com"]
   },
+  "piwik-pro": {
+    "vendor": "Piwik PRO",
+    "product": "Piwik PRO",
+    "category": "analytics",
+    "scripts": [
+      { "pattern": "containers.piwik.pro/" },
+      { "pattern": "piwik.pro/ppms.js" }
+    ],
+    "endpoints": [
+      { "pattern": "piwik.pro/ppms.php" }
+    ],
+    "domains": ["piwik.pro"]
+  },
   "hubspot": {
     "vendor": "HubSpot",
     "product": "HubSpot",
