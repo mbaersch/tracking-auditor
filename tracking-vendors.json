@@ -294,6 +294,21 @@
     ],
     "domains": ["piwik.pro"]
   },
+  "matomo": {
+    "vendor": "Matomo",
+    "product": "Matomo",
+    "category": "analytics",
+    "scripts": [
+      { "pattern": "/matomo.js" },
+      { "pattern": "/piwik.js" },
+      { "pattern": "/js/container_" }
+    ],
+    "endpoints": [
+      { "pattern": "/matomo.php" },
+      { "pattern": "/piwik.php" }
+    ],
+    "domains": ["matomo.cloud", "innocraft.cloud"]
+  },
   "hubspot": {
     "vendor": "HubSpot",
     "product": "HubSpot",

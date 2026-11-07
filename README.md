@@ -284,7 +284,9 @@ Jeder Eintrag beschreibt ein Tracking-Produkt mit:
 - **endpoints** -- URL-Patterns fuer ausgehende Tracking-Requests (z.B. `google-analytics.com/g/collect`) mit optionaler Request-Typ-Klassifizierung (pageview, event, conversion)
 - **domains** -- Fallback-Domains fuer Zuordnung wenn kein Script/Endpoint-Pattern matcht
 
-Aktuell 22 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, Piwik PRO, HubSpot, Awin, Reddit Pixel, Snapchat Pixel, OpenAI Ads Pixel.
+Aktuell 23 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, Piwik PRO, Matomo, HubSpot, Awin, Reddit Pixel, Snapchat Pixel, OpenAI Ads Pixel.
+
+Requests an die eigene Domain (inkl. Subdomains) werden grundsaetzlich nicht als Tracker gewertet. Selbst gehostetes Matomo (z.B. `stats.example.com/matomo.js`) taucht daher nicht auf -- erkannt werden Matomo Cloud und Instanzen auf fremden Hosts mit Standardpfaden (`matomo.js`/`piwik.js`, `matomo.php`/`piwik.php`, Tag-Manager `js/container_*.js`).
 
 ### Neuen Vendor hinzufuegen
 
