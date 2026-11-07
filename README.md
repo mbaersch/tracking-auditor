@@ -286,7 +286,7 @@ Jeder Eintrag beschreibt ein Tracking-Produkt mit:
 
 Aktuell 23 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, Piwik PRO, Matomo, HubSpot, Awin, Reddit Pixel, Snapchat Pixel, OpenAI Ads Pixel.
 
-Requests an die eigene Domain (inkl. Subdomains) werden grundsaetzlich nicht als Tracker gewertet. Selbst gehostetes Matomo (z.B. `stats.example.com/matomo.js`) taucht daher nicht auf -- erkannt werden Matomo Cloud und Instanzen auf fremden Hosts mit Standardpfaden (`matomo.js`/`piwik.js`, `matomo.php`/`piwik.php`, Tag-Manager `js/container_*.js`).
+Requests an die eigene Domain (inkl. Subdomains) werden grundsaetzlich nicht ueber die Library zugeordnet. Matomo wird trotzdem auf drei Wegen erkannt: Matomo Cloud, Instanzen auf fremden Hosts mit Standardpfaden (`matomo.js`/`piwik.js`, `matomo.php`/`piwik.php`, Tag-Manager `js/container_*.js`) und selbst gehostete Instanzen auf der eigenen Domain anhand der Pflichtparameter der Tracking-API (`idsite` + `rec=1`), auch bei umbenannten Pfaden. Letztere erscheinen mit Richtung `first-party`. Hits, die ihre Parameter nur im POST-Body tragen, bleiben auf der eigenen Domain unerkannt.
 
 ### Neuen Vendor hinzufuegen
 
@@ -311,7 +311,7 @@ Die Tracker-Tabellen in Reports zeigen produktgenaue Details:
 |--------|-------------|
 | **Produkt** | Konkretes Tracking-Produkt (z.B. "Google Analytics 4", nicht nur "Google") |
 | **Kategorie** | Funktionale Kategorie (analytics, advertising, session-recording, ...) |
-| **Richtung** | `script` (geladen), `request`/`domain` (direkt gesendet), `sst-tunnel` (First-Party getunnelt via Stape Custom Loader) oder `sst-collect` (GA4-Hit direkt an einen Server-Container auf der eigenen Domain, `server_container_url`) |
+| **Richtung** | `script` (geladen), `request`/`domain` (direkt gesendet), `sst-tunnel` (First-Party getunnelt via Stape Custom Loader) `sst-collect` (GA4-Hit direkt an einen Server-Container auf der eigenen Domain, `server_container_url`) oder `first-party` (selbst gehostetes Matomo auf der eigenen Domain, erkannt an `idsite` + `rec=1`) |
 | **Typen** | Request-Klassifizierung (pageview, event, click, conversion, remarketing) |
 
 Nicht erkannte Third-Party-Requests werden als "Sonstige Third-Party" gefuehrt.
