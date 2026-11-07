@@ -404,8 +404,9 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
  */
 function detectSSTFromResponseBodies(responseBodies, siteHost) {
   const results = [];
-  const gtmIdRe = /GTM-[A-Z0-9]{5,}/gi;
-  const gTagIdRe = /G-[A-Z0-9]{5,}/gi;
+  // Ohne i-Flag und mit \b: sonst matchen Woerter wie "Tracking-Zustimmungsabfrage" (g-Z...) als ID.
+  const gtmIdRe = /\bGTM-[A-Z0-9]{4,}\b/g;
+  const gTagIdRe = /\bG-[A-Z0-9]{5,}\b/g;
 
   for (const { url, body } of responseBodies) {
     if (!body) continue;
@@ -417,8 +418,11 @@ function detectSSTFromResponseBodies(responseBodies, siteHost) {
     } catch { continue; }
 
     const fingerprints = [];
-    const hasGtmRef = body.includes('googletagmanager');
-    const hasGtagCall = body.includes('gtag(');
+    // Standard-Snippets in eigenen JS-Dateien laden von Google, sind also kein Custom Loader.
+    const hasStandardGtmSnippet = body.includes('googletagmanager.com/gtm.js?id=');
+    const hasStandardGtagSnippet = body.includes('googletagmanager.com/gtag/js?id=');
+    const hasGtmRef = body.includes('googletagmanager') && !hasStandardGtmSnippet;
+    const hasGtagCall = body.includes('gtag(') && !hasStandardGtagSnippet;
 
     if (hasGtmRef) {
       const ids = [...body.matchAll(gtmIdRe)].map(m => m[0].toUpperCase());
