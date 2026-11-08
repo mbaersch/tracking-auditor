@@ -25,6 +25,12 @@
 !pii-lib/
 !pii-lib/*.js
 
+# Abgleich der Dienst-Erkennung mit Extension, Validator und Stage
+!abgleich/
+!abgleich/*.js
+!abgleich/*.json
+!abgleich/README.md
+
 # Gemeinsamer Tracking-Klassifikations-Kern (audit.js/compare.js/flow-lib.js)
 !lib/
 !lib/*.js

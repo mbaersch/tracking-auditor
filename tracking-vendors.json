@@ -82,7 +82,8 @@
       { "pattern": "/ccm/form-data", "type": "conversion" },
       { "pattern": "/pagead/1p-user-list/", "type": "remarketing" },
       { "pattern": "/rmkt/collect/", "type": "remarketing" },
-      { "pattern": "/ccm/collect", "type": "event" }
+      { "pattern": "/ccm/collect", "type": "event" },
+      { "pattern": "/ccm/s/collect", "type": "event" }
     ],
     "domains": ["googleadservices.com", "googleads.g.doubleclick.net"]
   },

@@ -1,0 +1,233 @@
+{
+ "ga4-get": {
+  "auditor": "ga4",
+  "parser": "ga4",
+  "validator": "ga4",
+  "stage": "ga4"
+ },
+ "ga4-batch": {
+  "auditor": "ga4",
+  "parser": "ga4",
+  "validator": "ga4",
+  "stage": "ga4"
+ },
+ "ga4-sgtm": {
+  "auditor": "ga4",
+  "parser": "ga4",
+  "validator": "ga4",
+  "stage": "ga4"
+ },
+ "ga4-stape-b64": {
+  "auditor": "ga4",
+  "parser": "ga4",
+  "validator": "ga4",
+  "stage": {
+   "wert": "–",
+   "grund": "Stage dekodiert Tunnel nicht zentral, das ist Projekt-Code (docs/wissen/eigene-formate.md)"
+  }
+ },
+ "ga4-audiences": {
+  "auditor": "ga4",
+  "parser": {
+   "wert": "–",
+   "grund": "Signals-Ping ohne Events oder Nutzerdaten"
+  },
+  "validator": {
+   "wert": "–",
+   "grund": "kein Listener-Muster, keine Nutzerdaten"
+  },
+  "stage": "ga4*"
+ },
+ "ga4-signals-collect": {
+  "auditor": "ga4",
+  "parser": "ga4",
+  "validator": {
+   "wert": "–",
+   "grund": "kein Listener-Muster, keine Nutzerdaten"
+  },
+  "stage": "ga4*"
+ },
+ "ads-conversion": {
+  "auditor": "googleads",
+  "parser": "googleads",
+  "validator": "googleads",
+  "stage": "googleads"
+ },
+ "ads-gtg": {
+  "auditor": "googleads",
+  "parser": "googleads",
+  "validator": "googleads",
+  "stage": "googleads"
+ },
+ "ads-ccm-collect": {
+  "auditor": "googleads",
+  "parser": "googleads",
+  "validator": "googleads",
+  "stage": "googleads"
+ },
+ "ads-form-data": {
+  "auditor": "googleads",
+  "parser": "googleads",
+  "validator": "googleads",
+  "stage": "googleads"
+ },
+ "ads-ccm-collect-ohne-tid": {
+  "auditor": "googleads",
+  "parser": {
+   "wert": "–",
+   "grund": "Begleit-Ping ohne Konto-ID, der Hit mit tid=AW- daneben zählt"
+  },
+  "validator": "googleads",
+  "stage": "googleads"
+ },
+ "ads-ccm-s-collect": {
+  "auditor": "googleads",
+  "parser": {
+   "wert": "–",
+   "grund": "Server-Ping ohne Inhalt, Rauschen"
+  },
+  "validator": {
+   "wert": "–",
+   "grund": "kein Listener-Muster, keine Nutzerdaten"
+  },
+  "stage": "googleads"
+ },
+ "floodlight": {
+  "auditor": "floodlight",
+  "parser": "floodlight",
+  "validator": {
+   "wert": "–",
+   "grund": "kein Floodlight-Detektor (Zweck: Enhanced Conversions)"
+  },
+  "stage": "floodlight"
+ },
+ "meta-get": {
+  "auditor": "meta",
+  "parser": "meta",
+  "validator": "meta",
+  "stage": "meta"
+ },
+ "meta-form": {
+  "auditor": "meta",
+  "parser": "meta",
+  "validator": "meta",
+  "stage": "meta"
+ },
+ "meta-multipart": {
+  "auditor": "meta",
+  "parser": "meta",
+  "validator": "meta",
+  "stage": "meta"
+ },
+ "uet": {
+  "auditor": "uet",
+  "parser": "uet",
+  "validator": "uet",
+  "stage": "uet"
+ },
+ "tiktok-pixel": {
+  "auditor": "tiktok",
+  "parser": "tiktok",
+  "validator": "tiktok",
+  "stage": "tiktok"
+ },
+ "tiktok-act": {
+  "auditor": "tiktok",
+  "parser": {
+   "wert": "–",
+   "grund": "Auto-Events ohne Wert und Nutzerdaten, Rauschen"
+  },
+  "validator": {
+   "wert": "–",
+   "grund": "wie Parser"
+  },
+  "stage": "tiktok"
+ },
+ "pinterest-v3": {
+  "auditor": "pinterest",
+  "parser": "pinterest",
+  "validator": "pinterest",
+  "stage": "pinterest"
+ },
+ "pinterest-user": {
+  "auditor": "pinterest",
+  "parser": {
+   "wert": "–",
+   "grund": "Abgleich-Request, Rauschen"
+  },
+  "validator": {
+   "wert": "–",
+   "grund": "wie Parser"
+  },
+  "stage": "pinterest"
+ },
+ "linkedin-collect": {
+  "auditor": "linkedin",
+  "parser": "linkedin",
+  "validator": {
+   "wert": "–",
+   "grund": "Nutzerdaten nur in /wa"
+  },
+  "stage": "linkedin"
+ },
+ "linkedin-wa-gzip": {
+  "auditor": "linkedin",
+  "parser": "linkedin",
+  "validator": "linkedin",
+  "stage": "linkedin"
+ },
+ "linkedin-wa-b64": {
+  "auditor": "linkedin",
+  "parser": "linkedin",
+  "validator": "linkedin",
+  "stage": "linkedin"
+ },
+ "reddit-rp": {
+  "auditor": "reddit",
+  "parser": "reddit",
+  "validator": "reddit",
+  "stage": "reddit"
+ },
+ "reddit-rp-gif": {
+  "auditor": "reddit",
+  "parser": "reddit",
+  "validator": "reddit",
+  "stage": "reddit"
+ },
+ "snap-get": {
+  "auditor": "snapchat",
+  "parser": "snapchat",
+  "validator": "snapchat",
+  "stage": "snapchat"
+ },
+ "snap-post-telemetrie": {
+  "auditor": "snapchat",
+  "parser": {
+   "wert": "–",
+   "grund": "Telemetrie, Rauschen"
+  },
+  "validator": {
+   "wert": "–",
+   "grund": "wie Parser"
+  },
+  "stage": "snapchat"
+ },
+ "openai-events": {
+  "auditor": "openai",
+  "parser": "openai",
+  "validator": "openai",
+  "stage": "openai"
+ },
+ "stape-data-client": {
+  "auditor": {
+   "wert": "–",
+   "grund": "Format, kein Dienst: Hinweis im SST-Abschnitt"
+  },
+  "parser": "stape-data",
+  "validator": "stape-data",
+  "stage": {
+   "wert": "–",
+   "grund": "Format, kein Dienst; eigener sGTM-Host ist Projektsache"
+  }
+ }
+}

@@ -1,0 +1,218 @@
+{
+ "seite": "https://www.example.com/",
+ "requests": [
+  {
+   "id": "ga4-get",
+   "dienst": "ga4",
+   "variante": "GA4 GET an Google",
+   "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-TEST000001&cid=1.2&en=page_view&dl=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
+   "id": "ga4-batch",
+   "dienst": "ga4",
+   "variante": "GA4 POST, mehrere Events zeilenweise im Body",
+   "method": "POST",
+   "url": "https://region1.google-analytics.com/g/collect?v=2&tid=G-TEST000001&cid=1.2&cu=EUR",
+   "bodyType": "text",
+   "body": "en=page_view&_et=10\nen=purchase&epn.value=10&ep.transaction_id=T-1"
+  },
+  {
+   "id": "ga4-sgtm",
+   "dienst": "ga4",
+   "variante": "GA4 unkodiert an einen Server-Container auf der eigenen Domain",
+   "url": "https://sst.example.com/g/collect?v=2&tid=G-TEST000001&cid=1.2&en=page_view"
+  },
+  {
+   "id": "ga4-stape-b64",
+   "dienst": "ga4",
+   "variante": "Stape Custom Loader: GA4-Pfad base64 in einem Query-Parameter (mit em, sonst verwirft der Validator getarnte Requests)",
+   "url": "https://sst.example.com/x1y2z3?ab12cd34=L2cvY29sbGVjdD92PTImdGlkPUctVEVTVDAwMDAwMSZjaWQ9MS4yJmVuPWdlbmVyYXRlX2xlYWQmZW09dHYuMX5lbS5hYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFh"
+  },
+  {
+   "id": "ga4-audiences",
+   "dienst": "ga4",
+   "variante": "Google Signals: ads/ga-audiences",
+   "url": "https://www.google.de/ads/ga-audiences?v=1&t=sr&tid=G-TEST000001&cid=1.2&gcs=G111"
+  },
+  {
+   "id": "ga4-signals-collect",
+   "dienst": "ga4",
+   "variante": "Google Signals: g/s/collect",
+   "url": "https://region1.analytics.google.com/g/s/collect?v=2&tid=G-TEST000001&cid=1.2&en=page_view"
+  },
+  {
+   "id": "ads-conversion",
+   "dienst": "googleads",
+   "variante": "Google Ads Conversion (pagead/conversion)",
+   "url": "https://www.googleadservices.com/pagead/conversion/123456789/?random=1&en=conversion&gcs=G111&label=AbCdEf&value=10&currency_code=EUR&oid=T-1"
+  },
+  {
+   "id": "ads-gtg",
+   "dienst": "googleads",
+   "variante": "Google Tag Gateway: Kurzform as/p/c auf der eigenen Domain",
+   "url": "https://www.example.com/gw/as/p/c/123456789/?random=1&en=conversion&gcs=G111&label=AbCdEf&value=10&currency_code=EUR&oid=T-1"
+  },
+  {
+   "id": "ads-ccm-collect",
+   "dienst": "googleads",
+   "variante": "ccm/collect mit tid=AW-",
+   "url": "https://www.google.com/ccm/collect?en=page_view&tid=AW-123456789&gcs=G111&dl=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
+   "id": "ads-ccm-collect-ohne-tid",
+   "dienst": "googleads",
+   "variante": "ccm/collect ohne tid (Begleit-Ping)",
+   "url": "https://www.google.com/ccm/collect?en=page_view&ae=g&gcs=G111&dl=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
+   "id": "ads-ccm-s-collect",
+   "dienst": "googleads",
+   "variante": "ccm/s/collect (Server-Ping)",
+   "url": "https://ad.doubleclick.net/ccm/s/collect?auid=1.2&gcs=G111"
+  },
+  {
+   "id": "ads-form-data",
+   "dienst": "googleads",
+   "variante": "Enhanced Conversions: ccm/form-data",
+   "url": "https://www.google.com/ccm/form-data/123456789?gcs=G111&ec_mode=a&em=tv.1~em.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+   "id": "floodlight",
+   "dienst": "floodlight",
+   "variante": "Floodlight activity mit Matrix-Parametern",
+   "url": "https://ad.doubleclick.net/activity;src=1234567;type=sales0;cat=purch0;ord=T-1;cost=10;qty=1"
+  },
+  {
+   "id": "meta-get",
+   "dienst": "meta",
+   "variante": "Meta GET",
+   "url": "https://www.facebook.com/tr/?id=123456789012345&ev=PageView&dl=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
+   "id": "meta-form",
+   "dienst": "meta",
+   "variante": "Meta POST urlencoded",
+   "method": "POST",
+   "url": "https://www.facebook.com/tr/",
+   "bodyType": "form",
+   "body": "id=123456789012345&ev=Lead&ud%5Bem%5D=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+   "id": "meta-multipart",
+   "dienst": "meta",
+   "variante": "Meta POST multipart, id und ev nur im Body",
+   "method": "POST",
+   "url": "https://www.facebook.com/tr/",
+   "bodyType": "multipart",
+   "body": "------WebKitFormBoundaryTEST\r\nContent-Disposition: form-data; name=\"id\"\r\n\r\n123456789012345\r\n------WebKitFormBoundaryTEST\r\nContent-Disposition: form-data; name=\"ev\"\r\n\r\nPurchase\r\n------WebKitFormBoundaryTEST\r\nContent-Disposition: form-data; name=\"cd[value]\"\r\n\r\n10\r\n------WebKitFormBoundaryTEST\r\nContent-Disposition: form-data; name=\"cd[currency]\"\r\n\r\nEUR\r\n------WebKitFormBoundaryTEST\r\nContent-Disposition: form-data; name=\"ud[em]\"\r\n\r\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n------WebKitFormBoundaryTEST--\r\n"
+  },
+  {
+   "id": "uet",
+   "dienst": "uet",
+   "variante": "Microsoft UET action",
+   "url": "https://bat.bing.com/action/0?ti=12345678&tm=gtm002&Ver=2&mid=x&evt=pageLoad&sid=1&vid=2&p=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
+   "id": "tiktok-pixel",
+   "dienst": "tiktok",
+   "variante": "TikTok api/v2/pixel (JSON)",
+   "method": "POST",
+   "url": "https://analytics.tiktok.com/api/v2/pixel",
+   "bodyType": "json",
+   "body": "{\"event\":\"Pageview\",\"message_id\":\"m1\",\"event_id\":\"\",\"is_onsite\":false,\"timestamp\":\"2026-01-01T00:00:00.000Z\",\"context\":{\"ad\":{},\"user\":{},\"pixel\":{\"code\":\"CTEST0000000000000\"},\"page\":{\"url\":\"https://www.example.com/\"}},\"properties\":{}}"
+  },
+  {
+   "id": "tiktok-act",
+   "dienst": "tiktok",
+   "variante": "TikTok pixel/act (Auto-Events ohne Wert und Nutzerdaten)",
+   "method": "POST",
+   "url": "https://analytics.tiktok.com/api/v2/pixel/act",
+   "bodyType": "json",
+   "body": "{\"action\":\"Click\",\"context\":{\"pixel\":{\"code\":\"CTEST0000000000000\"}},\"auto_collected_properties\":{}}"
+  },
+  {
+   "id": "pinterest-v3",
+   "dienst": "pinterest",
+   "variante": "Pinterest v3",
+   "url": "https://ct.pinterest.com/v3/?event=pagevisit&tid=2612345678901&pd=%7B%22np%22%3A%22gtm%22%7D"
+  },
+  {
+   "id": "pinterest-user",
+   "dienst": "pinterest",
+   "variante": "Pinterest user (Abgleich)",
+   "url": "https://ct.pinterest.com/user/?tid=2612345678901&pd=%7B%22np%22%3A%22gtm%22%7D"
+  },
+  {
+   "id": "linkedin-collect",
+   "dienst": "linkedin",
+   "variante": "LinkedIn collect",
+   "url": "https://px.ads.linkedin.com/collect?v=2&fmt=js&pid=1234567&time=1&url=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
+   "id": "linkedin-wa-gzip",
+   "dienst": "linkedin",
+   "variante": "LinkedIn /wa: base64(gzip(JSON)), fmt=g",
+   "method": "POST",
+   "url": "https://px.ads.linkedin.com/wa/?medium=fetch&fmt=g",
+   "bodyType": "text",
+   "body": "H4sIAAAAAAAAA6WOsWrDQBBE/2XqxZJiJyHbGhxMVCUiTXBxsRZ74U4661ZIIuTfg6TGfaabecMwP4haJ/BX8bDdPT49nwjp3Gm0T+mStg24yPM8374QTIOAC0LdBqcNGDK6EL1szm0Aoe88GFezmDjLhmHY3PEMhEG+k5p86KVx/l1uvSQ71mCMIER3kbJ19RJMIHg9uBUv5lVdY6uZq5WaFzAqSQbCVQIY7p8CIS3nqinO4/vyuH/D7x/oOWtYJAEAAA=="
+  },
+  {
+   "id": "linkedin-wa-b64",
+   "dienst": "linkedin",
+   "variante": "LinkedIn /wa: base64(JSON), fmt=b",
+   "method": "POST",
+   "url": "https://px.ads.linkedin.com/wa/?medium=beacon&fmt=b",
+   "bodyType": "text",
+   "body": "eyJwaWRzIjpbMTIzNDU2N10sInNjcmlwdFZlcnNpb24iOjEwMDAwMzksInRpbWUiOjEsImRvbWFpbiI6ImV4YW1wbGUuY29tIiwidXJsIjoiaHR0cHM6Ly93d3cuZXhhbXBsZS5jb20vIiwid2Vic2l0ZVNpZ25hbFJlcXVlc3RJZCI6IngiLCJwYWdlTG9hZElkIjoieSIsImxpRmF0SWQiOiIiLCJsaUdpYW50IjoiIiwicGFnZVRpdGxlIjoiVGVzdCIsImhlbSI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEiLCJzaWduYWxUeXBlIjoiQ0xJQ0sifQ=="
+  },
+  {
+   "id": "reddit-rp",
+   "dienst": "reddit",
+   "variante": "Reddit POST /rp mit Form-Body",
+   "method": "POST",
+   "url": "https://alb.reddit.com/rp?event=PageVisit&id=t2_test123",
+   "bodyType": "form",
+   "body": "ts=1&uuid=u1&integration=gtm&opt_out=0&v=rdt_test"
+  },
+  {
+   "id": "reddit-rp-gif",
+   "dienst": "reddit",
+   "variante": "Reddit GET /rp.gif",
+   "url": "https://alb.reddit.com/rp.gif?ts=1&id=t2_test123&event=PageVisit&integration=gtm&opt_out=0&v=rdt_test"
+  },
+  {
+   "id": "snap-get",
+   "dienst": "snapchat",
+   "variante": "Snap GET /p",
+   "url": "https://tr.snapchat.com/p?pid=00000000-0000-0000-0000-000000000001&ev=PAGE_VIEW&v=1&ts=1&u_c1=c1&u_scsid=s1&pl=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
+   "id": "snap-post-telemetrie",
+   "dienst": "snapchat",
+   "variante": "Snap POST /p mit {ctx, req} (Telemetrie)",
+   "method": "POST",
+   "url": "https://tr.snapchat.com/p",
+   "bodyType": "json",
+   "body": "{\"ctx\":{\"bt\":\"x\",\"c1\":\"c1\"},\"req\":{},\"u_scsid\":\"s1\"}"
+  },
+  {
+   "id": "openai-events",
+   "dienst": "openai",
+   "variante": "OpenAI v1/sdk/events (Event-Array)",
+   "method": "POST",
+   "url": "https://bzr.openai.com/v1/sdk/events?pid=pxtest&st=oaiq-web&sv=1&t=1&ec=1",
+   "bodyType": "json",
+   "body": "{\"events\":[{\"type\":\"page_view\",\"timestamp_ms\":1,\"id\":\"e1\",\"source_url\":\"https://www.example.com/\"}]}"
+  },
+  {
+   "id": "stape-data-client",
+   "dienst": "stape-data",
+   "variante": "Stape Data Client (Format, kein Dienst)",
+   "method": "POST",
+   "url": "https://sst.example.com/data?v=2&event=page_view",
+   "bodyType": "json",
+   "body": "{\"event_name\":\"page_view\",\"v\":2,\"page_location\":\"https://www.example.com/\",\"consent_state\":{\"ad_storage\":true},\"email_address\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
+  }
+ ]
+}

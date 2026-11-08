@@ -34,6 +34,7 @@ flow-delta.js     Zwei Flow-Snapshots ueber die Zeit vergleichen (Baseline vs. n
 flow-recorder.js  Flow live aufzeichnen (Playwright, Phasen-Overlay) -- Alternative zum HAR-Weg
 flow-lib.js       Gemeinsame Analyse-/Report-Logik fuer flow-analyze und flow-recorder
 pii-lib/          Vendored PII/Event-Parser (Snapshot aus der Tracking-Auditor-Extension)
+abgleich/         Abgleich der Dienst-Erkennung mit Extension, EC Data Validator und Stage in a Box
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
 cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~123 CMPs)
@@ -230,7 +231,7 @@ Beispiel-Report: [Tracking-Vergleich](examples/compare-example-report.md)
 
 Waehrend `compare.js` zwei URLs **synchron in einem Lauf** vergleicht, dient der Flow-Vergleich dem **Vorher/Nachher ueber die Zeit** (z.B. GTM-/Consent-/Server-Side-Umstellung): Baseline jetzt aufzeichnen, nach der Umstellung erneut, dann das Delta bestimmen. Der Schwerpunkt liegt auf einem **mehrstufigen Checkout-Flow** (Startseite -> Produkt -> Warenkorb -> Checkout -> Adresse) und dem **Nachweis, welche personenbezogenen Felder (E-Mail, Telefon, Name, Adresse) an welchen Vendor** gehen -- inklusive gehashter Formen (Meta/TikTok Advanced Matching, GA4/Ads Enhanced Conversions).
 
-Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension). Abgedeckt sind 16 Dienste: GA4, Meta, Microsoft UET, TikTok, Pinterest, Google Ads, Floodlight, LinkedIn, Reddit, Snapchat, HubSpot, Criteo, Taboola, Outbrain, Awin, OpenAI -- damit derselbe Umfang wie im DevTools-Panel der Extension. Dienste ohne dedizierten Parser (GTM, Google Tag, AdSense, Clarity, Hotjar) werden ueber `tracking-vendors.json` als Praesenz erkannt.
+Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension). Wie Parser, Vendor-Library und die Schwesterprojekte abgeglichen werden, steht in [abgleich/README.md](abgleich/README.md). Abgedeckt sind 16 Dienste: GA4, Meta, Microsoft UET, TikTok, Pinterest, Google Ads, Floodlight, LinkedIn, Reddit, Snapchat, HubSpot, Criteo, Taboola, Outbrain, Awin, OpenAI -- damit derselbe Umfang wie im DevTools-Panel der Extension. Dienste ohne dedizierten Parser (GTM, Google Tag, AdSense, Clarity, Hotjar) werden ueber `tracking-vendors.json` als Praesenz erkannt.
 
 Vier Parser (GA4, Meta, Google Ads, UET) bekommen zusaetzlich die URL der auditierten Seite und erkennen damit **First-Party-Transporte per eTLD+1-Vergleich**. Ohne diese Angabe kann kein Request als `first-party` gelten -- eine Klassifikation nach blosser URL-Form wuerde sonst Google-eigene Hosts wie `stats.g.doubleclick.net` faelschlich als eigenes Setup ausweisen.
 
@@ -378,6 +379,8 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 - Parser (aus der Extension): multipart-Bodies (grosse Meta-Events), Reddit `POST /rp`, LinkedIn `/wa` ohne gzip (`fmt=b`) und im Flow-Vergleich ausgewertet, GA4- und Meta-Werte samt Transaktions-ID, Google-Tag-Gateway-Kurzform `as/p/c`, Meta-Nutzerdaten in der verschachtelten Form `aud[em][0][v]`.
 - Neue Option `--cookie name=value` fuer Testseiten, die nur mit einem Freischalt-Cookie tracken.
 - SST-Abschnitt: Hinweis auf den Stape Data Client (Format, kein Dienst).
+- Vendor-Library: `ccm/s/collect` (Server-Ping auf `ad.doubleclick.net`) gehoert zu Google Ads statt zu Floodlight.
+- Neu `abgleich/` (`npm run abgleich`): schickt Referenz-Requests je Dienst und Formatvariante durch Auditor, Parser, EC Data Validator und Stage in a Box und meldet Abweichungen vom erwarteten Stand, dazu ob `pii-lib/` noch der Extension entspricht. Beschreibung in [abgleich/README.md](abgleich/README.md).
 - CMP-Bibliothek: Fakecentrics (Test-CMP), damit Audits auf Testseiten mit dieser CMP nicht im manuellen Modus laufen.
 
 ### 2026-09-06 -- Parser-Gleichstand mit der Browser-Extension
