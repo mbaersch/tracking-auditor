@@ -9,7 +9,7 @@ Vier Hauptfunktionen:
 3. **[Tracking-Vergleich](#3-tracking-vergleich-comparejs)** -- Zwei Setups gegeneinander vergleichen (z.B. Live vs. sGTM)
 4. **[Asynchroner Flow-Vergleich](#4-asynchroner-flow-vergleich-har-basiert)** -- Einen Checkout-Flow ueber die Zeit vergleichen (Baseline vorher, Delta nachher), inkl. PII-Nachweis pro Vendor
 
-Die CMP-Bibliothek erkennt aktuell **122 Consent-Banner und CMPs** automatisch (Accept/Reject-Selektoren in [`cmp-library.json`](cmp-library.json)) -- siehe [Changelog](#changelog) zum Wachstum.
+Die CMP-Bibliothek erkennt aktuell **123 Consent-Banner und CMPs** automatisch (Accept/Reject-Selektoren in [`cmp-library.json`](cmp-library.json)) -- siehe [Changelog](#changelog) zum Wachstum.
 
 Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-Vergleich](examples/compare-example-report.md)
 
@@ -36,7 +36,7 @@ flow-lib.js       Gemeinsame Analyse-/Report-Logik fuer flow-analyze und flow-re
 pii-lib/          Vendored PII/Event-Parser (Snapshot aus der Tracking-Auditor-Extension)
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
-cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~122 CMPs)
+cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~123 CMPs)
 tracking-vendors.json  Datenbank bekannter Tracking-Produkte (Scripts, Endpoints, Domains)
 reports/          Ablageort fuer generierte Reports (lokal, nicht im Repo)
 ```
@@ -378,6 +378,7 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 - Parser (aus der Extension): multipart-Bodies (grosse Meta-Events), Reddit `POST /rp`, LinkedIn `/wa` ohne gzip (`fmt=b`) und im Flow-Vergleich ausgewertet, GA4- und Meta-Werte samt Transaktions-ID, Google-Tag-Gateway-Kurzform `as/p/c`, Meta-Nutzerdaten in der verschachtelten Form `aud[em][0][v]`.
 - Neue Option `--cookie name=value` fuer Testseiten, die nur mit einem Freischalt-Cookie tracken.
 - SST-Abschnitt: Hinweis auf den Stape Data Client (Format, kein Dienst).
+- CMP-Bibliothek: Fakecentrics (Test-CMP), damit Audits auf Testseiten mit dieser CMP nicht im manuellen Modus laufen.
 
 ### 2026-09-06 -- Parser-Gleichstand mit der Browser-Extension
 

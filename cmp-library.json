@@ -1461,5 +1461,18 @@
     "learnedAt": "2026-07-16T00:00:00.000Z",
     "source": "user-provided",
     "note": "generischer cookieconsent-Auffang; niedrige Prioritaet, damit spezifische Varianten (datareporter/dp/pandectes) vorgehen"
+  },
+  "fakecentrics": {
+    "name": "Fakecentrics",
+    "accept": "#fc_ba",
+    "reject": "#fc_bd",
+    "detect": [
+      "#fakeconsent"
+    ],
+    "shadowDom": false,
+    "priority": 4,
+    "learnedAt": "2026-11-08T00:00:00.000Z",
+    "source": "user-provided",
+    "note": "Test-CMP auf Spielwiesen (u. a. atomkraftwerke24.de)"
   }
 }
