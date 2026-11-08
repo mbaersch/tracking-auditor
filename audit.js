@@ -14,6 +14,7 @@
  *   --cmp         CMP name (skips auto-detection if provided)
  *   --disable-sw  Deregister service workers via CDP
  *   --ecom        Interactive E-Commerce mode (navigate manually in browser)
+ *   --cookie      name=value, set before the first page load (repeatable)
  *
  * E-Commerce (--category activates the path):
  *   --category    Category page URL (relative or absolute)
@@ -62,6 +63,11 @@ const disableSW = has('--disable-sw');
 const ecomInteractive = has('--ecom');
 const noPayloadAnalysis = has('--no-payload-analysis');
 const exportHAR = has('--har');
+// --cookie name=value (mehrfach): vor dem ersten Aufruf setzen, z. B. ein Freischalt-
+// Cookie, ohne das die Website gar nicht trackt.
+const presetCookies = args.flatMap((a, i) => a === '--cookie' && args[i + 1] ? [args[i + 1]] : [])
+  .map(c => { const eq = c.indexOf('='); return eq > 0 ? { name: c.slice(0, eq), value: c.slice(eq + 1) } : null; })
+  .filter(Boolean);
 
 // E-Commerce (fix Git Bash path mangling for relative URLs)
 const categoryUrl  = fixMangledPath(get('--category'), '--category');
@@ -76,6 +82,7 @@ if (!url || !project) {
   console.error('  Interaktiv: [--ecom] (E-Commerce-Pfad manuell im Browser durchlaufen)');
   console.error('  Analyse: [--no-payload-analysis] (Deep Analysis deaktivieren)');
   console.error('  Export:  [--har] (HAR-Datei mit allen Requests exportieren)');
+  console.error('  Cookie:  [--cookie name=value] (vor dem Start setzen, mehrfach moeglich)');
   process.exit(1);
 }
 
@@ -2021,6 +2028,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   const browser1 = await chromium.launch({ headless: false, args: ['--disable-blink-features=AutomationControlled'] });
   const context1 = await browser1.newContext();
+  if (presetCookies.length) await context1.addCookies(presetCookies.map(c => ({ ...c, url })));
   const page1 = await context1.newPage();
 
   let getPreRequests = setupRequestCollector(page1, 'pre-consent');
@@ -2470,6 +2478,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
   const browser2 = await chromium.launch({ headless: false, args: ['--disable-blink-features=AutomationControlled'] });
   const context2 = await browser2.newContext();
+  if (presetCookies.length) await context2.addCookies(presetCookies.map(c => ({ ...c, url })));
   const page2 = await context2.newPage();
 
   // Pre-consent baseline in fresh browser

@@ -117,6 +117,7 @@ Im interaktiven Modus navigierst du selbst durch den Shop. Eine schwebende Card 
 | `--ecom` | nein | Interaktiver E-Commerce-Modus (manuell navigieren) |
 | `--no-payload-analysis` | nein | Deep Analysis deaktivieren (CSP-Violations, Payload-Analyse, Stape-Decode) |
 | `--har` | nein | HAR-Datei mit allen Requests exportieren (neben dem Report) |
+| `--cookie` | nein | `name=value`, vor dem ersten Aufruf gesetzt (mehrfach möglich), z. B. ein Freischalt-Cookie für das Tracking |
 | `--category` | nein | Kategorie-URL (aktiviert automatischen E-Commerce-Pfad) |
 | `--product` | nein | Produkt-URL |
 | `--add-to-cart` | nein | CSS-Selektor fuer Add-to-Cart-Button |
