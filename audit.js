@@ -42,6 +42,9 @@ import {
   extractTaggrsTransports,
 } from './lib/tracking-classify.js';
 import { parseOpenAiRequest, isOpenAiSdkHost } from './pii-lib/openai.js';
+import {
+  newServiceMap, collectServiceRecords, formatServiceTable, enhancedConversionsFrom, remarketingFrom,
+} from './lib/service-records.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LIBRARY_PATH = resolve(__dirname, 'cmp-library.json');
@@ -129,51 +132,6 @@ function resolveUrl(base, relative) {
       return null;
     }
   }
-}
-
-/**
- * Checks GA4 collect requests for Enhanced Conversions indicators.
- * Params 'ect' or 'em' signal EC is active.
- */
-function checkEnhancedConversions(requestUrl, postData) {
-  try {
-    const u = new URL(requestUrl);
-    const urlParams = u.searchParams;
-    const bodyParams = postData ? new URLSearchParams(postData) : new URLSearchParams();
-
-    const hasEct = urlParams.has('ect') || bodyParams.has('ect');
-    const hasEm = urlParams.has('em') || bodyParams.has('em');
-
-    if (!hasEct && !hasEm) return null;
-
-    return {
-      active: true,
-      hasHashedEmail: hasEm,
-      eventName: urlParams.get('en') || bodyParams.get('en') || null,
-    };
-  } catch { return null; }
-}
-
-/**
- * Checks Google Ads requests for Dynamic Remarketing product data.
- */
-function checkRemarketingPayload(requestUrl, postData) {
-  try {
-    const combined = requestUrl + (postData ? '&' + postData : '');
-    const paramStr = combined.includes('?') ? combined.split('?').slice(1).join('?') : postData || '';
-    const params = new URLSearchParams(paramStr);
-
-    const prodId = params.get('ecomm_prodid') || params.get('dynx_itemid');
-    const pageType = params.get('ecomm_pagetype') || params.get('dynx_pagetype');
-
-    if (!prodId && !pageType) return null;
-
-    return {
-      active: true,
-      hasProductIds: !!prodId,
-      pageType: pageType || null,
-    };
-  } catch { return null; }
 }
 
 /**
@@ -312,7 +270,7 @@ function analyzeOpenAiPixel(fullRequests, openai) {
  * @param {string} siteHost - site URL for domain comparison
  * @param {object} deepAnalysis - reportData.deepAnalysis (mutated)
  */
-function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
+async function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
   // 1. Stape transport decode
   const { transports, decodedRequests } = extractStapeFindings(fullRequests);
   for (const t of transports) {
@@ -360,31 +318,14 @@ function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnalysis) {
     } catch { /* */ }
   }
 
-  // 5. Enhanced Conversions (check GA4 collect requests)
-  for (const req of allRequests) {
-    // Enhanced Conversions ist GA4-spezifisch (/g/collect). Das generische "/collect"
-    // wuerde fremde Endpunkte mit em-Param faelschlich als aktiv melden.
-    const isCollect = req.url.includes('/g/collect');
-    if (!isCollect) continue;
-    const ec = checkEnhancedConversions(req.url, req.postData);
-    if (ec && !deepAnalysis.features.enhancedConversions) {
-      deepAnalysis.features.enhancedConversions = ec;
-    }
+  // 5./6. Events, Werte, Nutzerdaten und Consent je Dienst ueber die pii-lib-Parser.
+  // Nur die Original-Requests: GA4 dekodiert den Stape-Tunnel selbst, die synthetischen
+  // URLs wuerden jeden getunnelten Hit doppelt zaehlen.
+  const records = (await collectServiceRecords(fullRequests, siteHost, deepAnalysis.services)).flat();
+  if (!deepAnalysis.features.enhancedConversions) {
+    deepAnalysis.features.enhancedConversions = enhancedConversionsFrom(records);
   }
-
-  // 6. Dynamic Remarketing (check Google Ads requests)
-  for (const req of allRequests) {
-    // Dynamic Remarketing laeuft ueber Google-Ads-Hosts. Reine URL-Substrings
-    // ("/pagead/", "googleads") matchen sonst auch fremde Endpunkte.
-    const adsHost = getHostname(req.url) || '';
-    const isGoogleAdsHost = adsHost.endsWith('doubleclick.net') || adsHost.endsWith('googleadservices.com') || adsHost.startsWith('googleads.');
-    const isAds = isGoogleAdsHost && req.url.includes('/pagead/');
-    if (!isAds) continue;
-    const rm = checkRemarketingPayload(req.url, req.postData);
-    if (rm) {
-      deepAnalysis.features.remarketing.push(rm);
-    }
-  }
+  deepAnalysis.features.remarketing.push(...remarketingFrom(records));
 
   // 7. Meta Setup (once, uses all requests + cookies)
   if (!deepAnalysis.features.metaSetup) {
@@ -1827,6 +1768,14 @@ function generateReport(data) {
     md += formatTrackingFeaturesSection(data.deepAnalysis);
   }
 
+  // ── Requests je Dienst (pii-lib) ──
+  if (data.deepAnalysis && data.deepAnalysis.services.size) {
+    md += '## Requests je Dienst\n\n';
+    md += 'Ausgewertet mit den Parsern der pii-lib (wie die Browser-Extension): Events, Werte und Nutzerdaten je Phase. '
+      + 'Nutzerdaten = Felder vorhanden, nicht ihre Werte.\n\n';
+    md += formatServiceTable(data.deepAnalysis.services);
+  }
+
   // ── OpenAI Ads Pixel ──
   if (data.deepAnalysis) {
     md += formatOpenAiSection(data.deepAnalysis.openai);
@@ -2128,6 +2077,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
         remarketing: [],
         metaSetup: null,
       },
+      services: newServiceMap(),
       stapeTransports: [],
       taggrsTransports: [],
       googleSubTypes: new Set(),
@@ -2194,7 +2144,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // Deep Analysis: Phase 1
   if (!noPayloadAnalysis) {
     const preFullRequests = getPreRequests.full();
-    analyzeRequestPayloads(preFullRequests, preCookies, siteHost, reportData.deepAnalysis);
+    await analyzeRequestPayloads(preFullRequests, preCookies, siteHost, reportData.deepAnalysis);
   }
 
   // ── Phase 2: Post-Accept (same browser) ─────────────────────────────────────
@@ -2296,7 +2246,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // Deep Analysis: Phase 2
   if (!noPayloadAnalysis) {
     const postAcceptFullRequests = getPostAcceptRequests.full();
-    analyzeRequestPayloads(postAcceptFullRequests, postAcceptCookies, siteHost, reportData.deepAnalysis);
+    await analyzeRequestPayloads(postAcceptFullRequests, postAcceptCookies, siteHost, reportData.deepAnalysis);
   }
 
   // ── Phase 3: E-Commerce (same browser, --category or --ecom) ────────────────
@@ -2418,7 +2368,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
           // Deep Analysis: E-Commerce Click-Step
           if (!noPayloadAnalysis) {
             const stepFullRequests = getStepRequests.full();
-            analyzeRequestPayloads(stepFullRequests, stepCookies, siteHost, reportData.deepAnalysis);
+            await analyzeRequestPayloads(stepFullRequests, stepCookies, siteHost, reportData.deepAnalysis);
           }
 
           prevCookies = stepCookies;
@@ -2443,7 +2393,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
           // Deep Analysis: E-Commerce Navigate-Step
           if (!noPayloadAnalysis && result.stepFullRequests) {
-            analyzeRequestPayloads(result.stepFullRequests, result.stepCookies, siteHost, reportData.deepAnalysis);
+            await analyzeRequestPayloads(result.stepFullRequests, result.stepCookies, siteHost, reportData.deepAnalysis);
           }
 
           prevCookies = result.stepCookies;
@@ -2494,7 +2444,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
         // Deep Analysis: E-Commerce Step
         if (!noPayloadAnalysis && result.stepFullRequests) {
-          analyzeRequestPayloads(result.stepFullRequests, result.stepCookies, siteHost, reportData.deepAnalysis);
+          await analyzeRequestPayloads(result.stepFullRequests, result.stepCookies, siteHost, reportData.deepAnalysis);
         }
 
         prevCookies = result.stepCookies;
@@ -2625,7 +2575,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   // Deep Analysis: Phase 4
   if (!noPayloadAnalysis) {
     const rejectFullRequests = getRejectPostRequests.full();
-    analyzeRequestPayloads(rejectFullRequests, rejectPostCookies, siteHost, reportData.deepAnalysis);
+    await analyzeRequestPayloads(rejectFullRequests, rejectPostCookies, siteHost, reportData.deepAnalysis);
   }
 
   await updateStatusBar(page2, 'Phase 5', 'Fertig – Report wird generiert...', `DL: +${rejectDataLayerDiff.length} | 3P: +${postReject.classified.length}`);
