@@ -59,6 +59,9 @@ function classifyPath(pathname, en) {
 
   if (/\/pagead\/conversion\//.test(p))        return { family: 'pagead/conversion', signal: 'conversion' };
   if (/\/ccm\/conversion\//.test(p))           return { family: 'ccm/conversion', signal: 'conversion' };
+  // Google tag gateway: <own path>/as/p/c/<id>/ is the short form of pagead/conversion
+  // (same label/value/oid query), next to <own path>/as/d/ccm/conversion/<id>/.
+  if (/\/as\/p\/c\/\d{6,}\//.test(p))          return { family: 'gtg/conversion', signal: 'conversion' };
   if (/\/pagead\/1p-conversion\//.test(p))     return { family: '1p-conversion', signal: 'conversion' };
   if (/\/pagead\/viewthroughconversion\//.test(p)) {
     return en === 'conversion'
@@ -80,7 +83,7 @@ function classifyPath(pathname, en) {
 //  - upd: ccm/form-data carries em + ecsid; pagead/form-data is often empty.
 //  - remarketing: viewthrough/rmkt carry the product `data`; 1p-user-list mirrors it.
 const FAMILY_RANK = {
-  'pagead/conversion': 100, 'ccm/conversion': 90, '1p-conversion': 80, 'viewthroughconversion': 70,
+  'pagead/conversion': 100, 'ccm/conversion': 90, 'gtg/conversion': 85, '1p-conversion': 80, 'viewthroughconversion': 70,
   'rmkt/collect': 100, '1p-user-list': 80,
   'ccm/form-data': 100, 'pagead/form-data': 80,
   'ccm/collect': 100,
