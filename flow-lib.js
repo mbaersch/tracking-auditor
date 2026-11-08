@@ -13,7 +13,7 @@ import {
   extractFirstPartyCollectMatches,
 } from './lib/tracking-classify.js';
 import {
-  parseRequests, piiFromRecord, eventName, accountId, PROVIDER_LABEL,
+  parseRequests, parseRequestsAsync, piiFromRecord, eventName, accountId, PROVIDER_LABEL,
 } from './pii-lib/index.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -41,8 +41,9 @@ export function gcsState(gcs) {
 
 // ── Analyse ───────────────────────────────────────────────────────────────────
 
-export function analyze(requests, siteUrl) {
+export async function analyze(requests, siteUrl) {
   const allUrls = requests.map(r => r.url);
+  const records = await Promise.all(requests.map(r => parseRequestsAsync(r.url, r.postData, siteUrl)));
 
   // — Trackers (Praesenz ueber tracking-vendors.json, inkl. Stape-Tunnel) —
   const trackerMap = new Map();
@@ -87,12 +88,12 @@ export function analyze(requests, siteUrl) {
     p.hashed = p.hashed || pf.hashed;
   };
 
-  for (const r of requests) {
+  for (const [i, r] of requests.entries()) {
     addTracker(matchRequest(r.url, siteUrl), r.phase);
     for (const m of extractFirstPartyCollectMatches([r], siteUrl)) addTracker(m, r.phase);
     // Ein POST kann mehrere Events tragen (OpenAI batcht) -- jedes Event ist ein
     // eigener Record und kann eigene Identifier fuehren.
-    for (const rec of parseRequests(r.url, r.postData, siteUrl)) addPii(rec.provider, rec, r.phase);
+    for (const rec of records[i]) addPii(rec.provider, rec, r.phase);
   }
 
   // Stape Custom Loader: getunnelte Hits klassifizieren und als eigene Tracker-
@@ -124,11 +125,11 @@ export function analyze(requests, siteUrl) {
   let fullyDeniedPings = 0;
   const consentSamples = [];
   const seenCm = new Set();
-  for (const r of requests) {
+  for (const [i, r] of requests.entries()) {
     // Nur Google-Records fuehren gcs/gcd. Andere Provider haben ein .consent mit
     // eigener Form (OpenAI: {granted, credentialless, source}) und fallen hier
     // ueber die fehlenden Felder von selbst raus.
-    for (const rec of parseRequests(r.url, r.postData, siteUrl)) {
+    for (const rec of records[i]) {
       if (!rec.consent) continue;
       const gcs = rec.consent.gcs || null;
       if (gcs) {

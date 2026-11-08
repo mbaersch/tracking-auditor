@@ -16,7 +16,7 @@ import { parseTiktokRequest } from './tiktok.js';
 import { parsePinterestRequest } from './pinterest.js';
 import { parseGoogleAdsRequest } from './googleads.js';
 import { parseFloodlightRequest } from './floodlight.js';
-import { parseLinkedInRequest } from './linkedin.js';
+import { parseLinkedInRequest, isLinkedInWaRequest, parseLinkedInWaRequest } from './linkedin.js';
 import { parseRedditRequest } from './reddit.js';
 import { parseSnapchatRequest } from './snapchat.js';
 import { parseHubspotRequest } from './hubspot.js';
@@ -88,6 +88,15 @@ export function parseRequests(url, postData, pageUrl) {
   return [];
 }
 
+// Wie parseRequests, plus die asynchronen Seitenpfade der Extension: LinkedIn /wa
+// (base64, ggf. gzip) traegt als einziger LinkedIn-Request den gehashten Nutzer (hem).
+export async function parseRequestsAsync(url, postData, pageUrl) {
+  const recs = parseRequests(url, postData, pageUrl);
+  if (recs.length || !isLinkedInWaRequest(url)) return recs;
+  const rec = await parseLinkedInWaRequest(url, postData);
+  return rec ? [rec] : [];
+}
+
 // Normalisiert die PII-Praesenz eines Records in eine stabile, delta-freundliche Form.
 // Wir weisen die EXISTENZ der Felder nach (nicht die Werte).
 export function piiFromRecord(rec) {
@@ -130,5 +139,5 @@ export function eventName(rec) {
 
 // Best-effort Konto-/Tag-ID.
 export function accountId(rec) {
-  return rec.accountId || rec.tid || rec.id || rec.ti || rec.code || rec.convId || rec.pixelId || null;
+  return rec.accountId || rec.tid || rec.id || rec.ti || rec.code || rec.convId || rec.pixelId || rec.pid || null;
 }

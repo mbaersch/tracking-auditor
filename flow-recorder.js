@@ -241,7 +241,7 @@ async function main() {
   }
 
   const requests = collector.getAll();
-  const analysis = analyze(requests, url);
+  const analysis = await analyze(requests, url);
 
   const meta = {
     url, label, project, timestamp: ts,

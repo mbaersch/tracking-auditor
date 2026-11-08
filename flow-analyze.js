@@ -71,7 +71,7 @@ if (!siteUrl) {
   process.exit(1);
 }
 
-const analysis = analyze(requests, siteUrl);
+const analysis = await analyze(requests, siteUrl);
 
 // Report-Verzeichnis + Dateinamen
 const reportDir = resolve(__dirname, 'reports', project);
