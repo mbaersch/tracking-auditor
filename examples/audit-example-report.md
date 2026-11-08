@@ -102,6 +102,19 @@
 - ⚠ Grosse Pixel-Events durch CSP blockiert (form-action): Ab 2048 Zeichen URL-Laenge sendet das Pixel in Chrome per Formular-POST in ein iframe an facebook.com/tr -- diese Events (typisch Purchase/AddToCart mit Produktdaten) gehen verloren. Fix: `form-action` und `frame-src` brauchen beide `https://www.facebook.com`
 - ⚠ Kein CAPI-Endpunkt erkannt
 
+## Requests je Dienst
+
+Ausgewertet mit den Parsern der pii-lib (wie die Browser-Extension): Events, Werte und Nutzerdaten je Phase. Nutzerdaten = Felder vorhanden, nicht ihre Werte.
+
+| Dienst | Phase | Events | Wert | Transaktion | Artikel | Nutzerdaten | Consent-Signal |
+|--------|-------|--------|------|-------------|---------|-------------|----------------|
+| Google Analytics 4 | pre-consent | page_view | – | – | – | – | gcs=G100 |
+| Google Analytics 4 | post-accept | page_view, view_item | – | – | 1 | – | gcs=G111 |
+| Google Ads | post-accept | gtag.config, page_view | – | – | – | – | gcd=13r3r3r2r5l1, gcs=G111 |
+| Meta Pixel | pre-consent | PageView | – | – | – | E-Mail (gehasht) | – |
+| Meta Pixel | post-accept | PageView, ViewContent | 1× (EUR) | – | 1 | E-Mail (gehasht) | – |
+| Microsoft UET (Bing Ads) | post-reject | pageLoad | – | – | – | – | asc=D |
+
 ## OpenAI Ads Pixel
 
 **SDK geladen in Phase(n):** pre-consent

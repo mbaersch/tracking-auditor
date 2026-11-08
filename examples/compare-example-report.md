@@ -46,6 +46,24 @@
 | Typ | Advanced | Advanced |
 | Pre-Consent gcd | `13r3r3r2r5l1` | `13r3r3r2r5l1` |
 
+## Requests je Dienst
+
+Ausgewertet mit den Parsern der pii-lib: Events, Werte und Nutzerdaten je Phase (Felder vorhanden, nicht ihre Werte).
+
+### Standard GTM
+
+| Dienst | Phase | Events | Wert | Transaktion | Artikel | Nutzerdaten | Consent-Signal |
+|--------|-------|--------|------|-------------|---------|-------------|----------------|
+| Google Analytics 4 | pre-consent | page_view | – | – | – | – | gcs=G100 |
+| Google Analytics 4 | post-consent | page_view | – | – | – | – | gcs=G111 |
+
+### sGTM Custom Loader
+
+| Dienst | Phase | Events | Wert | Transaktion | Artikel | Nutzerdaten | Consent-Signal |
+|--------|-------|--------|------|-------------|---------|-------------|----------------|
+| Google Analytics 4 | pre-consent | page_view | – | – | – | – | gcs=G100 |
+| Google Analytics 4 | post-consent | page_view | – | – | – | – | gcs=G111 |
+
 ## SST / Custom Loader Details
 
 ### Standard GTM

@@ -157,11 +157,12 @@ Der generierte Report enthaelt:
 - **Microsoft UET Consent Mode** -- `asc`-Wert jedes UET-Hits pro Phase (`D` = verweigert, `G` = erteilt). Sendet UET nach Reject nur Hits mit `asc=D` und entstehen keine UET-Cookies oder -Storage-Eintraege, gilt das nicht als Tracker trotz Reject
 - **Pre-Consent** -- Tracking vor jeglicher Consent-Entscheidung (Verstoesse sofort erkennbar)
 - **Post-Accept / Post-Reject** -- Diffs bei Cookies, localStorage, Requests, dataLayer
-- **Server-Side Tagging** -- Erkennung von Custom GTM/gtag-Loadern und First-Party Collect Endpoints. Base64-getunnelte Hits (Stape Custom Loader) werden dekodiert und dem korrekten Produkt zugeordnet (GA4, Google Ads, Floodlight) -- in den Tracker-Tabellen als Richtung `sst-tunnel`. Der Loader v2.1 verschleiert seinen Parameter zusaetzlich per XOR; auch er wird dekodiert und im SST-Abschnitt als solcher benannt. GA4-Hits, die ohne Tunnel direkt an einen Server-Container auf der eigenen Domain gehen, erscheinen als Richtung `sst-collect` in den Tracker- und Consent-Mode-Tabellen. Verschluesselt getunnelte Transporte (**TAGGRS** Custom Loader) werden am Envelope-Fingerprint **erkannt** (Existenznachweis im SST-Abschnitt), aber nicht entschluesselt -- Detail-Parameter wie Events, IDs oder Consent-Mode-Status bleiben verborgen
+- **Server-Side Tagging** -- Erkennung von Custom GTM/gtag-Loadern und First-Party Collect Endpoints. Base64-getunnelte Hits (Stape Custom Loader) werden dekodiert und dem korrekten Produkt zugeordnet (GA4, Google Ads, Floodlight) -- in den Tracker-Tabellen als Richtung `sst-tunnel`. Der Loader v2.1 verschleiert seinen Parameter zusaetzlich per XOR; auch er wird dekodiert und im SST-Abschnitt als solcher benannt. GA4-Hits, die ohne Tunnel direkt an einen Server-Container auf der eigenen Domain gehen, erscheinen als Richtung `sst-collect` in den Tracker- und Consent-Mode-Tabellen. Google-Ads-Hits auf der eigenen Domain (Google Tag Gateway: `<pfad>/as/p/c/<id>/`, `<pfad>/as/d/ccm/conversion/<id>/`, `<pfad>/d/ccm/form-data/<id>`; sGTM) erscheinen als Richtung `first-party`. Verschluesselt getunnelte Transporte (**TAGGRS** Custom Loader) werden am Envelope-Fingerprint **erkannt** (Existenznachweis im SST-Abschnitt), aber nicht entschluesselt -- Detail-Parameter wie Events, IDs oder Consent-Mode-Status bleiben verborgen
 - **E-Commerce-Pfad** -- dataLayer-Events und Tracker pro Schritt (Kategorie bis Checkout), inkl. Consent Mode Status pro Step
 - **Produktdaten-Analyse** -- Format-Erkennung (GA4/UA/Proprietary), Konsistenz-Check ueber alle E-Commerce-Schritte, fehlende Events
 - **CSP-Blockaden** (nur wenn CSP Tracking-Requests blockiert hat) -- Liste der blockierten Tracker-Domains
-- **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions, Dynamic Remarketing, Meta CAPI, Stape Custom Loader IDs. Warnt zusaetzlich, wenn die CSP per `form-action` oder `frame-src` den Formular-POST des Meta Pixels blockiert: Events ab 2048 Zeichen URL-Laenge (typisch Purchase mit Produktdaten) schickt das Pixel in Chrome nicht per Beacon, sondern per `<form>` in ein iframe an `facebook.com/tr` -- ohne Fallback, die Events gehen verloren, waehrend kleine Events wie PageView unauffaellig durchkommen
+- **Requests je Dienst** -- jeder Tracking-Request wird mit den Parsern unter `pii-lib/` ausgewertet (dieselben 16 Dienste wie im DevTools-Panel der Browser-Extension) und je Dienst und Phase verdichtet: Events, Wert und Waehrung, Transaktion, Artikel, Nutzerdaten (welche Felder, ob gehasht -- nie die Werte) und das Consent-Signal des Requests (`gcs`/`gcd`, UET `asc`, Meta LDU, OpenAI). Google-Ads-Spiegelungen eines Signals (pagead, ccm, 1p-Kopien) zaehlen einmal. Damit faellt z.B. auf, wenn ein Pixel schon vor Consent gehashte E-Mail-Adressen sendet
+- **Tracking Features** (nur wenn Findings vorhanden) -- Enhanced Conversions und Dynamic Remarketing (beide aus den GA4- und Google-Ads-Requests der Parser abgeleitet, inkl. gtag-Format `data=event;google_business_vertical;id`), Meta CAPI, Stape Custom Loader IDs. Warnt zusaetzlich, wenn die CSP per `form-action` oder `frame-src` den Formular-POST des Meta Pixels blockiert: Events ab 2048 Zeichen URL-Laenge (typisch Purchase mit Produktdaten) schickt das Pixel in Chrome nicht per Beacon, sondern per `<form>` in ein iframe an `facebook.com/tr` -- ohne Fallback, die Events gehen verloren, waehrend kleine Events wie PageView unauffaellig durchkommen
 - **OpenAI Ads Pixel** (nur wenn ein Pixel gefunden wurde) -- eigener Abschnitt, weil das Pixel seine Events im POST-Body batcht und dabei mehr ueber sich verraet als andere: Pixel-ID, Events je Consent-Phase (mit Betrag in Minor Units korrekt umgerechnet), der vom Pixel selbst gemeldete Consent-Zustand, die vom SDK **verworfenen** Events samt Grund sowie die User-Daten aufgeschluesselt nach Herkunft -- also ob die Website einen Identifier bewusst uebergeben oder das SDK ihn per Automatic Advanced Matching selbst von der Seite gelesen hat
 
 Beispiel-Report: [Audit-Report](examples/audit-example-report.md)
@@ -221,7 +222,7 @@ node compare.js --url-a https://example.com/ --url-b https://example.com/staging
 
 ![Tracking-Vergleich: Consent-Bestaetigung per Card](images/compare-consent-card.png)
 
-Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Der Consent-Button ist anfangs deaktiviert und wird erst nach dem load-Event + 3 Sekunden freigeschaltet, um saubere Pre-/Post-Consent-Trennung sicherzustellen. Consent wird manuell per Floating Card bestaetigt. Der Report enthaelt einen **Consent Mode Vergleich** (Advanced vs. Basic, gcs/gcd-Flags pre- und post-consent). Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
+Der Browser oeffnet sich sequenziell (erst Seite A, dann Seite B) mit isolierten Kontexten. Der Consent-Button ist anfangs deaktiviert und wird erst nach dem load-Event + 3 Sekunden freigeschaltet, um saubere Pre-/Post-Consent-Trennung sicherzustellen. Consent wird manuell per Floating Card bestaetigt. Der Report enthaelt einen **Consent Mode Vergleich** (Advanced vs. Basic, gcs/gcd-Flags pre- und post-consent) und fuer beide Seiten die Tabelle **Requests je Dienst** (Events, Werte, Nutzerdaten je Phase, wie im Audit-Report). Output: Markdown-Report + 2 HAR-Files in `reports/<project>/`.
 
 Beispiel-Report: [Tracking-Vergleich](examples/compare-example-report.md)
 
@@ -312,7 +313,7 @@ Die Tracker-Tabellen in Reports zeigen produktgenaue Details:
 |--------|-------------|
 | **Produkt** | Konkretes Tracking-Produkt (z.B. "Google Analytics 4", nicht nur "Google") |
 | **Kategorie** | Funktionale Kategorie (analytics, advertising, session-recording, ...) |
-| **Richtung** | `script` (geladen), `request`/`domain` (direkt gesendet), `sst-tunnel` (First-Party getunnelt via Stape Custom Loader) `sst-collect` (GA4-Hit direkt an einen Server-Container auf der eigenen Domain, `server_container_url`) oder `first-party` (selbst gehostetes Matomo auf der eigenen Domain, erkannt an `idsite` + `rec=1`) |
+| **Richtung** | `script` (geladen), `request`/`domain` (direkt gesendet), `sst-tunnel` (First-Party getunnelt via Stape Custom Loader) `sst-collect` (GA4-Hit direkt an einen Server-Container auf der eigenen Domain, `server_container_url`) oder `first-party` (selbst gehostetes Matomo auf der eigenen Domain, erkannt an `idsite` + `rec=1`, oder Google Ads auf der eigenen Domain, z.B. ueber ein Google Tag Gateway) |
 | **Typen** | Request-Klassifizierung (pageview, event, click, conversion, remarketing) |
 
 Nicht erkannte Third-Party-Requests werden als "Sonstige Third-Party" gefuehrt.
@@ -367,6 +368,15 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 - Auf Windows mit Git Bash werden relative URL-Pfade (z.B. `/kategorie/`) manchmal zu lokalen Pfaden umgeschrieben. Das Script erkennt und korrigiert das automatisch, alternativ volle URLs verwenden oder `MSYS_NO_PATHCONV=1` setzen
 
 ## Changelog
+
+### 2026-11-08 -- Requests je Dienst, Google Tag Gateway, Abgleich mit Extension und Stage
+
+`audit.js` und `compare.js` werten Requests jetzt mit denselben Parsern aus wie der Flow-Vergleich und die Browser-Extension (`pii-lib/`, gemeinsamer Kern `lib/service-records.js`). Neuer Report-Abschnitt **Requests je Dienst**; die bisherige Eigenlogik fuer Enhanced Conversions (nur GA4, nur `ect`/`em`) und Dynamic Remarketing (nur `ecomm_*`/`dynx_*`, das gtag-Format `data=` fiel durch) entfaellt.
+
+- Google Ads auf der eigenen Domain wird erkannt (Google Tag Gateway, sGTM) -- bisher wurden diese Hits als Same-Domain-Requests verworfen und fehlten im Audit komplett.
+- Vendor-Library: Google Ads auf `www.google.<tld>` (`ccm/collect`, `1p-user-list`, `rmkt/collect`, `1p-conversion`, `form-data`) lief als "Sonstige Third-Party"; Reddit `/rp` (neben `/rp.gif`) nur ueber die Domain; LinkedIn `/wa` jetzt Typ `event`.
+- Parser (aus der Extension): multipart-Bodies (grosse Meta-Events), Reddit `POST /rp`, LinkedIn `/wa` ohne gzip (`fmt=b`) und im Flow-Vergleich ausgewertet, GA4- und Meta-Werte samt Transaktions-ID, Google-Tag-Gateway-Kurzform `as/p/c`.
+- Neue Option `--cookie name=value` fuer Testseiten, die nur mit einem Freischalt-Cookie tracken.
 
 ### 2026-09-06 -- Parser-Gleichstand mit der Browser-Extension
 
