@@ -3,7 +3,8 @@
 // lib/tiktok.js so the panel treats every provider uniformly.
 //
 // A Reddit Pixel hit goes to alb.reddit.com/rp.gif as a GET beacon (loader:
-// redditstatic.com/ads/pixel.js). The payload rides in the query string:
+// redditstatic.com/ads/pixel.js), or — newer pixel, seen 2026-11 on the same site —
+// as a POST to /rp with event+id in the query and the rest in a form body. Same keys:
 //   id            pixel / account id (format a2_<...>)
 //   event         PageVisit | ViewContent | Search | AddToCart | Purchase | Lead |
 //                 SignUp | Custom (the custom name then sits in m.customEventName)
@@ -28,7 +29,7 @@ export function isRedditHost(host) {
 }
 
 function isPixelPath(pathname) {
-  return /^\/rp\.gif$/.test(pathname || '');
+  return /^\/rp(\.gif)?$/.test(pathname || '');
 }
 
 // Reddit's standard events (lowercased for comparison). 'custom' is itself a

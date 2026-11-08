@@ -118,12 +118,19 @@ export function parseLinkedInRequest(url, postData) {
 // ---------------------------------------------------------------------------
 
 // base64 text → raw bytes, and gzip bytes → text (async, via DecompressionStream —
-// global in both the panel and Node 18+). The /wa/ body is base64(gzip(JSON)).
+// global in both the panel and Node 18+). The /wa/ body is base64(gzip(JSON)) with
+// fmt=g, but plain base64(JSON) with fmt=b (beacon sends) — so sniff the gzip magic
+// instead of trusting either.
 function base64ToBytes(b64) {
   const bin = atob(b64);
   const a = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
   return a;
+}
+
+async function waBytesToText(bytes) {
+  if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return new TextDecoder('utf-8').decode(bytes);
+  return gunzipToText(bytes);
 }
 
 async function gunzipToText(bytes) {
@@ -155,7 +162,7 @@ export async function parseLinkedInWaRequest(url, postData) {
   if (!text) return null;
 
   let json;
-  try { json = JSON.parse(await gunzipToText(base64ToBytes(text.trim()))); }
+  try { json = JSON.parse(await waBytesToText(base64ToBytes(text.trim()))); }
   catch (e) { return null; }
   if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
 

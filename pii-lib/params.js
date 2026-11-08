@@ -4,7 +4,7 @@
 
 // Extract query params (from the URL) and body params (from the HAR postData,
 // which is either a string or a { text } object). Body is parsed as JSON when it
-// looks like a JSON object, otherwise as urlencoded form data.
+// looks like a JSON object, then as multipart/form-data, otherwise as urlencoded form data.
 export function extractParams(url, postData) {
   const queryParams = {};
   try {
@@ -29,13 +29,31 @@ export function extractParams(url, postData) {
         }
       }
     } catch (e) {
-      bodyParams = {};
-      for (const [k, v] of new URLSearchParams(text).entries()) {
-        if (!(k in bodyParams)) bodyParams[k] = v;
+      bodyParams = parseMultipart(text);
+      if (!bodyParams) {
+        bodyParams = {};
+        for (const [k, v] of new URLSearchParams(text).entries()) {
+          if (!(k in bodyParams)) bodyParams[k] = v;
+        }
       }
     }
   }
   return { queryParams, bodyParams, bodyJson };
+}
+
+// multipart/form-data body → { name: value } (first value wins), or null when the
+// text is not multipart. Meta sends large events (e.g. a Purchase with user data)
+// this way, with id/ev ONLY in the body; the DevTools HAR and Playwright's
+// postData() hand over the raw multipart text, which URLSearchParams would shred.
+export function parseMultipart(text) {
+  const m = /^--([^\r\n]+)\r?\n/.exec(text);
+  if (!m || !/Content-Disposition:\s*form-data/i.test(text)) return null;
+  const out = {};
+  for (const part of text.split('--' + m[1])) {
+    const p = /Content-Disposition:\s*form-data;\s*name="([^"]*)"[^\r\n]*\r?\n(?:[^\r\n]+\r?\n)*\r?\n([\s\S]*?)\r?\n?$/i.exec(part);
+    if (p && !(p[1] in out)) out[p[1]] = p[2];
+  }
+  return out;
 }
 
 // The standard "read a param, query first then body, null when absent" accessor
