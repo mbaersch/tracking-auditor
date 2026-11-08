@@ -27,6 +27,7 @@ import {
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
   extractStapeFindings, extractStapeMatches, extractFirstPartyCollectMatches,
 } from './lib/tracking-classify.js';
+import { newServiceMap, collectServiceRecords, formatServiceTable } from './lib/service-records.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -236,7 +237,7 @@ async function updateConsentCardReady(page) {
 
 // ── Analysis ──────────────────────────────────────────────────────────────────
 
-function analyzeSide(collector, siteUrl) {
+async function analyzeSide(collector, siteUrl) {
   const preConsent = collector.getByPhase('pre-consent');
   const postConsent = collector.getByPhase('post-consent');
   const allRequests = collector.getAll();
@@ -278,6 +279,10 @@ function analyzeSide(collector, siteUrl) {
   const preConsentMode = extractConsentModeParams(preUrls);
   const postConsentMode = extractConsentModeParams(postUrls);
 
+  // Events, Werte, Nutzerdaten je Dienst und Phase (pii-lib, wie audit.js)
+  const services = newServiceMap();
+  await collectServiceRecords(allRequests, siteUrl, services);
+
   return {
     preConsent: preDeduped,
     postConsent: postDeduped,
@@ -295,6 +300,7 @@ function analyzeSide(collector, siteUrl) {
       type: preConsentMode.length > 0 ? 'Advanced' : 'Basic',
     },
     requestCount: { pre: preConsent.length, post: postConsent.length, total: allRequests.length },
+    services,
   };
 }
 
@@ -546,6 +552,19 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
   }
   ln();
 
+  // Requests je Dienst (pii-lib)
+  ln(`## Requests je Dienst`);
+  ln();
+  ln(`Ausgewertet mit den Parsern der pii-lib: Events, Werte und Nutzerdaten je Phase (Felder vorhanden, nicht ihre Werte).`);
+  ln();
+  for (const [label, analysis] of [[meta.labelA, analysisA], [meta.labelB, analysisB]]) {
+    ln(`### ${label}`);
+    ln();
+    const table = formatServiceTable(analysis.services);
+    ln(table ? table.trimEnd() : 'Keine Requests eines bekannten Dienstes.');
+    ln();
+  }
+
   // SST Details
   ln(`## SST / Custom Loader Details`);
   ln();
@@ -635,8 +654,8 @@ async function main() {
 
     // Analyse
     console.log('  Analysiere...');
-    const analysisA = analyzeSide(collectorA, urlA);
-    const analysisB = analyzeSide(collectorB, urlB);
+    const analysisA = await analyzeSide(collectorA, urlA);
+    const analysisB = await analyzeSide(collectorB, urlB);
     const diff = buildDiff(analysisA, analysisB);
 
     console.log(`  Seite A: ${analysisA.requestCount.total} Requests (${analysisA.all.length} Produkte)`);
