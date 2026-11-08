@@ -56,7 +56,8 @@ const META_FIELD = {
   external_id: { bucket: 'externalId', label: 'External ID' },
 };
 
-const UD_KEY_RE = /^(ud|udff|cud|ncud|aud)\[([\w]+)\]$/;
+// aud also comes nested as aud[em][0][v] (value) + aud[em][0][s] (source flag, skipped).
+const UD_KEY_RE = /^(ud|udff|cud|ncud|aud)\[([\w]+)\](?:\[\d+\]\[v\])?$/;
 
 // Returns { <fieldKey>: { bucket, label, mask, normalizedMask, hashed, algo } } or null.
 export function extractMetaUserData(queryParams, bodyParams) {
