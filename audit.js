@@ -41,6 +41,7 @@ import {
   STAPE_PATH_HOSTS, canonicalGoogleHost, tryDecodeStapeTransport,
   extractStapeFindings, extractStapeMatches, extractFirstPartyCollectMatches,
   extractTaggrsTransports,
+  extractDataClientTransports,
 } from './lib/tracking-classify.js';
 import { parseOpenAiRequest, isOpenAiSdkHost } from './pii-lib/openai.js';
 import {
@@ -293,6 +294,13 @@ async function analyzeRequestPayloads(fullRequests, cookies, siteHost, deepAnaly
     }
   }
 
+  // 1c. Stape Data Client: eigenes Format, nur als Hinweis (kein Dienst)
+  for (const t of extractDataClientTransports(fullRequests)) {
+    const known = deepAnalysis.dataClientTransports.find(s => s.host === t.host && s.path === t.path);
+    if (!known) deepAnalysis.dataClientTransports.push(t);
+    else for (const e of t.events) if (!known.events.includes(e)) known.events.push(e);
+  }
+
   // 2. Combine original + decoded URLs for analysis. Decoded URLs are rebuilt on
   // the canonical Google host so matchRequest() classifies the tunneled hits.
   const allRequests = [
@@ -437,7 +445,8 @@ function hasSSTDetected(sstData) {
   const hasCollect = sstData.collectEndpoints.length > 0;
   const hasCustomFromBody = sstData.customLoaders && sstData.customLoaders.length > 0;
   const hasTaggrs = sstData.taggrsTransports && sstData.taggrsTransports.length > 0;
-  return hasCustomLoader || hasCollect || hasCustomFromBody || hasTaggrs;
+  const hasDataClient = sstData.dataClientTransports && sstData.dataClientTransports.length > 0;
+  return hasCustomLoader || hasCollect || hasCustomFromBody || hasTaggrs || hasDataClient;
 }
 
 // ── E-Commerce Product Analysis ──────────────────────────────────────────────
@@ -1211,6 +1220,14 @@ function formatSSTSection(sstData) {
     md += '\n> Der TAGGRS-Loader tunnelt die Hits verschluesselt. Die **Existenz** des serverseitigen Trackings ist damit belegt; die **Detail-Parameter** (Events, IDs, Consent-Mode-Status) sind aus dem Netzwerk-Mitschnitt nicht auslesbar.\n\n';
   }
 
+  if (sstData.dataClientTransports && sstData.dataClientTransports.length > 0) {
+    md += '**Stape Data Client (eigenes Format):**\n\n';
+    for (const t of sstData.dataClientTransports) {
+      md += `- ${t.host}${t.path} – Events: ${t.events.join(', ')}\n`;
+    }
+    md += '\n> Der Stape Data Tag sendet Events in einem eigenen JSON-Format an den Server-Container. Das ist ein Transportformat, kein Dienst: Welche Dienste der Server daraus bedient, ist im Browser nicht sichtbar.\n\n';
+  }
+
   // Container IDs
   if (sstData.containers.size > 0) {
     const customLoaders = sstData.loaders.filter(l => !l.isStandard && l.type === 'GTM');
@@ -1756,10 +1773,12 @@ function generateReport(data) {
   md += '\n';
 
   // Merge Stape/TAGGRS transport findings into SST data for display
-  if (data.deepAnalysis?.stapeTransports?.length > 0 || data.deepAnalysis?.taggrsTransports?.length > 0) {
+  if (data.deepAnalysis?.stapeTransports?.length > 0 || data.deepAnalysis?.taggrsTransports?.length > 0
+      || data.deepAnalysis?.dataClientTransports?.length > 0) {
     if (!data.sst) data.sst = { containers: new Set(), measurementIds: new Set(), loaders: [], collectEndpoints: [] };
     data.sst.stapeTransports = data.deepAnalysis.stapeTransports;
     data.sst.taggrsTransports = data.deepAnalysis.taggrsTransports;
+    data.sst.dataClientTransports = data.deepAnalysis.dataClientTransports;
   }
 
   // ── SST ──
@@ -2088,6 +2107,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
       services: newServiceMap(),
       stapeTransports: [],
       taggrsTransports: [],
+      dataClientTransports: [],
       googleSubTypes: new Set(),
       measurementIds: [],
       openai: {
@@ -2640,6 +2660,9 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
     }
     if (da.taggrsTransports.length > 0) {
       console.log(`  TAGGRS-Transport (verschluesselt): ${da.taggrsTransports.map(t => t.host).join(', ')}`);
+    }
+    if (da.dataClientTransports.length > 0) {
+      console.log(`  Stape Data Client: ${da.dataClientTransports.map(t => t.host + t.path).join(', ')}`);
     }
     if (da.features.enhancedConversions) {
       console.log(`  Enhanced Conversions: aktiv (hashed email: ${da.features.enhancedConversions.hasHashedEmail})`);
