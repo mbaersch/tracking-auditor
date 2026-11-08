@@ -74,7 +74,14 @@
       { "pattern": "googleads.g.doubleclick.net/pagead/1p-conversion", "type": "conversion" },
       { "pattern": "googleads.g.doubleclick.net/pagead/1p-user-list", "type": "remarketing" },
       { "pattern": "googleads.g.doubleclick.net/pagead/viewthroughconversion", "type": "remarketing" },
-      { "pattern": "googleads.g.doubleclick.net/rmkt/collect", "type": "remarketing" }
+      { "pattern": "googleads.g.doubleclick.net/rmkt/collect", "type": "remarketing" },
+      { "pattern": "googleadservices.com/ccm/conversion", "type": "conversion" },
+      { "pattern": "/pagead/1p-conversion/", "type": "conversion" },
+      { "pattern": "/pagead/form-data", "type": "conversion" },
+      { "pattern": "/ccm/form-data", "type": "conversion" },
+      { "pattern": "/pagead/1p-user-list/", "type": "remarketing" },
+      { "pattern": "/rmkt/collect/", "type": "remarketing" },
+      { "pattern": "/ccm/collect", "type": "event" }
     ],
     "domains": ["googleadservices.com", "googleads.g.doubleclick.net"]
   },
@@ -196,7 +203,7 @@
       { "pattern": "licdn.com/li.lms-analytics/" }
     ],
     "endpoints": [
-      { "pattern": "ads.linkedin.com/wa", "type": "conversion" },
+      { "pattern": "ads.linkedin.com/wa", "type": "event" },
       { "pattern": "ads.linkedin.com/collect", "type": "event" },
       { "pattern": "ads.linkedin.com", "type": "event" },
       { "pattern": "linkedin.com/px", "type": "event" }
@@ -335,7 +342,7 @@
       { "pattern": "redditstatic.com/ads/pixel" }
     ],
     "endpoints": [
-      { "pattern": "alb.reddit.com/rp.gif", "type": "event" }
+      { "pattern": "alb.reddit.com/rp", "type": "event" }
     ],
     "domains": ["alb.reddit.com", "redditstatic.com"]
   },
