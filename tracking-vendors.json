@@ -53,7 +53,8 @@
           },
           "default": "event"
         }
-      }
+      },
+      { "pattern": "/ads/ga-audiences", "type": "remarketing" }
     ],
     "domains": ["google-analytics.com", "analytics.google.com", "stats.g.doubleclick.net"]
   },

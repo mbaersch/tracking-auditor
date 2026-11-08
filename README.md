@@ -374,7 +374,7 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 `audit.js` und `compare.js` werten Requests jetzt mit denselben Parsern aus wie der Flow-Vergleich und die Browser-Extension (`pii-lib/`, gemeinsamer Kern `lib/service-records.js`). Neuer Report-Abschnitt **Requests je Dienst**; die bisherige Eigenlogik fuer Enhanced Conversions (nur GA4, nur `ect`/`em`) und Dynamic Remarketing (nur `ecomm_*`/`dynx_*`, das gtag-Format `data=` fiel durch) entfaellt.
 
 - Google Ads auf der eigenen Domain wird erkannt (Google Tag Gateway, sGTM) -- bisher wurden diese Hits als Same-Domain-Requests verworfen und fehlten im Audit komplett.
-- Vendor-Library: Google Ads auf `www.google.<tld>` (`ccm/collect`, `1p-user-list`, `rmkt/collect`, `1p-conversion`, `form-data`) lief als "Sonstige Third-Party"; Reddit `/rp` (neben `/rp.gif`) nur ueber die Domain; LinkedIn `/wa` jetzt Typ `event`.
+- Vendor-Library: Google Ads auf `www.google.<tld>` (`ccm/collect`, `1p-user-list`, `rmkt/collect`, `1p-conversion`, `form-data`) lief als "Sonstige Third-Party"; Reddit `/rp` (neben `/rp.gif`) nur ueber die Domain; LinkedIn `/wa` jetzt Typ `event`; `www.google.<tld>/ads/ga-audiences` (Google Signals, `tid=G-…`) gehoert zu GA4 (Typ `remarketing`) statt "Sonstige Third-Party".
 - Parser (aus der Extension): multipart-Bodies (grosse Meta-Events), Reddit `POST /rp`, LinkedIn `/wa` ohne gzip (`fmt=b`) und im Flow-Vergleich ausgewertet, GA4- und Meta-Werte samt Transaktions-ID, Google-Tag-Gateway-Kurzform `as/p/c`, Meta-Nutzerdaten in der verschachtelten Form `aud[em][0][v]`.
 - Neue Option `--cookie name=value` fuer Testseiten, die nur mit einem Freischalt-Cookie tracken.
 
