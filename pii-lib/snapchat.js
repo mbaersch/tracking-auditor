@@ -16,7 +16,8 @@
 //   u_hem u_hpn  hashed email / phone      u_fn u_ln  hashed first / last name
 //   u_age        hashed age                l_city l_gc l_gpc l_gr  hashed city / country /
 //                postal / region           u_hed  a derived/composite hash (no single field)
-//   u_c1         client id (uuid)          u_sclid u_scsid  click / session id
+//   u_c1         client id (uuid)          u_scsid  session id
+//   u_sclid      pixel-generated uuid, sent without an ad click too (not the ScCid)
 //   e_*          e-commerce: e_cur e_pr e_tid e_ni e_iids e_ic e_desc e_ss e_bds and
 //                the extras cdid(=dedup) e_cs du e_dm et e_lv e_pia e_sm e_su
 //   pl page url · rf referrer · ts time · v version · intg integration
