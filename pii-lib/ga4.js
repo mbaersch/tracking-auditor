@@ -161,6 +161,11 @@ function buildGa4Record(postData, shared, batch) {
   const consent = parseConsent(queryParams, bodyParams);
   const items = parseGa4Products(queryParams, bodyParams);
   if (items) flags.itemCount = items.length;
+  // Same shape as every other provider's revenue. epn.value is the numeric form;
+  // gtag falls back to ep.value when the site passes the value as a string.
+  const value = get('epn.value') ?? get('ep.value');
+  const currency = get('cu') ?? get('ep.currency');
+  const revenue = (value != null && value !== '') ? { value: String(value), currency: currency || null } : null;
 
   return {
     provider: 'ga4',
@@ -182,7 +187,9 @@ function buildGa4Record(postData, shared, batch) {
     identifiers,
     consent,
     items,
-    currency: get('cu'),
+    currency,
+    revenue,
+    transactionId: get('ep.transaction_id'),
   };
 }
 

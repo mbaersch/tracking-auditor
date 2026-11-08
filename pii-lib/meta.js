@@ -201,6 +201,8 @@ export function parseMetaRequest(url, postData, pageUrl) {
   const customData = extractMetaCustomData(queryParams, bodyParams);
   const identifiers = summarizeMetaIdentifiers(userData);
   const eid = get('eid');
+  const revenue = (customData.value != null && customData.value !== '')
+    ? { value: String(customData.value), currency: customData.currency || null } : null;
   const standardEvent = !!ev && STANDARD_EVENTS.has(ev);
   const consent = parseMetaConsent(get);
 
@@ -226,6 +228,9 @@ export function parseMetaRequest(url, postData, pageUrl) {
     eid,
     flags,
     customData,
+    revenue,
+    orderId: customData.order_id || null,
+    contentIds: customData.content_ids || null,
     userData,
     identifiers,
     consent,
