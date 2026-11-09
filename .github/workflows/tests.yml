@@ -1,0 +1,40 @@
+# Abgleich der Dienst-Erkennung mit Extension, Validator und Stage bei jedem Push und Pull Request.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Dienst-Erkennung gegen die Schwesterprojekte (abgleich/README.md im tracking-auditor). Eigener Job:
+  # Bei einer Änderung über mehrere Repos ist er rot, bis alle nachgezogen sind; die Tests bleiben davon unberührt.
+  abgleich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Dieses Repo (tracking-auditor)
+        uses: actions/checkout@v7
+        with:
+          path: tracking-auditor
+      - name: tracking-auditor-extension (Stand des Standard-Branches)
+        uses: actions/checkout@v7
+        with:
+          repository: mbaersch/tracking-auditor-extension
+          path: tracking-auditor-extension
+      - name: ec-data-validator (Stand des Standard-Branches)
+        uses: actions/checkout@v7
+        with:
+          repository: mbaersch/ec-data-validator
+          path: ec-data-validator
+      - name: stage-in-a-box (Stand des Standard-Branches)
+        uses: actions/checkout@v7
+        with:
+          repository: mbaersch/stage-in-a-box
+          path: stage-in-a-box
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Abgleich
+        run: node tracking-auditor/abgleich/abgleich.js --extension tracking-auditor-extension --validator ec-data-validator --stage stage-in-a-box

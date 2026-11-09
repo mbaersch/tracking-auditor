@@ -35,6 +35,8 @@ Das Skript schickt jeden Request aus `abgleich/referenz-requests.json` durch all
 
 Zusätzlich vergleicht es `pii-lib/` mit `lib/` der Extension. Fehlt ein Pfad, fehlt die Spalte. Exit-Code 1 bei jeder Abweichung.
 
+Automatisch läuft das Skript bei jedem Push und Pull Request in allen vier Repos als eigener Job „abgleich“ in GitHub Actions (`.github/workflows/tests.yml`), jeweils gegen den aktuellen Stand der anderen drei. Bei einer Änderung über mehrere Repos ist der Job im zuerst geänderten Repo rot, bis die anderen nachgezogen sind; danach den Lauf dort neu starten oder den nächsten Push abwarten. Die übrigen Tests eines Repos laufen in einem eigenen Job und bleiben davon unberührt.
+
 ## Pflegen
 - **Neue Variante entdeckt** (Pfad, Body-Format, Kodierung): einen Referenz-Request in `abgleich/referenz-requests.json` ergänzen, mit der Form des echten Requests, aber `example.com`, Test-IDs und Platzhalter-Hashes. Dann den Erwartungswert je Werkzeug in `abgleich/erwartet.json` eintragen, absichtliche Lücken mit `grund`.
 - **Werkzeug geändert:** Skript laufen lassen. Eine neue Abweichung ist entweder eine Lücke (in den anderen Werkzeugen nachziehen) oder eine gewollte Änderung (Erwartung anpassen).
