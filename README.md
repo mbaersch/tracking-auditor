@@ -17,12 +17,15 @@ Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-V
 ## Voraussetzungen
 
 - **Node.js** (ES Modules)
-- **Playwright** mit Chromium
+- **Playwright** mit Chromium, **global** installiert; `NODE_PATH` muss auf das globale `node_modules` zeigen
 
 ```bash
-npm install
+npm install -g playwright
 npx playwright install chromium
+# NODE_PATH setzen, z.B. auf die Ausgabe von: npm root -g
 ```
+
+Das Projekt hat keine lokalen Abhängigkeiten. Playwright wird über [`lib/playwright.js`](lib/playwright.js) per `require` geladen, weil ES-Module-Imports `NODE_PATH` ignorieren.
 
 ## Aufbau
 

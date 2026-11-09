@@ -14,7 +14,7 @@
  * input with Playwright verification. Saves both selectors to cmp-library.json.
  */
 
-import { chromium } from 'playwright';
+import { chromium } from './lib/playwright.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';

@@ -24,7 +24,7 @@
  *   --checkout    Checkout page URL (skipped if not provided)
  */
 
-import { chromium } from 'playwright';
+import { chromium } from './lib/playwright.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';

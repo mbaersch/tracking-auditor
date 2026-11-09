@@ -28,7 +28,7 @@
  *   --headless  Headless statt sichtbar (Default: sichtbar -- du musst klicken!)
  */
 
-import { chromium } from 'playwright';
+import { chromium } from './lib/playwright.js';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';

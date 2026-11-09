@@ -8,7 +8,7 @@
  * Voraussetzung: Playwright + Chromium installiert, sichtbarer Desktop (headless: false)
  */
 
-import { chromium } from 'playwright';
+import { chromium } from '../lib/playwright.js';
 import {
   showStatusBar,
   enableCMPSelect,

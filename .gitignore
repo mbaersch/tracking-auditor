@@ -12,7 +12,6 @@
 !cmp-library.json
 !tracking-vendors.json
 !package.json
-!package-lock.json
 !README.md
 
 # Asynchroner Flow-Compare (HAR-basiert)

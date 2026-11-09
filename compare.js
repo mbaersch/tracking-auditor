@@ -17,7 +17,7 @@
  *   --post-consent-wait   Wartezeit in ms nach Consent (Default: 5000)
  */
 
-import { chromium } from 'playwright';
+import { chromium } from './lib/playwright.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
