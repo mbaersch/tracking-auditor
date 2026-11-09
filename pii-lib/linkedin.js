@@ -73,10 +73,13 @@ export function parseLinkedInRequest(url, postData) {
   const isConversion = conversionId != null && conversionId !== '';
   const ipHash = get('e_ipv6');
   const label = subdomainLabel(host);
+  // eventId: dedup key shared with the Conversions API; seen on page views and conversions alike
+  const eventId = get('eventId') || null;
 
   const flags = {
     conversion: isConversion,
     ipHash: !!ipHash,                                     // e_ipv6 present (px4 mirror)
+    dedup: !!eventId,
   };
 
   return {
@@ -90,6 +93,7 @@ export function parseLinkedInRequest(url, postData) {
     method: postData ? 'POST' : 'GET',
     pid: String(pid),
     conversionId: isConversion ? String(conversionId) : null,
+    eventId: eventId ? String(eventId) : null,
     eventName: isConversion ? 'Conversion' : 'PageView',
     isConversion,
     pageUrl: get('url') || null,

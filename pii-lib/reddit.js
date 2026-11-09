@@ -93,10 +93,13 @@ export function extractRedditConversion(m) {
   const val = (m.valueDecimal != null && m.valueDecimal !== '')
     ? m.valueDecimal
     : ((m.value != null && m.value !== '') ? m.value : null);
-  if (val != null)           out.value = String(val);                 // note: comma-decimal, e.g. "12,55"
+  if (val != null)           out.value = String(val);                 // comma- or dot-decimal ("12,55", "99.95"), as the site sends it
   if (m.currency)            out.currency = String(m.currency);
   if (m.transactionId)       out.transactionId = String(m.transactionId);
+  if (m.transactionId)       out.transactionIdAlgo = hashAlgo(String(m.transactionId));
   if (m.conversionId)        out.conversionId = String(m.conversionId);
+  // the pixel sends both ids SHA-256-hashed; the Conversions API side gets the plain value
+  if (m.conversionId)        out.conversionIdAlgo = hashAlgo(String(m.conversionId));
   if (m.customEventName)     out.customEventName = String(m.customEventName);
   if (m.products)            out.products = String(m.products);
   return Object.keys(out).length ? out : null;

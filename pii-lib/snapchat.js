@@ -163,12 +163,16 @@ export function parseSnapchatRequest(url, postData) {
     ? { value: ecommerce.value, currency: ecommerce.currency || null }
     : null;
   const dedupId = get('cdid') || null;
+  // Without a site-supplied id the pixel generates its own cdid, prefixed "@-". The Conversions API never
+  // sees that one, so it does not count as a dedup key.
+  const dedupAuto = !!dedupId && dedupId.startsWith('@-');
 
   const flags = {
     standardEvent,
     custom: !standardEvent,
     ecommerce: !!ecommerce,
-    dedup: !!dedupId,                                     // cdid → client_deduplication_id
+    dedup: !!dedupId && !dedupAuto,                       // cdid → client_deduplication_id
+    dedupAuto,
     advancedMatching: !!userData,                        // any hashed u_* / l_* identifier
   };
 
