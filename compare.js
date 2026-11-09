@@ -429,7 +429,7 @@ function generateCompareReport(analysisA, analysisB, diff, meta) {
   ln();
   ln(`| | Details |`);
   ln(`|---|---|`);
-  ln(`| Datum | ${new Date().toISOString().replace('T', ' ').slice(0, 19)} |`);
+  ln(`| Datum | ${meta.timestamp ?? new Date().toISOString().replace('T', ' ').slice(0, 19)} |`);
   ln(`| URL A (${meta.labelA}) | ${meta.urlA} |`);
   ln(`| URL B (${meta.labelB}) | ${meta.urlB} |`);
   ln(`| Requests A | ${analysisA.requestCount.total} (${analysisA.requestCount.pre} pre / ${analysisA.requestCount.post} post) |`);

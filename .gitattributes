@@ -1,0 +1,2 @@
+# Baselines werden byte-genau verglichen: ohne eol=lf checkt autocrlf sie unter Windows mit CRLF aus und jeder Test schlaegt fehl.
+test/baselines/*.md text eol=lf

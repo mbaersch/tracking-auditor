@@ -1,4 +1,6 @@
-# Abgleich der Dienst-Erkennung mit Extension, Validator und Stage bei jedem Push und Pull Request.
+# Tests ohne Browser (Klassifizierung, Report-Baselines), ein echter Audit-Lauf gegen die lokale
+# CSP-Testseite und der Abgleich mit den Schwesterprojekten, bei jedem Push und Pull Request.
+# Keine echten Websites, keine Zugangsdaten.
 name: Tests
 
 on:
@@ -6,6 +8,52 @@ on:
   pull_request:
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Kein npm ci / cache: npm -- das Repo hat keine Abhängigkeiten und kein Lockfile.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Tests
+        run: npm test
+
+  # Eigener Job, damit ein Browserproblem die Logik-Tests nicht verdeckt.
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Wie lokal: Playwright global, ESM-Import über lib/playwright.js (NODE_PATH)
+      - name: Playwright global
+        run: |
+          npm install -g playwright@1.58.2
+          echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+
+      - name: Chromium für Playwright
+        run: playwright install --with-deps chromium
+
+      # audit.js startet den Browser sichtbar (headless: false), deshalb ein virtuelles Display
+      - name: Audit gegen die CSP-Testseite
+        run: xvfb-run -a npm run test:browser
+
+      - name: Report bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: audit-report
+          path: reports/ci-browser
+          retention-days: 7
+
   # Dienst-Erkennung gegen die Schwesterprojekte (abgleich/README.md im tracking-auditor). Eigener Job:
   # Bei einer Änderung über mehrere Repos ist er rot, bis alle nachgezogen sind; die Tests bleiben davon unberührt.
   abgleich:

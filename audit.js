@@ -51,6 +51,9 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LIBRARY_PATH = resolve(__dirname, 'cmp-library.json');
 
+// Nur bei direktem Start laufen -- importiert (Tests unter test/) darf die Datei keinen Browser starten.
+const isMainModule = !!process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -77,7 +80,7 @@ const addToCartSel = get('--add-to-cart');
 const viewCartUrl  = fixMangledPath(get('--view-cart'), '--view-cart');
 const checkoutUrl  = fixMangledPath(get('--checkout'), '--checkout');
 
-if (!url || !project) {
+if (isMainModule && (!url || !project)) {
   console.error('Usage: node audit.js --url <url> --project <name> [--cmp <name>] [--disable-sw]');
   console.error('  E-Commerce: [--category <url>] [--product <url>] [--add-to-cart <sel>] [--view-cart <url>] [--checkout <url>]');
   console.error('  Interaktiv: [--ecom] (E-Commerce-Pfad manuell im Browser durchlaufen)');
@@ -2006,7 +2009,7 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-(async () => {
+if (isMainModule) (async () => {
   console.log(`\n=======================================`);
   console.log(` Tagging Audit`);
   console.log(` Project : ${project}`);
@@ -2724,3 +2727,5 @@ async function collectEcomStepData(page, context, step, prevCookies, prevLocalSt
   if (harFile) console.log(` HAR:    ${harFile}`);
   console.log(`=======================================\n`);
 })();
+
+export { generateReport, analyzeRequestPayloads, analyzeConsentModeTransition, mergeSST, analyzeEcommerceProducts };

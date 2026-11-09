@@ -6,6 +6,9 @@
   "scripts": {
     "learn": "node learn.js",
     "audit": "node audit.js",
-    "abgleich": "node abgleich/abgleich.js"
+    "abgleich": "node abgleich/abgleich.js",
+    "test": "node --test \"test/*.test.js\"",
+    "test:baseline": "node --test --test-update-snapshots \"test/*.test.js\"",
+    "test:browser": "node --test \"test/browser/*.test.js\""
   }
 }

@@ -42,6 +42,8 @@ learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
 cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~123 CMPs)
 tracking-vendors.json  Datenbank bekannter Tracking-Produkte (Scripts, Endpoints, Domains)
+test/             Tests (node --test) mit Report-Baselines, Browser-Test unter test/browser/
+test-pages/       Testseiten mit statischem Server (z.B. CSP-Testseite)
 reports/          Ablageort fuer generierte Reports (lokal, nicht im Repo)
 ```
 
@@ -364,6 +366,19 @@ Lernt eine neue CMP ein (Accept/Reject-Selektoren) und speichert sie in der Libr
 
 Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch erkannt.
 
+## Tests
+Bei jedem Push und Pull Request laufen in GitHub Actions (`.github/workflows/tests.yml`) drei getrennte Jobs:
+
+| Job | Befehl | Was geprueft wird |
+|---|---|---|
+| `tests` | `npm test` | Klassifizierung und Consent-Auswertung (`lib/`), dazu Report-Baselines: synthetische Requests (aus `abgleich/referenz-requests.json`) durchlaufen die Analyse von Audit, Vergleich und Flow-Vergleich, der Markdown-Report wird mit `test/baselines/*.md` verglichen. Ohne Browser. |
+| `browser` | `npm run test:browser` | Ein echter Audit-Lauf gegen `test-pages/csp-test.html`, ausgeliefert von `test-pages/server.mjs`: CMP-Auto-Erkennung (Fakecentrics), Accept/Reject-Klick, CSP-Blockaden im Report. Braucht Playwright und unter Linux ein virtuelles Display (`xvfb-run`). |
+| `abgleich` | siehe [abgleich/README.md](abgleich/README.md) | Dienst-Erkennung gegen Extension, EC Data Validator und Stage in a Box |
+
+Aendert sich ein Report gewollt, die Baselines mit `npm run test:baseline` neu schreiben und den Diff unter `test/baselines/` pruefen, bevor er committet wird. Eine Aenderung an den Referenz-Requests des Abgleichs veraendert auch die Baselines.
+
+Die Testseiten lassen sich lokal mit `node test-pages/server.mjs` (Port 4174) aufrufen.
+
 ## Hinweise
 
 - Der Browser laeuft immer sichtbar (`headless: false`)
@@ -372,6 +387,11 @@ Die Skills liegen in `.claude/skills/` und werden von Claude Code automatisch er
 - Auf Windows mit Git Bash werden relative URL-Pfade (z.B. `/kategorie/`) manchmal zu lokalen Pfaden umgeschrieben. Das Script erkennt und korrigiert das automatisch, alternativ volle URLs verwenden oder `MSYS_NO_PATHCONV=1` setzen
 
 ## Changelog
+
+### 2026-11-09 -- Tests in GitHub Actions, Playwright global
+- Neu `npm test` (Klassifizierung, Report-Baselines) und `npm run test:browser` (echter Audit-Lauf gegen die CSP-Testseite), beide bei jedem Push in GitHub Actions -- siehe [Tests](#tests).
+- Die CSP-Testseite nutzt die Selektoren von Fakecentrics und wird ohne `--cmp` erkannt.
+- Playwright wird global installiert und ueber `NODE_PATH` geladen; das Repo hat keine lokalen Abhaengigkeiten mehr.
 
 ### 2026-11-08 -- Requests je Dienst, Google Tag Gateway, Abgleich mit Extension und Stage
 

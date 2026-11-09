@@ -5,6 +5,7 @@
 
 # Projekt-Dateien
 !.gitignore
+!.gitattributes
 !audit.js
 !browser-ui.js
 !compare.js
@@ -33,6 +34,17 @@
 # Gemeinsamer Tracking-Klassifikations-Kern (audit.js/compare.js/flow-lib.js)
 !lib/
 !lib/*.js
+
+# Tests (node --test) mit Report-Baselines und Testseiten
+!test/
+!test/*.js
+!test/baselines/
+!test/baselines/*.md
+!test/browser/
+!test/browser/*.js
+!test-pages/
+!test-pages/*.html
+!test-pages/*.mjs
 
 # Skill: Verzeichnisse stufenweise freigeben
 !.claude/
