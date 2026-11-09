@@ -36,7 +36,7 @@ jobs:
       # Wie lokal: Playwright global, ESM-Import über lib/playwright.js (NODE_PATH)
       - name: Playwright global
         run: |
-          npm install -g playwright@1.58.2
+          npm install -g playwright@1.63.0
           echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
 
       - name: Chromium für Playwright
