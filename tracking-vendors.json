@@ -96,7 +96,8 @@
     ],
     "endpoints": [
       { "pattern": "ad.doubleclick.net/activity", "type": "conversion" },
-      { "pattern": "fls.doubleclick.net/activity", "type": "conversion" }
+      { "pattern": "fls.doubleclick.net/activity", "type": "conversion" },
+      { "pattern": "/ccm/collect", "identify": { "param": "tid", "match": "^DC-" }, "type": "event" }
     ],
     "domains": ["ad.doubleclick.net", "fls.doubleclick.net"]
   },

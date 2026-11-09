@@ -92,6 +92,15 @@
   },
   "stage": "googleads"
  },
+ "floodlight-ccm-collect": {
+  "auditor": "floodlight",
+  "parser": "floodlight",
+  "validator": {
+   "wert": "–",
+   "grund": "kein Floodlight-Detektor (Zweck: Enhanced Conversions); ohne Nutzerdaten verworfen"
+  },
+  "stage": "floodlight"
+ },
  "floodlight": {
   "auditor": "floodlight",
   "parser": "floodlight",

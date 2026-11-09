@@ -20,7 +20,9 @@
 //   gcs/gcd/dma/npa/gpp  consent · auiddc DoubleClick id · ~oref referring page
 
 import { parseGcs, parseGcd } from './ga4.js';   // consent decoders, reused
-import { piiField } from './params.js';
+import { piiField, extractParams, makeGetter } from './params.js';
+import { isGoogleAdsHost } from './googleads.js';
+import { isSameSiteUrl } from './domain.js';
 
 // ---------------------------------------------------------------------------
 // Detection + matrix parsing
@@ -86,7 +88,69 @@ export function extractFloodlightUserData(customVars) {
 // Full parse
 // ---------------------------------------------------------------------------
 
-export function parseFloodlightRequest(url) {
+// A Google tag configured with a DC- id (no Floodlight activity tag) sends only
+// ccm/collect?tid=DC-…&en=page_view — the same measurement ping lib/googleads.js
+// shows for tid=AW-, which drops DC- on purpose so it lands here instead.
+export function parseFloodlightMeasurement(url, postData, pageUrl) {
+  let host = '', pathname = '';
+  try { const u = new URL(url); host = u.host; pathname = u.pathname; }
+  catch (e) { return null; }
+  if (!/\/ccm\/collect\b/.test(pathname) || /\/ccm\/s\/collect/.test(pathname)) return null;
+
+  const { queryParams, bodyParams } = extractParams(url, postData);
+  const get = makeGetter(queryParams, bodyParams);
+  const m = String(get('tid') || '').match(/^DC-(\d+)$/i);
+  if (!m) return null;
+
+  const gcsRaw = get('gcs'), gcdRaw = get('gcd');
+  const gcs = parseGcs(gcsRaw), gcd = parseGcd(gcdRaw);
+  const consent = (gcs || gcd || gcsRaw || gcdRaw || get('dma') || get('npa')) ? {
+    adStorage: gcs ? gcs.adStorage : null,
+    analyticsStorage: gcs ? gcs.analyticsStorage : null,
+    gcs: gcs ? gcs.raw : (gcsRaw || null),
+    gcd: gcdRaw || null,
+    gcdDecoded: gcd,
+    dma: get('dma'),
+    npa: get('npa'),
+  } : null;
+
+  const value = get('epn.value') ?? get('ep.value');
+  const currency = get('ep.currency') ?? get('epn.currency');
+  const en = get('en') || null;
+  const transport = isGoogleAdsHost(host) ? 'google' : (isSameSiteUrl(host, pageUrl) ? 'first-party' : 'unknown');
+
+  return {
+    provider: 'floodlight',
+    signalType: 'measurement',
+    transport,
+    host,
+    pathname,
+    effectiveUrl: url,
+    effectivePath: pathname,
+    method: postData ? 'POST' : 'GET',
+    advertiserId: m[1],
+    group: null,
+    activityTag: null,
+    event: en,
+    pageUrl: get('dl') || null,
+    title: get('dt') || null,
+    revenue: (value != null && value !== '') ? { value: String(value), currency: currency || null } : null,
+    customVars: null,
+    consent,
+    userData: null,
+    identifiers: { email: 0, phone: 0, name: 0, address: 0 },
+    flags: { measurement: true, sales: false, counter: false, cleartextEmail: false, googleAdsLinked: false, enhancedConversions: false },
+    _collapseKey: `fl:${m[1]}:collect:${en || ''}`,
+    _transportLabel: 'ccm/collect',
+    _transportRank: 100,
+    queryParams,
+    bodyParams,
+  };
+}
+
+export function parseFloodlightRequest(url, postData, pageUrl) {
+  const measurement = parseFloodlightMeasurement(url, postData, pageUrl);
+  if (measurement) return measurement;
   const a = parseActivity(url);
   if (!a) return null;
   if (!isFloodlightHost(a.host)) return null;

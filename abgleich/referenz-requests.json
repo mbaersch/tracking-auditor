@@ -71,6 +71,12 @@
    "url": "https://ad.doubleclick.net/ccm/s/collect?auid=1.2&gcs=G111"
   },
   {
+   "id": "floodlight-ccm-collect",
+   "dienst": "floodlight",
+   "variante": "ccm/collect mit tid=DC- (Google-Tag ohne Floodlight-Activity)",
+   "url": "https://www.google.com/ccm/collect?en=page_view&tid=DC-12345678&gcs=G111&dl=https%3A%2F%2Fwww.example.com%2F"
+  },
+  {
    "id": "ads-form-data",
    "dienst": "googleads",
    "variante": "Enhanced Conversions: ccm/form-data",
