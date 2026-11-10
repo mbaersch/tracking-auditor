@@ -24,6 +24,10 @@ Transportformate wie der Stape Data Client sind keine Dienste. Sie werden höchs
 ```sh
 npm run abgleich -- --extension <klon der extension> --validator <klon des validators> --stage <klon der stage>
 ```
+Lokale Ablage der Klone, vom tracking-auditor aus gesehen:
+```sh
+npm run abgleich -- --extension ../Extensions/tracking-auditor-extension --validator ../Extensions/ec-data-validator --stage ../stage-in-a-box
+```
 Das Skript schickt jeden Request aus `abgleich/referenz-requests.json` durch alle Werkzeuge und vergleicht mit `abgleich/erwartet.json`:
 
 | Spalte | Was geprüft wird |
