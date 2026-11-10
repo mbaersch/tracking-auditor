@@ -102,7 +102,7 @@ function stageLaden() {
   const text = readFileSync(join(paths.stage, 'lib', 'stage.ts'), 'utf-8');
   const block = text.slice(text.indexOf('export const STANDARD_DIENSTE'), text.indexOf('\n];', text.indexOf('export const STANDARD_DIENSTE')));
   const regeln = [];
-  for (const m of block.matchAll(/\{\s*name:\s*'([^']+)',\s*muster:\s*(\/.+\/[a-z]*)\s*(?:,\s*nichtProtokollieren:\s*true\s*)?\},?\s*$/gm)) {
+  for (const m of block.matchAll(/\{\s*name:\s*'([^']+)',\s*muster:\s*(\/.+\/[a-z]*)\s*(?:,\s*(?:nichtProtokollieren:\s*true|dekodieren:\s*\w+)\s*)*\},?\s*$/gm)) {
     regeln.push({ name: m[1], muster: new Function(`return ${m[2]}`)() });
   }
   if (regeln.length < 10) throw new Error(`STANDARD_DIENSTE in lib/stage.ts nicht lesbar (${regeln.length} Regeln)`);
