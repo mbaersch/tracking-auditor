@@ -534,7 +534,10 @@ const STATUS_BAR_STYLES = `
     box-shadow: 0 2px 12px rgba(127,29,29,0.5) !important;
     border-bottom: 2px solid #ef4444 !important;
     width: auto !important; height: auto !important;
+    cursor: grab !important; transition: opacity 0.15s ease !important;
   }
+  #__audit-statusbar:hover { opacity: 0.25 !important; }
+  #__audit-statusbar.--dragging { cursor: grabbing !important; opacity: 1 !important; }
   #__audit-statusbar-spinner {
     width: 14px !important; height: 14px !important; border: 2px solid #991b1b !important;
     border-top-color: #ef4444 !important;
@@ -599,6 +602,34 @@ export async function showStatusBar(page, phase, detail = '') {
       '<div id="__audit-statusbar-stats"></div>' +
       '<div id="__audit-statusbar-actions"></div>';
     document.body.appendChild(bar);
+
+    // Drag handling -- analog zu den Prompt-Karten. Klicks auf Buttons/Select
+    // in den Actions loesen kein Dragging aus.
+    let dragging = false, startX, startY, origX, origY;
+    bar.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button, select')) return;
+      dragging = true;
+      bar.classList.add('--dragging');
+      const rect = bar.getBoundingClientRect();
+      startX = e.clientX; startY = e.clientY;
+      origX = rect.left; origY = rect.top;
+      bar.style.setProperty('right', 'auto', 'important');
+      bar.style.setProperty('width', rect.width + 'px', 'important');
+      bar.style.setProperty('left', origX + 'px', 'important');
+      bar.style.setProperty('top', origY + 'px', 'important');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      bar.style.setProperty('left', (origX + dx) + 'px', 'important');
+      bar.style.setProperty('top', (origY + dy) + 'px', 'important');
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      bar.classList.remove('--dragging');
+    });
   }, { styles: STATUS_BAR_STYLES, phase, detail });
 }
 
