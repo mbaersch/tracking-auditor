@@ -25,6 +25,7 @@ import { parseTaboolaRequest } from './taboola.js';
 import { parseOutbrainRequest } from './outbrain.js';
 import { parseAwinRequest } from './awin.js';
 import { parseOpenAiRequest } from './openai.js';
+import { parseJentisRequest } from './jentis.js';
 
 // Reihenfolge wie im Extension-Panel -- sie ist Teil der Klassifikation, nicht
 // Kosmetik: GA4 steht vor Google Ads (GA4 beansprucht nur /g/collect, Ads die
@@ -47,6 +48,9 @@ export const PARSERS = [
   { id: 'outbrain', parse: parseOutbrainRequest },
   { id: 'awin', parse: parseAwinRequest },
   { id: 'openai', parse: parseOpenAiRequest },
+  // Erkennung am Body, nicht an der URL (zufaellige Subdomain je Instanz); ein Record
+  // je Event- bzw. Consent-Dokument.
+  { id: 'jentis', parse: parseJentisRequest },
 ];
 
 // Anzeigename je Provider (fuer Report/Snapshot).
@@ -67,6 +71,7 @@ export const PROVIDER_LABEL = {
   outbrain: 'Outbrain Pixel',
   awin: 'Awin Affiliate',
   openai: 'OpenAI Pixel',
+  jentis: 'JENTIS',
 };
 
 // Erster passender Parser gewinnt.
@@ -139,5 +144,6 @@ export function eventName(rec) {
 
 // Best-effort Konto-/Tag-ID.
 export function accountId(rec) {
-  return rec.accountId || rec.tid || rec.id || rec.ti || rec.code || rec.convId || rec.pixelId || rec.pid || null;
+  return rec.accountId || rec.tid || rec.id || rec.ti || rec.code || rec.convId || rec.pixelId || rec.pid
+    || (rec.provider === 'jentis' ? rec.account : null) || null;
 }

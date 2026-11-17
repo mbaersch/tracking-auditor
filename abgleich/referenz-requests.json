@@ -219,6 +219,15 @@
    "url": "https://sst.example.com/data?v=2&event=page_view",
    "bodyType": "json",
    "body": "{\"event_name\":\"page_view\",\"v\":2,\"page_location\":\"https://www.example.com/\",\"consent_state\":{\"ad_storage\":true},\"email_address\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
+  },
+  {
+   "id": "jentis-dokumente",
+   "dienst": "jentis",
+   "variante": "JENTIS (zufaellige Subdomain, Erkennung am Body)",
+   "method": "POST",
+   "url": "https://abc123.example.com/",
+   "bodyType": "json",
+   "body": "{\"client\":{\"clientTimestamp\":1,\"domain\":\".example.com\"},\"cmd\":{},\"requestType\":\"XMLHttpRequest\",\"data\":[{\"_id\":\"u1\",\"action\":\"upd\",\"account\":\"example-com.live\",\"documentType\":\"user\",\"property\":{}},{\"_id\":\"e1\",\"action\":\"new\",\"account\":\"example-com.live\",\"documentType\":\"event\",\"pluginid\":\"jts_push_submit\",\"system\":{\"href\":\"https://www.example.com/\",\"consent\":{\"adwords\":true}},\"property\":{\"jtspushedcommands\":[\"pageview\",\"submit\"],\"window_location_href\":\"https://www.example.com/\"}}]}"
   }
  ]
 }

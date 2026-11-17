@@ -238,5 +238,20 @@
    "wert": "–",
    "grund": "Format, kein Dienst; eigener sGTM-Host ist Projektsache"
   }
+ },
+ "jentis-dokumente": {
+  "auditor": {
+   "wert": "–",
+   "grund": "keine feste URL; erkannt nur ueber den Parser (Body) im Abschnitt Requests je Dienst"
+  },
+  "parser": "jentis",
+  "validator": {
+   "wert": "–",
+   "grund": "kein Dienst mit Nutzerdaten-Bezug im Sinne des Validators"
+  },
+  "stage": {
+   "wert": "–",
+   "grund": "Regel im Projekt (zufaellige Subdomain), Body-Format im Dienstprofil JENTIS"
+  }
  }
 }

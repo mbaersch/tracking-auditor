@@ -388,6 +388,9 @@ Die Testseiten lassen sich lokal mit `node test-pages/server.mjs` (Port 4174) au
 
 ## Changelog
 
+### 2026-11-17 -- JENTIS
+`pii-lib/` kennt JENTIS (Kopie aus der Extension). JENTIS laeuft auf einer zufaelligen Subdomain je Instanz und wird deshalb am Body erkannt, nicht an der URL: im Abschnitt **Requests je Dienst** mit den Events (gepushte Befehle wie `pageview` und `order`, eigene Events per `event_name`, eigene Events des Clients wie Scroll und Engagement) und dem Consent je Vendor als Consent-Signal (`Vendoren ✓9`, `✗5`, `ncm 7`). Nach dem Consent erneut gesendete Events zaehlen einmal. Produkte, die ein Container spaltenweise als `product_*`-Listen schickt, zaehlen als Artikel. Im Abgleich als Referenz-Request `jentis-dokumente`; fuer Auditor-Endpunkte, Validator und Stage-Regeln bewusst ohne Erkennung.
+
 ### 2026-11-09 -- Tests in GitHub Actions, Playwright global
 - Neu `npm test` (Klassifizierung, Report-Baselines) und `npm run test:browser` (echter Audit-Lauf gegen die CSP-Testseite), beide bei jedem Push in GitHub Actions -- siehe [Tests](#tests).
 - Die CSP-Testseite nutzt die Selektoren von Fakecentrics und wird ohne `--cmp` erkannt.
