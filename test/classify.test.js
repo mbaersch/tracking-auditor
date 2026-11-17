@@ -24,6 +24,48 @@ test('matchRequest: eigene Domain ist kein Tracker, fremde Subdomain eines Co.uk
   assert.equal(fremd.key, null);
 });
 
+const CZ_PAGE = 'https://www.example.com/';
+const SEM_ID = 'abc123def456ghi789jkl012';
+
+test('matchRequest: SEM loader only with a 24-character alphanumeric ID', () => {
+  const m = matchRequest(`https://l.seznam.cz/sul.js?id=${SEM_ID}`, CZ_PAGE);
+  assert.equal(m.key, 'seznam-sem');
+  assert.equal(m.vendor, 'Seznam');
+  assert.equal(m.product, 'Seznam Event Measurement (SEM)');
+  assert.equal(m.category, 'advertising');
+  assert.equal(m.direction, 'script');
+  assert.equal(m.type, null);
+  for (const query of ['', '?id=12345', `?id=${SEM_ID.slice(1)}`, `?id=${SEM_ID}-`, `?uid=${SEM_ID}`]) {
+    assert.equal(matchRequest(`https://l.seznam.cz/sul.js${query}`, CZ_PAGE).key, null, query);
+  }
+});
+
+test('matchRequest: SEM endpoint stays event, the event name is in the POST body', () => {
+  const m = matchRequest('https://sem.seznam.cz/rtgconv', CZ_PAGE);
+  assert.equal(m.key, 'seznam-sem');
+  assert.equal(m.direction, 'request');
+  assert.equal(m.type, 'event');
+  // A query parameter must not fake body parsing that does not exist.
+  assert.equal(matchRequest('https://sem.seznam.cz/rtgconv?event_name=Purchase', CZ_PAGE).type, 'event');
+});
+
+test('matchRequest: other Seznam requests are not SEM', () => {
+  for (const url of [
+    'https://h.seznam.cz/udid',
+    'https://h.seznam.cz/sid',
+    'https://login.seznam.cz/',
+    'https://h.seznam.cz/js/cmp2/scmp.js',
+    'https://confessor.iva.seznam.cz/sem?msg=error',
+    'https://l.seznam.cz/static/js/sem.js?szn_loader=1',
+    'https://c.seznam.cz/conv?id=12345',
+  ]) {
+    const m = matchRequest(url, CZ_PAGE);
+    assert.equal(m.key, null, url);
+    assert.equal(m.category, null, url);
+    assert.equal(m.direction, 'unknown', url);
+  }
+});
+
 test('isGa4CollectUrl: nur v=2 mit G-ID, unabhaengig vom Host', () => {
   assert.ok(isGa4CollectUrl('https://sst.example.com/g/collect?v=2&tid=G-ABC123'));
   assert.ok(!isGa4CollectUrl('https://sst.example.com/g/collect?v=1&tid=G-ABC123'));

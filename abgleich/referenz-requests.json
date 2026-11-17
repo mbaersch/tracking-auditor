@@ -219,6 +219,21 @@
    "url": "https://sst.example.com/data?v=2&event=page_view",
    "bodyType": "json",
    "body": "{\"event_name\":\"page_view\",\"v\":2,\"page_location\":\"https://www.example.com/\",\"consent_state\":{\"ad_storage\":true},\"email_address\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
+  },
+  {
+   "id": "seznam-sem-script",
+   "dienst": "seznam-sem",
+   "variante": "SEM sul.js with a 24-character ID (live capture, synthetic ID)",
+   "url": "https://l.seznam.cz/sul.js?id=abc123def456ghi789jkl012"
+  },
+  {
+   "id": "seznam-sem-pageview",
+   "dienst": "seznam-sem",
+   "variante": "SEM POST JSON: PageView (URL detection, no body parser yet)",
+   "method": "POST",
+   "url": "https://sem.seznam.cz/rtgconv",
+   "bodyType": "json",
+   "body": "{\"api\":{\"name\":\"SEM FE\",\"version\":\"2.27.1\"},\"schema_version\":\"v2\",\"user_ids\":{\"ids\":{\"udid\":\"01a1e6be-0000-7000-8000-000000000001\",\"sid\":\"id=1234567890123456789|t=1794872587.583|te=1794872587.583|c=00000000000000000000000000000000\",\"_version\":\"1.7\"}},\"consent_mode\":{\"ad_storage\":\"granted\",\"ad_user_data\":\"granted\",\"ad_personalization\":\"granted\",\"analytics_storage\":\"granted\",\"functionality_storage\":\"granted\"},\"event_name\":\"PageView\",\"event_type\":\"rtgconv\",\"event_time\":1794872592043,\"event_url\":\"https://www.example.com/\",\"event_data\":{\"sem_id\":\"abc123def456ghi789jkl012\"},\"pvid\":\"01a1e6be-0000-7000-8000-000000000002\"}"
   }
  ]
 }

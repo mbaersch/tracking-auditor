@@ -9,7 +9,7 @@ Vier Hauptfunktionen:
 3. **[Tracking-Vergleich](#3-tracking-vergleich-comparejs)** -- Zwei Setups gegeneinander vergleichen (z.B. Live vs. sGTM)
 4. **[Asynchroner Flow-Vergleich](#4-asynchroner-flow-vergleich-har-basiert)** -- Einen Checkout-Flow ueber die Zeit vergleichen (Baseline vorher, Delta nachher), inkl. PII-Nachweis pro Vendor
 
-Die CMP-Bibliothek erkennt aktuell **123 Consent-Banner und CMPs** automatisch (Accept/Reject-Selektoren in [`cmp-library.json`](cmp-library.json)) -- siehe [Changelog](#changelog) zum Wachstum.
+Die CMP-Bibliothek erkennt aktuell **124 Consent-Banner und CMPs** automatisch (Accept/Reject-Selektoren in [`cmp-library.json`](cmp-library.json)) -- siehe [Changelog](#changelog) zum Wachstum.
 
 Beispiel-Reports: [Audit-Report](examples/audit-example-report.md) | [Tracking-Vergleich](examples/compare-example-report.md)
 
@@ -40,7 +40,7 @@ pii-lib/          Vendored PII/Event-Parser (Snapshot aus der Tracking-Auditor-E
 abgleich/         Abgleich der Dienst-Erkennung mit Extension, EC Data Validator und Stage in a Box
 learn.js          CMP-Selektoren einsammeln und in cmp-library.json speichern
 browser-ui.js     Browser-Overlay-Komponenten (Dialoge, Status Bar, Click-Prompts)
-cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~123 CMPs)
+cmp-library.json  Datenbank bekannter CMP-Selektoren (accept/reject, ~124 CMPs)
 tracking-vendors.json  Datenbank bekannter Tracking-Produkte (Scripts, Endpoints, Domains)
 test/             Tests (node --test) mit Report-Baselines, Browser-Test unter test/browser/
 test-pages/       Testseiten mit statischem Server (z.B. CSP-Testseite)
@@ -236,7 +236,7 @@ Beispiel-Report: [Tracking-Vergleich](examples/compare-example-report.md)
 
 Waehrend `compare.js` zwei URLs **synchron in einem Lauf** vergleicht, dient der Flow-Vergleich dem **Vorher/Nachher ueber die Zeit** (z.B. GTM-/Consent-/Server-Side-Umstellung): Baseline jetzt aufzeichnen, nach der Umstellung erneut, dann das Delta bestimmen. Der Schwerpunkt liegt auf einem **mehrstufigen Checkout-Flow** (Startseite -> Produkt -> Warenkorb -> Checkout -> Adresse) und dem **Nachweis, welche personenbezogenen Felder (E-Mail, Telefon, Name, Adresse) an welchen Vendor** gehen -- inklusive gehashter Formen (Meta/TikTok Advanced Matching, GA4/Ads Enhanced Conversions).
 
-Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension). Wie Parser, Vendor-Library und die Schwesterprojekte abgeglichen werden, steht in [abgleich/README.md](abgleich/README.md). Abgedeckt sind 16 Dienste: GA4, Meta, Microsoft UET, TikTok, Pinterest, Google Ads, Floodlight, LinkedIn, Reddit, Snapchat, HubSpot, Criteo, Taboola, Outbrain, Awin, OpenAI -- damit derselbe Umfang wie im DevTools-Panel der Extension. Dienste ohne dedizierten Parser (GTM, Google Tag, AdSense, Clarity, Hotjar) werden ueber `tracking-vendors.json` als Praesenz erkannt.
+Die PII-/Event-Erkennung nutzt die vendored Parser unter `pii-lib/` (Snapshot aus der separaten Tracking-Auditor-Browser-Extension). Wie Parser, Vendor-Library und die Schwesterprojekte abgeglichen werden, steht in [abgleich/README.md](abgleich/README.md). Abgedeckt sind 16 Dienste: GA4, Meta, Microsoft UET, TikTok, Pinterest, Google Ads, Floodlight, LinkedIn, Reddit, Snapchat, HubSpot, Criteo, Taboola, Outbrain, Awin, OpenAI -- damit derselbe Umfang wie im DevTools-Panel der Extension. Dienste ohne dedizierten Parser (GTM, Google Tag, AdSense, Clarity, Hotjar, Seznam SEM) werden ueber `tracking-vendors.json` als Praesenz erkannt.
 
 Vier Parser (GA4, Meta, Google Ads, UET) bekommen zusaetzlich die URL der auditierten Seite und erkennen damit **First-Party-Transporte per eTLD+1-Vergleich**. Ohne diese Angabe kann kein Request als `first-party` gelten -- eine Klassifikation nach blosser URL-Form wuerde sonst Google-eigene Hosts wie `stats.g.doubleclick.net` faelschlich als eigenes Setup ausweisen.
 
@@ -292,7 +292,7 @@ Jeder Eintrag beschreibt ein Tracking-Produkt mit:
 - **endpoints** -- URL-Patterns fuer ausgehende Tracking-Requests (z.B. `google-analytics.com/g/collect`) mit optionaler Request-Typ-Klassifizierung (pageview, event, conversion)
 - **domains** -- Fallback-Domains fuer Zuordnung wenn kein Script/Endpoint-Pattern matcht
 
-Aktuell 23 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, Piwik PRO, Matomo, HubSpot, Awin, Reddit Pixel, Snapchat Pixel, OpenAI Ads Pixel.
+Aktuell 24 Produkte: GA4, Google Ads, Floodlight, Google Tag, GTM, AdSense, Meta Pixel, TikTok Pixel, Pinterest Tag, LinkedIn Insight, Microsoft Ads, Microsoft Clarity, Criteo, Taboola, Outbrain, Hotjar, Piwik PRO, Matomo, HubSpot, Awin, Reddit Pixel, Snapchat Pixel, OpenAI Ads Pixel, Seznam Event Measurement (SEM).
 
 Requests an die eigene Domain (inkl. Subdomains) werden grundsaetzlich nicht ueber die Library zugeordnet. Matomo wird trotzdem auf drei Wegen erkannt: Matomo Cloud, Instanzen auf fremden Hosts mit Standardpfaden (`matomo.js`/`piwik.js`, `matomo.php`/`piwik.php`, Tag-Manager `js/container_*.js`) und selbst gehostete Instanzen auf der eigenen Domain anhand der Pflichtparameter der Tracking-API (`idsite` + `rec=1`), auch bei umbenannten Pfaden. Letztere erscheinen mit Richtung `first-party`. Hits, die ihre Parameter nur im POST-Body tragen, bleiben auf der eigenen Domain unerkannt.
 

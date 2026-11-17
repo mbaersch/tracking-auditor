@@ -18,6 +18,8 @@ Vier öffentliche Werkzeuge erkennen dieselben Tracking-Dienste, jedes mit eigen
 ## Absicht gegen Lücke
 Werkzeuge lassen Varianten zum Teil absichtlich aus, um Rauschen zu vermeiden, zum Beispiel TikTok `pixel/act` oder `ccm/s/collect` im Parser. Eine fehlende Erkennung ist erst eine Lücke, wenn weder Code noch Kommentar noch Test eine Absicht zeigen. Absichten stehen mit Begründung in `abgleich/erwartet.json` und erscheinen in der Ausgabe als „– (Absicht)“.
 
+Seznam SEM is detected by URL presence in the auditor only for now. The references are based on intercepted live requests with synthetic IDs and `example.com`. Extension parsers, Validator and Stage rules don't cover it yet; the expectations document this limited scope. SEM event names are in the POST body and are not parsed here yet.
+
 Transportformate wie der Stape Data Client sind keine Dienste. Sie werden höchstens als Hinweis gemeldet. JSON Client und walkerOS werden nicht erkannt: Ihr Format ist frei wählbar, eine Erkennung bliebe lückenhaft.
 
 ## Prüfen
