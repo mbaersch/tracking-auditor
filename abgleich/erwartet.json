@@ -238,5 +238,35 @@
    "wert": "–",
    "grund": "Format, kein Dienst; eigener sGTM-Host ist Projektsache"
   }
+ },
+ "seznam-sem-script": {
+  "auditor": "seznam-sem",
+  "parser": {
+   "wert": "–",
+   "grund": "URL presence in the auditor only; no SEM parser in the extension yet"
+  },
+  "validator": {
+   "wert": "–",
+   "grund": "SEM not covered yet; auditor presence only"
+  },
+  "stage": {
+   "wert": "–",
+   "grund": "SEM not covered yet; no Stage rule"
+  }
+ },
+ "seznam-sem-pageview": {
+  "auditor": "seznam-sem",
+  "parser": {
+   "wert": "–",
+   "grund": "URL presence in the auditor only; no SEM parser in the extension yet"
+  },
+  "validator": {
+   "wert": "–",
+   "grund": "SEM not covered yet; auditor presence only"
+  },
+  "stage": {
+   "wert": "–",
+   "grund": "SEM not covered yet; no Stage rule"
+  }
  }
 }

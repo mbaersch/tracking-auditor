@@ -373,5 +373,17 @@
       { "pattern": "snapchat.com/p", "type": "event" }
     ],
     "domains": ["tr.snapchat.com", "sc-static.net"]
+  },
+  "seznam-sem": {
+    "vendor": "Seznam",
+    "product": "Seznam Event Measurement (SEM)",
+    "category": "advertising",
+    "scripts": [
+      { "pattern": "l.seznam.cz/sul.js", "identify": { "param": "id", "match": "^[a-z0-9]{24}$" } }
+    ],
+    "endpoints": [
+      { "pattern": "sem.seznam.cz/rtgconv", "type": "event" }
+    ],
+    "domains": []
   }
 }

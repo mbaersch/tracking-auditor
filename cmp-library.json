@@ -487,6 +487,22 @@
     "priority": 5,
     "learnedAt": "2026-05-07T09:15:00.000Z"
   },
+  "shoptet": {
+    "name": "Shoptet Cookie Consent (native)",
+    "accept": "[data-testid=\"buttonCookiesAccept\"]",
+    "reject": "[data-testid=\"buttonCookiesReject\"]",
+    "rejectSteps": [
+      "[data-testid=\"cookiesSettings\"]",
+      "[data-testid=\"buttonCookiesTurnOff\"]"
+    ],
+    "detect": [
+      "div.siteCookies.js-siteCookies",
+      "#siteCookiesHeading"
+    ],
+    "shadowDom": false,
+    "priority": 3,
+    "learnedAt": "2026-11-17T00:00:00.000Z"
+  },
   "shopware": {
     "name": "Shopware Cookie Consent (native)",
     "accept": ".js-cookie-accept-all-button",
